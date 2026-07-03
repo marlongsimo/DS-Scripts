@@ -9,7 +9,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  var section = window.location.pathname.indexOf('/tools/') !== -1 ? 'tools' : 'start';
+  var path = window.location.pathname;
+  var section = 'start';
+  if (path.indexOf('/tools/') !== -1) {
+    section = 'tools';
+  } else if (path.indexOf('/rechner/') !== -1) {
+    section = 'rechner';
+  }
 
   document.querySelectorAll('.nav-links a[data-nav]').forEach(function (link) {
     if (link.getAttribute('data-nav') === section) {
