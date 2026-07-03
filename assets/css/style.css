@@ -468,7 +468,8 @@ a.card:hover,
 
 input[type="text"],
 input[type="number"],
-select {
+select,
+textarea {
   width: 100%;
   background: var(--bg-alt);
   border: 1px solid var(--border);
@@ -479,10 +480,59 @@ select {
   font-family: var(--font-body);
 }
 
+textarea {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.compare-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.1rem;
+}
+
+@media (max-width: 720px) {
+  .compare-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stat-row {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.stat-pill.stat-new {
+  background: rgba(124, 148, 115, 0.14);
+  color: var(--accent-2);
+  border: 1px solid rgba(124, 148, 115, 0.4);
+}
+
+.stat-pill.stat-dup {
+  background: rgba(198, 106, 90, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(198, 106, 90, 0.4);
 }
 
 table {

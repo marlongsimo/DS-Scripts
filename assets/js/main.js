@@ -9,8 +9,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  var section = window.location.pathname.indexOf('/tools/') !== -1 ? 'tools' : 'start';
+
   document.querySelectorAll('.nav-links a[data-nav]').forEach(function (link) {
-    if (link.getAttribute('data-nav') === 'start') {
+    if (link.getAttribute('data-nav') === section) {
       link.classList.add('active');
     }
   });
