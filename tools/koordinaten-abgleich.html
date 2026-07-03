@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Koordinaten-Abgleich – DS-Scripts</title>
+  <meta name="description" content="Vergleicht zwei Koordinatenlisten und ergänzt fehlende Koordinaten zu einer neuen Gesamtliste.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="koordinaten-abgleich.html" data-nav="tools">Koordinaten-Abgleich</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom:0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / Koordinaten-Abgleich</p>
+        <h1>📍 Koordinaten-Abgleich</h1>
+        <p class="lead" style="max-width:640px;">
+          Trage links neue Koordinaten und rechts deine bestehende Liste ein. Das Tool prüft,
+          welche Koordinaten links bereits rechts vorhanden sind, ergänzt die fehlenden und
+          erzeugt eine neue Gesamtliste.
+        </p>
+        <div class="note">
+          Format je Koordinate: <code>123|456</code>, getrennt durch Leerzeichen, Kommas oder
+          Zeilenumbrüche – beliebig gemischt.
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="container">
+        <form id="compare-form">
+          <div class="compare-layout">
+            <div class="panel">
+              <div class="field" style="margin-bottom:0;">
+                <label for="new-coords">Neue Koordinaten</label>
+                <textarea id="new-coords" rows="12" placeholder="500|500 501|502 499|498 ..."></textarea>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="field" style="margin-bottom:0;">
+                <label for="existing-coords">Bestehende Liste</label>
+                <textarea id="existing-coords" rows="12" placeholder="500|500 510|515 ..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="button-row" style="justify-content:flex-start; margin-top:1.1rem;">
+            <button type="submit" class="btn btn-primary">Abgleichen</button>
+          </div>
+        </form>
+
+        <div class="result-box" id="result-box" style="display:none; margin-top:1.6rem;">
+          <div class="stat-row">
+            <span class="stat-pill stat-new" id="stat-new">✓ 0 neue Koordinaten</span>
+            <span class="stat-pill stat-dup" id="stat-dup">✗ 0 doppelte Koordinaten</span>
+            <span class="stat-pill stat-dup" id="stat-invalid" style="display:none;"></span>
+          </div>
+
+          <div class="field" style="margin-bottom:0.8rem;">
+            <label for="result-coords">Neue Gesamtliste (<span id="result-count">0 Koordinaten</span>)</label>
+            <textarea id="result-coords" rows="14" readonly></textarea>
+          </div>
+
+          <div class="button-row" style="justify-content:flex-start;">
+            <button type="button" class="btn btn-outline" id="copy-result">📋 In Zwischenablage kopieren</button>
+            <button type="button" class="btn btn-outline" id="use-as-existing">↺ Als bestehende Liste übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/koordinaten.js"></script>
+</body>
+</html>
