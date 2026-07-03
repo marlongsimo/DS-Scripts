@@ -1,36 +1,47 @@
 #!/usr/bin/env node
-// Lädt die öffentlichen Weltdaten-Exporte von Die Stämme (player.txt, ally.txt)
-// für eine gepflegte Liste an Welten, wandelt sie in kompaktes JSON um und
-// schreibt sie nach data/{welt}.json bzw. aktualisiert data/worlds.json.
+// Entdeckt automatisch alle aktuell laufenden deutschen Die-Stämme-Welten
+// (de1, de2, ... – jede Zahl wird direkt gegen die echten map-Exporte
+// geprüft, kein separater "Welt-Liste"-Endpunkt nötig), lädt für jede
+// aktive Welt player.txt/ally.txt, wandelt sie in kompaktes JSON um und
+// schreibt sie nach data/{welt}.json bzw. data/worlds.json.
 //
 // Läuft serverseitig (GitHub Actions) statt im Browser, damit CORS keine
 // Rolle spielt: die statische Seite liest die erzeugten JSON-Dateien danach
 // ganz normal von der eigenen Domain.
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
 
-// Weltcodes, die synchronisiert werden sollen. Einfach ergänzen, um weitere
-// Welten anzuzeigen.
-const WORLDS = [
-  { code: 'de254', label: 'DE254' }
-];
+const WORLD_PREFIX = 'de';
+// Obergrenze für die Welt-Erkennung. Wird irgendwann eine höhere Welt eröffnet
+// als hier abgedeckt, diesen Wert einfach erhöhen.
+const MAX_WORLD_NUMBER = 400;
+const PROBE_CONCURRENCY = 12;
+const FETCH_TIMEOUT_MS = 10000;
 
 function decodeTwName(raw) {
-  return decodeURIComponent(raw.replace(/\+/g, '%20'));
+  return decodeURIComponent((raw || '').replace(/\+/g, '%20'));
 }
 
 async function fetchText(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'DS-Scripts-sync/1.0' } });
-  if (!res.ok) {
-    throw new Error(`${url} -> HTTP ${res.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'DS-Scripts-sync/1.0' }
+    });
+    if (!res.ok) {
+      throw new Error(`${url} -> HTTP ${res.status}`);
+    }
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
   }
-  return res.text();
 }
 
 function parseAllyLine(line) {
@@ -59,6 +70,9 @@ function parsePlayerLine(line) {
   };
 }
 
+// Versucht, eine Welt zu synchronisieren. Wirft, wenn die Welt nicht
+// existiert/nicht mehr läuft (Fetch schlägt fehl) – das ist gleichzeitig die
+// Erkennung, ob die Welt aktiv ist, kein separater Check nötig.
 async function syncWorld(world) {
   const base = `https://${world.code}.die-staemme.de`;
   const [allyRaw, playerRaw] = await Promise.all([
@@ -82,45 +96,55 @@ async function syncWorld(world) {
   const outPath = path.join(DATA_DIR, `${world.code}.json`);
   await writeFile(outPath, JSON.stringify({ world: world.code, updatedAt, allies, players }, null, 0));
   console.log(`✓ ${world.code}: ${allies.length} Stämme, ${players.length} Spieler`);
-  return updatedAt;
+  return { code: world.code, label: world.label, updatedAt };
 }
 
-async function updateWorldsManifest(results) {
-  const manifestPath = path.join(DATA_DIR, 'worlds.json');
-  let manifest = [];
-  if (existsSync(manifestPath)) {
-    try {
-      manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-    } catch (e) {
-      manifest = [];
+async function mapWithConcurrency(items, limit, fn) {
+  const results = [];
+  let index = 0;
+  async function worker() {
+    while (index < items.length) {
+      const current = index++;
+      results[current] = await fn(items[current]);
     }
   }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
 
-  const byCode = new Map(manifest.map((w) => [w.code, w]));
-  for (const { code, label, updatedAt } of results) {
-    byCode.set(code, { code, label, updatedAt });
-  }
-
-  const merged = [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code));
-  await writeFile(manifestPath, JSON.stringify(merged, null, 2));
+async function writeWorldsManifest(results) {
+  const manifestPath = path.join(DATA_DIR, 'worlds.json');
+  const manifest = results
+    .map(({ code, label, updatedAt }) => ({ code, label, updatedAt }))
+    .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
 async function main() {
   await mkdir(DATA_DIR, { recursive: true });
-  const results = [];
-  for (const world of WORLDS) {
+
+  const candidates = Array.from({ length: MAX_WORLD_NUMBER }, (_, i) => ({
+    code: `${WORLD_PREFIX}${i + 1}`,
+    label: `${WORLD_PREFIX.toUpperCase()}${i + 1}`
+  }));
+
+  const attempts = await mapWithConcurrency(candidates, PROBE_CONCURRENCY, async (world) => {
     try {
-      const updatedAt = await syncWorld(world);
-      results.push({ code: world.code, label: world.label, updatedAt });
+      return await syncWorld(world);
     } catch (err) {
-      console.warn(`✗ ${world.code}: ${err.message}`);
+      return null;
     }
+  });
+
+  const results = attempts.filter(Boolean);
+
+  if (results.length === 0) {
+    console.warn('Keine aktive Welt gefunden (oder Netzwerkproblem) – data/worlds.json bleibt unverändert.');
+    return;
   }
-  if (results.length > 0) {
-    await updateWorldsManifest(results);
-  } else {
-    console.warn('Keine Welt erfolgreich synchronisiert, worlds.json bleibt unverändert.');
-  }
+
+  console.log(`Aktive Welten gefunden: ${results.map((r) => r.code).join(', ')}`);
+  await writeWorldsManifest(results);
 }
 
 main().catch((err) => {
