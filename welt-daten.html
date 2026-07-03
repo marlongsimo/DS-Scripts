@@ -4,22 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Welt-Daten – DS-Scripts</title>
-  <meta name="description" content="Stämme- und Spieler-Ranglisten für Die-Stämme-Welten.">
+  <meta name="description" content="Top-10-Stämme- und Spieler-Ranglisten für Die-Stämme-Welten.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
   <header class="site-header">
     <div class="container nav">
-      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <a href="index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
       <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
       <ul class="nav-links">
-        <li><a href="../index.html" data-nav="start">Start</a></li>
-        <li><a href="index.html" data-nav="tools">Tools</a></li>
-        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="start">Start</a></li>
+        <li><a href="tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
         <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
       </ul>
     </div>
@@ -28,15 +29,15 @@
   <main>
     <section style="padding-bottom:0;">
       <div class="container">
-        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Tools</a> / Welt-Daten</p>
+        <p class="breadcrumb"><a href="index.html">Start</a> / Welt-Daten</p>
         <h1>🌍 Welt-Daten</h1>
         <p class="lead" style="max-width:640px;">
-          Stämme- und Spieler-Ranglisten aus den offiziellen Weltdaten-Exporten
-          von Die Stämme.
+          Top-10-Stämme- und Spieler-Ranglisten aus den offiziellen
+          Weltdaten-Exporten von Die Stämme.
         </p>
         <div class="note">
-          Die Daten werden im Hintergrund alle paar Stunden automatisch aktualisiert
-          (nicht live) – der genaue Stand steht unten bei der jeweiligen Welt.
+          Die Daten werden im Hintergrund automatisch aktualisiert (nicht live) –
+          Stand und Countdown bis zur nächsten Aktualisierung stehen unten.
         </div>
       </div>
     </section>
@@ -50,7 +51,10 @@
               <label for="world-select">Welt</label>
               <select id="world-select"></select>
             </div>
-            <div style="font-size:0.85rem; color:var(--text-muted); padding-bottom:0.6rem;" id="updated-at"></div>
+            <div style="text-align:right; font-size:0.85rem; color:var(--text-muted); padding-bottom:0.6rem;">
+              <div id="updated-at"></div>
+              <div id="next-update"></div>
+            </div>
           </div>
         </div>
 
@@ -59,7 +63,7 @@
         <div id="data-panels" style="display:none;">
           <div class="panel" style="margin-bottom:1.1rem;">
             <div class="field" style="margin-bottom:0.8rem;">
-              <label for="ally-search">Stämme durchsuchen (<span id="allies-count">0 Stämme</span>)</label>
+              <label for="ally-search">Top 10 Stämme durchsuchen (<span id="allies-count">0 Stämme</span>)</label>
               <input type="text" id="ally-search" placeholder="Name oder Tag …">
             </div>
             <div style="overflow-x:auto;">
@@ -81,7 +85,7 @@
 
           <div class="panel">
             <div class="field" style="margin-bottom:0.8rem;">
-              <label for="player-search">Spieler durchsuchen (<span id="players-count">0 Spieler</span>)</label>
+              <label for="player-search">Top 10 Spieler durchsuchen (<span id="players-count">0 Spieler</span>)</label>
               <input type="text" id="player-search" placeholder="Name oder Stamm-Tag …">
             </div>
             <div style="overflow-x:auto;">
@@ -111,7 +115,7 @@
     </div>
   </footer>
 
-  <script src="../assets/js/main.js"></script>
-  <script src="../assets/js/welt-daten.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/welt-daten.js"></script>
 </body>
 </html>

@@ -1,5 +1,10 @@
 // Welt-Daten: lädt periodisch synchronisierte Stämme-/Spieler-Ranglisten
-// (siehe scripts/sync-tw-data.mjs) und zeigt sie sortier-/durchsuchbar an.
+// (siehe scripts/sync-tw-data.mjs) und zeigt jeweils die Top 10 sortier-/
+// durchsuchbar an, inkl. Countdown bis zur nächsten automatischen
+// Aktualisierung (Sync läuft alle 6h zu vollen UTC-Stunden 0/6/12/18).
+
+var TOP_N = 10;
+var SYNC_HOURS_UTC = [0, 6, 12, 18];
 
 var currentData = null;
 var sortState = { allies: { key: 'rank', dir: 1 }, players: { key: 'rank', dir: 1 } };
@@ -15,7 +20,7 @@ function formatTimestamp(iso) {
 }
 
 async function loadWorldList() {
-  var res = await fetch('../data/worlds.json');
+  var res = await fetch('data/worlds.json');
   var worlds = await res.json();
   var select = document.getElementById('world-select');
   select.innerHTML = '';
@@ -35,7 +40,7 @@ async function loadWorldData(code) {
   document.getElementById('data-panels').style.display = 'none';
 
   try {
-    var res = await fetch('../data/' + code + '.json');
+    var res = await fetch('data/' + code + '.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     currentData = await res.json();
     statusBox.style.display = 'none';
@@ -61,10 +66,11 @@ function sortRows(rows, key, dir) {
 function renderAllies() {
   if (!currentData) return;
   var search = document.getElementById('ally-search').value.trim().toLowerCase();
-  var rows = currentData.allies.filter(function (a) {
+  var matches = currentData.allies.filter(function (a) {
     return !search || a.name.toLowerCase().indexOf(search) !== -1 || a.tag.toLowerCase().indexOf(search) !== -1;
   });
-  rows = sortRows(rows, sortState.allies.key, sortState.allies.dir);
+  matches = sortRows(matches, sortState.allies.key, sortState.allies.dir);
+  var rows = matches.slice(0, TOP_N);
 
   var tbody = document.getElementById('allies-body');
   tbody.innerHTML = '';
@@ -79,16 +85,17 @@ function renderAllies() {
       '<td>' + formatNumber(a.points) + '</td>';
     tbody.appendChild(tr);
   });
-  document.getElementById('allies-count').textContent = rows.length + ' Stämme';
+  document.getElementById('allies-count').textContent = rows.length + ' von ' + matches.length + ' Stämmen';
 }
 
 function renderPlayers() {
   if (!currentData) return;
   var search = document.getElementById('player-search').value.trim().toLowerCase();
-  var rows = currentData.players.filter(function (p) {
+  var matches = currentData.players.filter(function (p) {
     return !search || p.name.toLowerCase().indexOf(search) !== -1 || (p.allyTag && p.allyTag.toLowerCase().indexOf(search) !== -1);
   });
-  rows = sortRows(rows, sortState.players.key, sortState.players.dir);
+  matches = sortRows(matches, sortState.players.key, sortState.players.dir);
+  var rows = matches.slice(0, TOP_N);
 
   var tbody = document.getElementById('players-body');
   tbody.innerHTML = '';
@@ -102,7 +109,7 @@ function renderPlayers() {
       '<td>' + formatNumber(p.points) + '</td>';
     tbody.appendChild(tr);
   });
-  document.getElementById('players-count').textContent = rows.length + ' Spieler';
+  document.getElementById('players-count').textContent = rows.length + ' von ' + matches.length + ' Spielern';
 }
 
 function setupSortableHeaders(tableId, group, renderFn) {
@@ -118,6 +125,37 @@ function setupSortableHeaders(tableId, group, renderFn) {
       renderFn();
     });
   });
+}
+
+function nextSyncDate() {
+  var now = new Date();
+  var dayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  for (var i = 0; i < SYNC_HOURS_UTC.length; i++) {
+    var candidate = new Date(dayStart + SYNC_HOURS_UTC[i] * 3600000);
+    if (candidate > now) return candidate;
+  }
+  return new Date(dayStart + 24 * 3600000 + SYNC_HOURS_UTC[0] * 3600000);
+}
+
+function formatCountdown(ms) {
+  var totalSeconds = Math.max(0, Math.round(ms / 1000));
+  var h = Math.floor(totalSeconds / 3600);
+  var m = Math.floor((totalSeconds % 3600) / 60);
+  var s = totalSeconds % 60;
+  function pad(n) { return String(n).padStart(2, '0'); }
+  return pad(h) + ':' + pad(m) + ':' + pad(s);
+}
+
+function tickCountdown() {
+  var target = nextSyncDate();
+  var el = document.getElementById('next-update');
+  if (!el) return;
+  var remaining = target.getTime() - Date.now();
+  if (remaining <= 0) {
+    el.textContent = 'Aktualisierung läuft …';
+    return;
+  }
+  el.textContent = 'Nächste Aktualisierung in ca. ' + formatCountdown(remaining);
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -136,4 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   setupSortableHeaders('allies-table', 'allies', renderAllies);
   setupSortableHeaders('players-table', 'players', renderPlayers);
+
+  tickCountdown();
+  setInterval(tickCountdown, 1000);
 });
