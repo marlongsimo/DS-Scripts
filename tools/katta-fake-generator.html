@@ -120,8 +120,28 @@
                   <textarea id="script-code" rows="6" readonly></textarea>
                 </div>
 
-                <div class="button-row" style="justify-content:flex-start;">
+                <div class="button-row" style="justify-content:flex-start; margin-bottom:1.6rem;">
                   <button type="button" class="btn btn-outline" id="copy-script">📋 In Zwischenablage kopieren</button>
+                </div>
+
+                <div class="install-box">
+                  <p style="margin-bottom:0.8rem;">
+                    <strong>Reset-Script</strong> (optional): löscht den gespeicherten Fortschritt
+                    für dieses Script und setzt den Farm-Cookie zurück, damit du die Liste von
+                    vorn beginnen kannst. Ebenfalls in die Lesezeichenleiste ziehen:
+                  </p>
+                  <a class="bookmarklet" id="reset-bookmarklet-link" href="javascript:void(0);" onclick="return false;" title="In die Lesezeichenleiste ziehen">
+                    ↺ Reset
+                  </a>
+                </div>
+
+                <div class="field" style="margin-bottom:0.8rem;">
+                  <label for="reset-script-code">Alternative: Reset-Code für die Konsole</label>
+                  <textarea id="reset-script-code" rows="3" readonly></textarea>
+                </div>
+
+                <div class="button-row" style="justify-content:flex-start;">
+                  <button type="button" class="btn btn-outline" id="copy-reset-script">📋 In Zwischenablage kopieren</button>
                 </div>
               </div>
             </div>

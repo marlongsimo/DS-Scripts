@@ -75,6 +75,11 @@ function buildBookmarklet(coords, counts, scriptId) {
   + "})();";
 }
 
+function buildResetScript(scriptId) {
+  var storageKey = 'tw_used_coords' + (scriptId ? '_' + scriptId : '');
+  return "javascript:localStorage.removeItem('" + storageKey + "');document.cookie='farm=0';alert('Reset erfolgreich!');";
+}
+
 function generate() {
   var errorBox = document.getElementById('gen-error');
   errorBox.textContent = '';
@@ -104,10 +109,13 @@ function generate() {
 
   var scriptId = sanitizeScriptId(document.getElementById('script-id').value || '');
   var bookmarklet = buildBookmarklet(coords, counts, scriptId);
+  var resetScript = buildResetScript(scriptId);
 
   document.getElementById('result-count').textContent = '✓ ' + coords.length + ' Koordinate' + (coords.length === 1 ? '' : 'n') + ' im Script';
   document.getElementById('bookmarklet-link').setAttribute('href', bookmarklet);
   document.getElementById('script-code').value = bookmarklet;
+  document.getElementById('reset-bookmarklet-link').setAttribute('href', resetScript);
+  document.getElementById('reset-script-code').value = resetScript;
   document.getElementById('result-box').style.display = 'block';
 }
 
@@ -122,6 +130,17 @@ document.addEventListener('DOMContentLoaded', function () {
     textarea.select();
     navigator.clipboard.writeText(textarea.value).then(function () {
       var btn = document.getElementById('copy-script');
+      var original = btn.textContent;
+      btn.textContent = '✅ Kopiert!';
+      setTimeout(function () { btn.textContent = original; }, 1800);
+    });
+  });
+
+  document.getElementById('copy-reset-script').addEventListener('click', function () {
+    var textarea = document.getElementById('reset-script-code');
+    textarea.select();
+    navigator.clipboard.writeText(textarea.value).then(function () {
+      var btn = document.getElementById('copy-reset-script');
       var original = btn.textContent;
       btn.textContent = '✅ Kopiert!';
       setTimeout(function () { btn.textContent = original; }, 1800);
