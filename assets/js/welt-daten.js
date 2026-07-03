@@ -26,7 +26,7 @@ function formatRelativeTime(iso) {
 }
 
 async function loadWorldList() {
-  var res = await fetch('data/worlds.json');
+  var res = await fetch('data/worlds.json?v=' + Date.now(), { cache: 'no-store' });
   var worlds = await res.json();
   var select = document.getElementById('world-select');
   select.innerHTML = '';
@@ -46,7 +46,7 @@ async function loadWorldData(code) {
   document.getElementById('data-panels').style.display = 'none';
 
   try {
-    var res = await fetch('data/' + code + '.json');
+    var res = await fetch('data/' + code + '.json?v=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     currentData = await res.json();
     statusBox.style.display = 'none';
