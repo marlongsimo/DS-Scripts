@@ -656,6 +656,15 @@ th {
   letter-spacing: 0.04em;
 }
 
+th[data-sort] {
+  cursor: pointer;
+  user-select: none;
+}
+
+th[data-sort]:hover {
+  color: var(--accent-strong);
+}
+
 .result-box {
   background: var(--bg-alt);
   border: 1px solid var(--border);

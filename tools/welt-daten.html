@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welt-Daten – DS-Scripts</title>
+  <meta name="description" content="Stämme- und Spieler-Ranglisten für Die-Stämme-Welten.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom:0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Tools</a> / Welt-Daten</p>
+        <h1>🌍 Welt-Daten</h1>
+        <p class="lead" style="max-width:640px;">
+          Stämme- und Spieler-Ranglisten aus den offiziellen Weltdaten-Exporten
+          von Die Stämme.
+        </p>
+        <div class="note">
+          Die Daten werden im Hintergrund alle paar Stunden automatisch aktualisiert
+          (nicht live) – der genaue Stand steht unten bei der jeweiligen Welt.
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="container">
+
+        <div class="panel" style="margin-bottom:1.1rem;">
+          <div class="field-row" style="grid-template-columns: 1fr auto; align-items:end;">
+            <div class="field" style="margin-bottom:0;">
+              <label for="world-select">Welt</label>
+              <select id="world-select"></select>
+            </div>
+            <div style="font-size:0.85rem; color:var(--text-muted); padding-bottom:0.6rem;" id="updated-at"></div>
+          </div>
+        </div>
+
+        <p id="load-status" style="color:var(--text-muted);"></p>
+
+        <div id="data-panels" style="display:none;">
+          <div class="panel" style="margin-bottom:1.1rem;">
+            <div class="field" style="margin-bottom:0.8rem;">
+              <label for="ally-search">Stämme durchsuchen (<span id="allies-count">0 Stämme</span>)</label>
+              <input type="text" id="ally-search" placeholder="Name oder Tag …">
+            </div>
+            <div style="overflow-x:auto;">
+              <table id="allies-table">
+                <thead>
+                  <tr>
+                    <th data-sort="rank">Rang</th>
+                    <th data-sort="tag">Tag</th>
+                    <th data-sort="name">Name</th>
+                    <th data-sort="members">Mitglieder</th>
+                    <th data-sort="villages">Dörfer</th>
+                    <th data-sort="points">Punkte</th>
+                  </tr>
+                </thead>
+                <tbody id="allies-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="field" style="margin-bottom:0.8rem;">
+              <label for="player-search">Spieler durchsuchen (<span id="players-count">0 Spieler</span>)</label>
+              <input type="text" id="player-search" placeholder="Name oder Stamm-Tag …">
+            </div>
+            <div style="overflow-x:auto;">
+              <table id="players-table">
+                <thead>
+                  <tr>
+                    <th data-sort="rank">Rang</th>
+                    <th data-sort="name">Name</th>
+                    <th data-sort="allyTag">Stamm</th>
+                    <th data-sort="villages">Dörfer</th>
+                    <th data-sort="points">Punkte</th>
+                  </tr>
+                </thead>
+                <tbody id="players-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/welt-daten.js"></script>
+</body>
+</html>
