@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skripte – DS-Scripts</title>
+  <meta name="description" content="Userscripts für Die Stämme: Installation per Bookmarklet oder Konsole, mit Beschreibung und Optionen.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="index.html" data-nav="start">Start</a></li>
+        <li><a href="skripte.html" data-nav="skripte">Skripte</a></li>
+        <li><a href="rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom: 0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="index.html">Start</a> / Skripte</p>
+        <h1>Skripte</h1>
+        <p class="lead" style="max-width:640px;">
+          Alle Skripte sind Bookmarklets: Du ziehst einen Link in deine Lesezeichenleiste und
+          klickst ihn im Spiel an. Es wird nichts installiert – der Code läuft nur, solange die
+          Spielseite geöffnet ist.
+        </p>
+        <div class="note">
+          Bookmarklets funktionieren nur, wenn deine Browser-Lesezeichenleiste sichtbar ist
+          (in den meisten Browsern: <code>Strg/Cmd + Umschalt + B</code>). Alternativ kannst du
+          den Code unten auch direkt in die Browser-Konsole (<code>F12</code>) einfügen, während
+          du im Spiel eingeloggt bist.
+        </div>
+      </div>
+    </section>
+
+    <section id="barbs-finder">
+      <div class="container">
+        <div class="script-detail">
+          <div class="tag-row" style="margin-bottom:0.8rem;">
+            <span class="badge">v2.0.2</span>
+            <span class="badge">Barbarendörfer</span>
+          </div>
+          <h2>🏴 Barbs Finder</h2>
+          <p>
+            Sucht rund um ein gewähltes Dorf alle Barbarendörfer (leere Dörfer) in einem
+            wählbaren Radius von 5 bis 250 Feldern, filterbar nach Minimal-/Maximalpunkten.
+            Die Ergebnisse werden nach Entfernung sortiert in einer Tabelle mit Koordinaten,
+            Punkten, Distanz und direktem Angriffs-Link angezeigt. Zusätzlich erzeugt das
+            Skript fertige Links für Sequential-Scout- und Sequential-Katta-Skripte mit allen
+            gefundenen Koordinaten.
+          </p>
+
+          <div class="script-meta">
+            <div>
+              <span class="label">Version</span>
+              <span class="value">v2.0.2</span>
+            </div>
+            <div>
+              <span class="label">Autor</span>
+              <span class="value">RedAlert (twscripts.dev)</span>
+            </div>
+            <div>
+              <span class="label">Mod</span>
+              <span class="value">JawJaw, Anabol</span>
+            </div>
+            <div>
+              <span class="label">Standard-Radius</span>
+              <span class="value">50 Felder</span>
+            </div>
+            <div>
+              <span class="label">Standard-Punkte</span>
+              <span class="value">26 – 12.154</span>
+            </div>
+            <div>
+              <span class="label">Sprachen</span>
+              <span class="value">12 (u. a. de, en, fr, pl)</span>
+            </div>
+          </div>
+
+          <h3>Installation</h3>
+          <div class="install-box">
+            <p style="margin-bottom:0.8rem;">
+              Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach dein Dorf im Spiel
+              und klicke auf das Lesezeichen, um Barbs Finder zu starten.
+            </p>
+            <a class="bookmarklet"
+               href="javascript:(function(){var s=document.createElement('script');s.src='https://marlongsimo.github.io/DS-Scripts/scripts/barbsFinder.js?v='+Date.now();document.body.appendChild(s);})();"
+               onclick="return false;"
+               title="In die Lesezeichenleiste ziehen">
+              ⚔ Barbs Finder starten
+            </a>
+          </div>
+
+          <h3>Alternative: Browser-Konsole</h3>
+          <p>Im Spiel eingeloggt <code>F12</code> drücken, den Reiter „Konsole“ öffnen und folgende Zeile einfügen:</p>
+          <pre><code id="console-snippet">$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/barbsFinder.js')</code></pre>
+          <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
+
+          <h3 style="margin-top:1.6rem;">Quellcode</h3>
+          <p>
+            <a href="https://github.com/marlongsimo/DS-Scripts/blob/main/scripts/barbsFinder.js" target="_blank" rel="noopener">
+              scripts/barbsFinder.js auf GitHub ansehen ↗
+            </a>
+          </p>
+
+          <div class="note warn" style="margin-top:1.4rem;">
+            Nutzung auf eigene Verantwortung. Die meisten Serverregeln erlauben clientseitige
+            Skripte, die keine Aktionen automatisiert ausführen – Barbs Finder zeigt nur Daten
+            an und öffnet Angriffslinks manuell. Bitte trotzdem die Regeln deines Servers prüfen.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+  <script>
+    document.getElementById('copy-snippet').addEventListener('click', function () {
+      var text = document.getElementById('console-snippet').textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copy-snippet');
+        var original = btn.textContent;
+        btn.textContent = '✅ Kopiert!';
+        setTimeout(function () { btn.textContent = original; }, 1800);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Punkte-Rechner – DS-Scripts</title>
+  <meta name="description" content="Schätze Dorfpunkte anhand von Gebäudestufen in Die Stämme.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../skripte.html" data-nav="skripte">Skripte</a></li>
+        <li><a href="index.html" data-nav="rechner">Rechner</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom:0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Rechner</a> / Punkte-Rechner</p>
+        <h1>🏰 Punkte-Rechner</h1>
+        <p class="lead" style="max-width:640px;">
+          Schätzt die Dorfpunkte anhand der eingegebenen Gebäudestufen.
+        </p>
+        <div class="note warn">
+          <strong>Näherungswerte:</strong> Die Punktzahlen je Gebäudestufe sind Schätzungen zur
+          Orientierung (z. B. beim Vergleich von Dörfern) und können von den tatsächlichen,
+          im Spiel angezeigten Punkten abweichen. Für exakte Werte gilt die Punkteanzeige im Spiel.
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="container">
+        <div class="calc-layout">
+          <form class="panel" id="calc-form">
+            <div id="building-fields"></div>
+            <div class="button-row" style="justify-content:flex-start; margin-top:0.4rem;">
+              <button type="submit" class="btn btn-primary">Berechnen</button>
+              <button type="button" class="btn btn-outline" id="reset-btn">Zurücksetzen</button>
+            </div>
+          </form>
+
+          <div>
+            <div class="result-box">
+              <div class="result-sub">Geschätzte Dorfpunkte</div>
+              <div class="result-big" id="total-points">0</div>
+            </div>
+
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Gebäude</th>
+                    <th>Stufe</th>
+                    <th>Punkte</th>
+                  </tr>
+                </thead>
+                <tbody id="points-table-body">
+                  <tr><td colspan="3" style="color:var(--text-muted);">Noch keine Stufen &gt; 0 eingetragen.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/punkte.js"></script>
+</body>
+</html>
