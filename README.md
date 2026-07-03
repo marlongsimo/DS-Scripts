@@ -35,3 +35,5 @@ Reines HTML/CSS/JS ohne Build-Schritt. Am einfachsten mit einem simplen HTTP-Ser
 python3 -m http.server 8000
 # dann im Browser: http://localhost:8000
 ```
+
+<!-- Deploy-Trigger: erneuert einen hängengebliebenen GitHub-Pages-Build -->
