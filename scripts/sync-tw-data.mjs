@@ -9,7 +9,7 @@
 // Rolle spielt: die statische Seite liest die erzeugten JSON-Dateien danach
 // ganz normal von der eigenen Domain.
 
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,7 +38,15 @@ async function fetchText(url) {
     if (!res.ok) {
       throw new Error(`${url} -> HTTP ${res.status}`);
     }
-    return await res.text();
+    const text = await res.text();
+    // Manche Welt-Subdomains (z.B. geschlossene/alte Welten) antworten mit
+    // Status 200, liefern aber die normale Startseite statt der erwarteten
+    // CSV-Exportdatei aus. Das muss hier erkannt werden, sonst wird HTML als
+    // Weltdaten geparst.
+    if (/^\s*<(!doctype html|html[\s>])/i.test(text)) {
+      throw new Error(`${url} -> HTML statt Exportdatei erhalten (Welt vermutlich geschlossen)`);
+    }
+    return text;
   } finally {
     clearTimeout(timer);
   }
@@ -70,6 +78,40 @@ function parsePlayerLine(line) {
   };
 }
 
+function parseVillageLine(line) {
+  const [id, name, x, y, playerId, points] = line.split(',');
+  return {
+    id,
+    name: decodeTwName(name),
+    x: Number(x) || 0,
+    y: Number(y) || 0,
+    playerId: playerId && playerId !== '0' ? playerId : null,
+    points: Number(points) || 0
+  };
+}
+
+// Lädt village.txt und gruppiert die (nicht-barbarischen) Dörfer nach
+// Spieler-ID, damit das Frontend pro Spieler direkt seine Dorfliste
+// nachschlagen kann, ohne die komplette Weltkarte durchsuchen zu müssen.
+// Wird separat von den Stämme-/Spieler-Daten geschrieben, da village.txt
+// deutlich größer ist und nur bei Bedarf (Klick auf einen Spieler) im
+// Browser geladen werden soll.
+async function syncVillages(world) {
+  const base = `https://${world.code}.die-staemme.de`;
+  const villageRaw = await fetchText(`${base}/map/village.txt`);
+  const villages = villageRaw.split('\n').map((l) => l.trim()).filter(Boolean).map(parseVillageLine);
+
+  const byPlayer = {};
+  for (const v of villages) {
+    if (!v.playerId) continue;
+    if (!byPlayer[v.playerId]) byPlayer[v.playerId] = [];
+    byPlayer[v.playerId].push({ id: v.id, name: v.name, x: v.x, y: v.y, points: v.points });
+  }
+
+  const outPath = path.join(DATA_DIR, `${world.code}-villages.json`);
+  await writeFile(outPath, JSON.stringify(byPlayer, null, 0));
+}
+
 // Versucht, eine Welt zu synchronisieren. Wirft, wenn die Welt nicht
 // existiert/nicht mehr läuft (Fetch schlägt fehl) – das ist gleichzeitig die
 // Erkennung, ob die Welt aktiv ist, kein separater Check nötig.
@@ -95,7 +137,16 @@ async function syncWorld(world) {
   const updatedAt = new Date().toISOString();
   const outPath = path.join(DATA_DIR, `${world.code}.json`);
   await writeFile(outPath, JSON.stringify({ world: world.code, updatedAt, allies, players }, null, 0));
-  console.log(`✓ ${world.code}: ${allies.length} Stämme, ${players.length} Spieler`);
+
+  // Dorfdaten sind optional: schlägt nur dieser Teil fehl, bleibt die Welt
+  // trotzdem als erfolgreich synchronisiert erhalten (nur ohne Dorfdetails).
+  try {
+    await syncVillages(world);
+    console.log(`✓ ${world.code}: ${allies.length} Stämme, ${players.length} Spieler, Dörfer ok`);
+  } catch (err) {
+    console.warn(`⚠ ${world.code}: Dörfer konnten nicht geladen werden (${err.message})`);
+  }
+
   return { code: world.code, label: world.label, updatedAt };
 }
 
@@ -118,6 +169,21 @@ async function writeWorldsManifest(results) {
     .map(({ code, label, updatedAt }) => ({ code, label, updatedAt }))
     .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+}
+
+// Entfernt data/{welt}.json bzw. data/{welt}-villages.json für Welten, die in
+// diesem Lauf nicht (mehr) als aktiv erkannt wurden (z.B. geschlossen, oder
+// vorherige Läufe hatten fälschlich HTML statt Exportdaten gespeichert) –
+// sonst blieben veraltete/falsche Dateien für immer im Repo liegen.
+async function pruneInactiveWorldFiles(activeCodes) {
+  const activeSet = new Set(activeCodes);
+  const files = await readdir(DATA_DIR);
+  for (const file of files) {
+    const match = file.match(/^(de\d+)(-villages)?\.json$/);
+    if (!match || activeSet.has(match[1])) continue;
+    await unlink(path.join(DATA_DIR, file));
+    console.log(`✗ entfernt (nicht mehr aktiv): ${file}`);
+  }
 }
 
 async function main() {
@@ -145,6 +211,7 @@ async function main() {
 
   console.log(`Aktive Welten gefunden: ${results.map((r) => r.code).join(', ')}`);
   await writeWorldsManifest(results);
+  await pruneInactiveWorldFiles(results.map((r) => r.code));
 }
 
 main().catch((err) => {
