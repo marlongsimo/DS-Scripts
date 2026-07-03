@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', function () {
     section = 'tools';
   } else if (path.indexOf('/rechner/') !== -1) {
     section = 'rechner';
+  } else if (path.indexOf('welt-daten.html') !== -1) {
+    section = 'welt-daten';
   }
 
   document.querySelectorAll('.nav-links a[data-nav]').forEach(function (link) {
