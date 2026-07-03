@@ -1,7 +1,222 @@
 [
   {
+    "code": "de3",
+    "label": "DE3",
+    "updatedAt": "2026-07-03T15:30:43.822Z"
+  },
+  {
+    "code": "de4",
+    "label": "DE4",
+    "updatedAt": "2026-07-03T15:30:43.811Z"
+  },
+  {
+    "code": "de7",
+    "label": "DE7",
+    "updatedAt": "2026-07-03T15:30:43.825Z"
+  },
+  {
+    "code": "de8",
+    "label": "DE8",
+    "updatedAt": "2026-07-03T15:30:43.810Z"
+  },
+  {
+    "code": "de13",
+    "label": "DE13",
+    "updatedAt": "2026-07-03T15:30:44.650Z"
+  },
+  {
+    "code": "de15",
+    "label": "DE15",
+    "updatedAt": "2026-07-03T15:30:45.024Z"
+  },
+  {
+    "code": "de19",
+    "label": "DE19",
+    "updatedAt": "2026-07-03T15:30:45.516Z"
+  },
+  {
+    "code": "de23",
+    "label": "DE23",
+    "updatedAt": "2026-07-03T15:30:47.257Z"
+  },
+  {
+    "code": "de38",
+    "label": "DE38",
+    "updatedAt": "2026-07-03T15:30:48.497Z"
+  },
+  {
+    "code": "de45",
+    "label": "DE45",
+    "updatedAt": "2026-07-03T15:30:49.150Z"
+  },
+  {
+    "code": "de57",
+    "label": "DE57",
+    "updatedAt": "2026-07-03T15:30:50.892Z"
+  },
+  {
+    "code": "de62",
+    "label": "DE62",
+    "updatedAt": "2026-07-03T15:30:51.555Z"
+  },
+  {
+    "code": "de67",
+    "label": "DE67",
+    "updatedAt": "2026-07-03T15:30:53.370Z"
+  },
+  {
+    "code": "de77",
+    "label": "DE77",
+    "updatedAt": "2026-07-03T15:30:53.695Z"
+  },
+  {
+    "code": "de78",
+    "label": "DE78",
+    "updatedAt": "2026-07-03T15:30:53.923Z"
+  },
+  {
+    "code": "de91",
+    "label": "DE91",
+    "updatedAt": "2026-07-03T15:30:56.322Z"
+  },
+  {
+    "code": "de95",
+    "label": "DE95",
+    "updatedAt": "2026-07-03T15:30:56.926Z"
+  },
+  {
+    "code": "de107",
+    "label": "DE107",
+    "updatedAt": "2026-07-03T15:30:58.699Z"
+  },
+  {
+    "code": "de112",
+    "label": "DE112",
+    "updatedAt": "2026-07-03T15:30:59.377Z"
+  },
+  {
+    "code": "de121",
+    "label": "DE121",
+    "updatedAt": "2026-07-03T15:31:01.893Z"
+  },
+  {
+    "code": "de139",
+    "label": "DE139",
+    "updatedAt": "2026-07-03T15:31:02.955Z"
+  },
+  {
+    "code": "de143",
+    "label": "DE143",
+    "updatedAt": "2026-07-03T15:31:03.593Z"
+  },
+  {
+    "code": "de151",
+    "label": "DE151",
+    "updatedAt": "2026-07-03T15:31:04.715Z"
+  },
+  {
+    "code": "de161",
+    "label": "DE161",
+    "updatedAt": "2026-07-03T15:31:06.345Z"
+  },
+  {
+    "code": "de164",
+    "label": "DE164",
+    "updatedAt": "2026-07-03T15:31:06.590Z"
+  },
+  {
+    "code": "de172",
+    "label": "DE172",
+    "updatedAt": "2026-07-03T15:31:07.817Z"
+  },
+  {
+    "code": "de178",
+    "label": "DE178",
+    "updatedAt": "2026-07-03T15:31:08.972Z"
+  },
+  {
+    "code": "de182",
+    "label": "DE182",
+    "updatedAt": "2026-07-03T15:31:09.564Z"
+  },
+  {
+    "code": "de185",
+    "label": "DE185",
+    "updatedAt": "2026-07-03T15:31:10.108Z"
+  },
+  {
+    "code": "de191",
+    "label": "DE191",
+    "updatedAt": "2026-07-03T15:31:10.940Z"
+  },
+  {
+    "code": "de193",
+    "label": "DE193",
+    "updatedAt": "2026-07-03T15:31:11.313Z"
+  },
+  {
+    "code": "de204",
+    "label": "DE204",
+    "updatedAt": "2026-07-03T15:31:12.590Z"
+  },
+  {
+    "code": "de241",
+    "label": "DE241",
+    "updatedAt": "2026-07-03T15:31:19.276Z"
+  },
+  {
+    "code": "de246",
+    "label": "DE246",
+    "updatedAt": "2026-07-03T15:31:18.491Z"
+  },
+  {
+    "code": "de248",
+    "label": "DE248",
+    "updatedAt": "2026-07-03T15:31:18.795Z"
+  },
+  {
+    "code": "de249",
+    "label": "DE249",
+    "updatedAt": "2026-07-03T15:31:19.127Z"
+  },
+  {
+    "code": "de250",
+    "label": "DE250",
+    "updatedAt": "2026-07-03T15:31:19.280Z"
+  },
+  {
+    "code": "de251",
+    "label": "DE251",
+    "updatedAt": "2026-07-03T15:31:19.438Z"
+  },
+  {
+    "code": "de252",
+    "label": "DE252",
+    "updatedAt": "2026-07-03T15:31:19.579Z"
+  },
+  {
+    "code": "de253",
+    "label": "DE253",
+    "updatedAt": "2026-07-03T15:31:19.736Z"
+  },
+  {
     "code": "de254",
     "label": "DE254",
-    "updatedAt": "2026-07-03T15:08:09.404Z"
+    "updatedAt": "2026-07-03T15:31:19.789Z"
+  },
+  {
+    "code": "de255",
+    "label": "DE255",
+    "updatedAt": "2026-07-03T15:31:20.237Z"
+  },
+  {
+    "code": "de256",
+    "label": "DE256",
+    "updatedAt": "2026-07-03T15:31:20.214Z"
+  },
+  {
+    "code": "de257",
+    "label": "DE257",
+    "updatedAt": "2026-07-03T15:31:20.275Z"
   }
 ]
