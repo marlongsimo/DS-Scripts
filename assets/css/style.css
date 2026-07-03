@@ -665,6 +665,58 @@ th[data-sort]:hover {
   color: var(--accent-strong);
 }
 
+tr[data-clickable] {
+  cursor: pointer;
+}
+
+tr[data-clickable]:hover td {
+  background: var(--bg-alt);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  padding: 0;
+}
+
+.back-link:hover {
+  color: var(--accent-strong);
+}
+
+.detail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.2rem;
+}
+
+.detail-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.detail-stats {
+  display: flex;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.detail-stats strong {
+  color: var(--text);
+}
+
 .result-box {
   background: var(--bg-alt);
   border: 1px solid var(--border);

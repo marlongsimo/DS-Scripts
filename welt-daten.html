@@ -104,6 +104,57 @@
             </div>
           </div>
         </div>
+
+        <div id="tribe-detail" class="panel" style="display:none;">
+          <button type="button" class="back-link" id="tribe-back">← Zurück zur Übersicht</button>
+          <div class="detail-header">
+            <h2 id="tribe-detail-title"></h2>
+            <div class="detail-stats">
+              <span>Mitglieder: <strong id="tribe-detail-members"></strong></span>
+              <span>Dörfer: <strong id="tribe-detail-villages"></strong></span>
+              <span>Punkte: <strong id="tribe-detail-points"></strong></span>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table id="tribe-members-table">
+              <thead>
+                <tr>
+                  <th data-sort="rank">Rang</th>
+                  <th data-sort="name">Name</th>
+                  <th data-sort="villages">Dörfer</th>
+                  <th data-sort="points">Punkte</th>
+                </tr>
+              </thead>
+              <tbody id="tribe-members-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="player-detail" class="panel" style="display:none;">
+          <button type="button" class="back-link" id="player-back">← Zurück</button>
+          <div class="detail-header">
+            <h2 id="player-detail-title"></h2>
+            <div class="detail-stats">
+              <span>Stamm: <strong id="player-detail-ally"></strong></span>
+              <span>Rang: <strong id="player-detail-rank"></strong></span>
+              <span>Dörfer: <strong id="player-detail-villages"></strong></span>
+              <span>Punkte: <strong id="player-detail-points"></strong></span>
+            </div>
+          </div>
+          <p id="villages-status" style="color:var(--text-muted);"></p>
+          <div style="overflow-x:auto;">
+            <table id="player-villages-table" style="display:none;">
+              <thead>
+                <tr>
+                  <th data-sort="name">Dorf</th>
+                  <th data-sort="x">Koordinate</th>
+                  <th data-sort="points">Punkte</th>
+                </tr>
+              </thead>
+              <tbody id="player-villages-body"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
   </main>
