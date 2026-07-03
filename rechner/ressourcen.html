@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ressourcen-/Bauzeit-Rechner – DS-Scripts</title>
+  <meta name="description" content="Berechne Rohstoffkosten und Bauzeit für Gebäude-Ausbaustufen in Die Stämme.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../skripte.html" data-nav="skripte">Skripte</a></li>
+        <li><a href="index.html" data-nav="rechner">Rechner</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom:0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Rechner</a> / Ressourcen-/Bauzeit-Rechner</p>
+        <h1>🪵 Ressourcen-/Bauzeit-Rechner</h1>
+        <p class="lead" style="max-width:640px;">
+          Berechnet Rohstoffkosten, Bevölkerung und Bauzeit für den Ausbau eines Gebäudes von
+          einer Start- zu einer Ziel-Stufe.
+        </p>
+        <div class="note">
+          Die vorausgefüllten Werte je Gebäude sind <strong>Richtwerte</strong> für eine
+          Standardwelt. Öffne im Spiel die Gebäudeansicht, um die exakten Kosten der nächsten
+          Stufe zu sehen, und passe die Felder unten bei Bedarf an.
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="container">
+        <div class="calc-layout">
+          <form class="panel" id="calc-form">
+            <div class="field">
+              <label for="building-select">Gebäude (Richtwerte laden)</label>
+              <select id="building-select">
+                <option value="hq">Hauptgebäude</option>
+                <option value="barracks">Baracke</option>
+                <option value="stable">Stall</option>
+                <option value="workshop">Werkstatt</option>
+                <option value="smithy">Schmiede</option>
+                <option value="academy">Akademie</option>
+                <option value="market">Markt</option>
+                <option value="warehouse">Speicher</option>
+                <option value="hiding">Versteck</option>
+                <option value="wall">Wall</option>
+                <option value="farm">Bauernhof</option>
+                <option value="timber">Holzfäller</option>
+                <option value="clay">Lehmgrube</option>
+                <option value="iron">Eisenmine</option>
+              </select>
+            </div>
+
+            <div class="field field-row">
+              <div>
+                <label for="current-level">Aktuelle Stufe</label>
+                <input type="number" id="current-level" min="0" max="30" value="0">
+              </div>
+              <div>
+                <label for="target-level">Ziel-Stufe</label>
+                <input type="number" id="target-level" min="1" max="30" value="5">
+              </div>
+            </div>
+
+            <div class="field field-row">
+              <div>
+                <label for="hq-level">Hauptgebäude-Stufe</label>
+                <input type="number" id="hq-level" min="1" max="30" value="1">
+              </div>
+              <div>
+                <label for="world-speed">Baugeschwindigkeit</label>
+                <input type="number" id="world-speed" min="0.1" step="0.1" value="1">
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Basiskosten Stufe 1 (Holz / Lehm / Eisen)</label>
+              <div class="field-row" style="grid-template-columns: 1fr 1fr 1fr;">
+                <input type="number" id="base-wood" min="0" value="90">
+                <input type="number" id="base-clay" min="0" value="80">
+                <input type="number" id="base-iron" min="0" value="70">
+              </div>
+            </div>
+
+            <div class="field field-row">
+              <div>
+                <label for="base-pop">Bevölkerung Stufe 1</label>
+                <input type="number" id="base-pop" min="0" value="5">
+              </div>
+              <div>
+                <label for="base-time">Bauzeit Stufe 1 (Min.)</label>
+                <input type="number" id="base-time" min="0" value="5">
+              </div>
+            </div>
+
+            <div class="field field-row" style="grid-template-columns: 1fr 1fr 1fr;">
+              <div>
+                <label for="growth-res">Steig. Kosten %</label>
+                <input type="number" id="growth-res" value="26">
+              </div>
+              <div>
+                <label for="growth-pop">Steig. Bev. %</label>
+                <input type="number" id="growth-pop" value="0">
+              </div>
+              <div>
+                <label for="growth-time">Steig. Zeit %</label>
+                <input type="number" id="growth-time" value="16">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Berechnen</button>
+            <p id="calc-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.8rem;"></p>
+          </form>
+
+          <div>
+            <div class="result-box" id="result-box">
+              <div class="result-sub">Gesamtkosten &amp; Bauzeit</div>
+              <table style="margin-top:0.8rem;">
+                <tbody>
+                  <tr><td>🪵 Holz</td><td id="total-wood">–</td></tr>
+                  <tr><td>🧱 Lehm</td><td id="total-clay">–</td></tr>
+                  <tr><td>⛏️ Eisen</td><td id="total-iron">–</td></tr>
+                  <tr><td>👥 Bevölkerung</td><td id="total-pop">–</td></tr>
+                  <tr><td>⏱️ Bauzeit</td><td id="total-time">–</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Stufe</th>
+                    <th>Holz</th>
+                    <th>Lehm</th>
+                    <th>Eisen</th>
+                    <th>Bev.</th>
+                    <th>Bauzeit</th>
+                  </tr>
+                </thead>
+                <tbody id="level-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/ressourcen.js"></script>
+</body>
+</html>
