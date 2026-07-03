@@ -31,14 +31,14 @@
         <h1>🎯 Koordinaten-Extractor</h1>
         <p class="lead" style="max-width:640px;">
           Kopiere im Spiel deine Berichtsübersicht und füge den Text hier ein. Das Tool zieht
-          automatisch alle Koordinaten von Barbarendörfern heraus und gibt sie als
+          automatisch alle Koordinaten von Barbaren- und Bonusdörfern heraus und gibt sie als
           leerzeichengetrennte Liste aus.
         </p>
         <div class="note">
           Im Spiel unter <strong>Berichte → Alle Berichte</strong> die gewünschten Zeilen markieren
           (z. B. mit <code>Strg/Cmd + A</code> die ganze Tabelle) und mit <code>Strg/Cmd + C</code>
-          kopieren. Der eingefügte Text darf ruhig alle Berichte enthalten – nicht-Barbarendorf-
-          Einträge werden automatisch ignoriert.
+          kopieren. Der eingefügte Text darf ruhig alle Berichte enthalten – Einträge, die weder
+          Barbarendorf noch Bonusdorf sind, werden automatisch ignoriert.
         </div>
       </div>
     </section>
@@ -62,7 +62,8 @@
 
         <div class="result-box" id="result-box" style="display:none; margin-top:1.6rem;">
           <div class="stat-row">
-            <span class="stat-pill stat-new" id="stat-found">✓ 0 Barbarendorf-Koordinaten gefunden</span>
+            <span class="stat-pill stat-new" id="stat-barb">✓ 0 Barbarendorf-Koordinaten</span>
+            <span class="stat-pill stat-bonus" id="stat-bonus">★ 0 Bonusdorf-Koordinaten</span>
           </div>
 
           <div class="field" style="margin-bottom:0.8rem;">

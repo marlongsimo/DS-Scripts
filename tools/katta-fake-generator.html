@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Katta-/Fake-Skripterstellung – DS-Scripts</title>
+  <meta name="description" content="Erzeugt aus einer Koordinatenliste und Truppenanzahl ein Bookmarklet für Katta- oder Fake-Angriffe im Versammlungsplatz.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="index.html" data-nav="tools">Tools</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom:0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Tools</a> / Katta-/Fake-Skripterstellung</p>
+        <h1>💣 Katta-/Fake-Skripterstellung</h1>
+        <p class="lead" style="max-width:640px;">
+          Füge eine Koordinatenliste ein und lege fest, wie viele Einheiten pro Angriff
+          losgeschickt werden sollen. Das Tool erzeugt daraus ein Bookmarklet, das im
+          Versammlungsplatz bei jedem Klick automatisch das nächstgelegene, noch nicht
+          verwendete Ziel einträgt.
+        </p>
+        <div class="note">
+          <strong>Ablauf:</strong> Bookmarklet in die Lesezeichenleiste ziehen → im Spiel den
+          Versammlungsplatz öffnen → Lesezeichen anklicken. Ziel-Koordinate und Truppenanzahl
+          werden automatisch eingetragen, den Angriff musst du danach selbst bestätigen. Beim
+          nächsten Klick wird automatisch das nächste, noch offene Ziel gewählt – der Fortschritt
+          bleibt im Browser gespeichert (auch nach einem Reload).
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="container">
+        <form id="gen-form">
+          <div class="calc-layout">
+            <div class="panel">
+              <div class="field">
+                <label for="coord-list">Koordinatenliste</label>
+                <textarea id="coord-list" rows="10" placeholder="500|500 501|502 499|498 ..."></textarea>
+              </div>
+
+              <div class="field">
+                <label>Truppenanzahl pro Angriff</label>
+                <div class="field-row" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom:0.6rem;">
+                  <div>
+                    <label for="count-spear" style="font-size:0.78rem;">Speerträger</label>
+                    <input type="number" id="count-spear" min="0" value="0">
+                  </div>
+                  <div>
+                    <label for="count-axe" style="font-size:0.78rem;">Axtkämpfer</label>
+                    <input type="number" id="count-axe" min="0" value="0">
+                  </div>
+                  <div>
+                    <label for="count-spy" style="font-size:0.78rem;">Späher</label>
+                    <input type="number" id="count-spy" min="0" value="0">
+                  </div>
+                </div>
+                <div class="field-row" style="grid-template-columns: 1fr 1fr 1fr;">
+                  <div>
+                    <label for="count-light" style="font-size:0.78rem;">Leichte Kav.</label>
+                    <input type="number" id="count-light" min="0" value="0">
+                  </div>
+                  <div>
+                    <label for="count-ram" style="font-size:0.78rem;">Ramme</label>
+                    <input type="number" id="count-ram" min="0" value="0">
+                  </div>
+                  <div>
+                    <label for="count-catapult" style="font-size:0.78rem;">Katapult</label>
+                    <input type="number" id="count-catapult" min="0" value="0">
+                  </div>
+                </div>
+              </div>
+
+              <div class="field" style="margin-bottom:0;">
+                <label for="script-id">Script-ID (optional)</label>
+                <input type="text" id="script-id" placeholder="z.B. fake-nord">
+                <div style="margin-top:0.4rem; font-size:0.8rem; color:var(--text-muted);">
+                  Nur nötig, wenn du mehrere Scripts parallel nutzt und deren Fortschritt getrennt
+                  halten willst (z.B. „fake“ und „katta“).
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:1rem;">Script erstellen</button>
+              <p id="gen-error" style="color:var(--danger); font-size:0.85rem; margin-bottom:1rem;"></p>
+
+              <div class="result-box" id="result-box" style="display:none;">
+                <div class="stat-row">
+                  <span class="stat-pill stat-new" id="result-count">✓ 0 Koordinaten im Script</span>
+                </div>
+
+                <div class="install-box">
+                  <p style="margin-bottom:0.8rem;">
+                    Diesen Button in deine Lesezeichenleiste ziehen:
+                  </p>
+                  <a class="bookmarklet" id="bookmarklet-link" href="javascript:void(0);" onclick="return false;" title="In die Lesezeichenleiste ziehen">
+                    💣 Katta/Fake-Script starten
+                  </a>
+                </div>
+
+                <div class="field" style="margin-bottom:0.8rem;">
+                  <label for="script-code">Alternative: Code für die Konsole</label>
+                  <textarea id="script-code" rows="6" readonly></textarea>
+                </div>
+
+                <div class="button-row" style="justify-content:flex-start; margin-bottom:1.6rem;">
+                  <button type="button" class="btn btn-outline" id="copy-script">📋 In Zwischenablage kopieren</button>
+                </div>
+
+                <div class="install-box">
+                  <p style="margin-bottom:0.8rem;">
+                    <strong>Reset-Script</strong> (optional): löscht den gespeicherten Fortschritt
+                    für dieses Script und setzt den Farm-Cookie zurück, damit du die Liste von
+                    vorn beginnen kannst. Ebenfalls in die Lesezeichenleiste ziehen:
+                  </p>
+                  <a class="bookmarklet" id="reset-bookmarklet-link" href="javascript:void(0);" onclick="return false;" title="In die Lesezeichenleiste ziehen">
+                    ↺ Reset
+                  </a>
+                </div>
+
+                <div class="field" style="margin-bottom:0.8rem;">
+                  <label for="reset-script-code">Alternative: Reset-Code für die Konsole</label>
+                  <textarea id="reset-script-code" rows="3" readonly></textarea>
+                </div>
+
+                <div class="button-row" style="justify-content:flex-start;">
+                  <button type="button" class="btn btn-outline" id="copy-reset-script">📋 In Zwischenablage kopieren</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/katta-fake.js"></script>
+</body>
+</html>

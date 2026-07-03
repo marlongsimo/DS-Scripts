@@ -1,34 +1,53 @@
 // Koordinaten-Extractor: zieht aus eingefügtem Berichtstext alle Koordinaten
-// von Barbarendörfern und gibt sie als leerzeichengetrennte Liste aus.
+// von Barbaren- und Bonusdörfern und gibt sie als leerzeichengetrennte Liste aus.
 //
-// Strategie: jedes Vorkommen von "Barbarendorf" im Text markiert einen Treffer.
-// Direkt danach (innerhalb eines kurzen Fensters) wird nach dem ersten
-// Koordinatenmuster (z.B. "563|432") gesucht, so wie es in Berichten neben
-// "Barbarendorf" steht ("Barbarendorf (563|432)").
+// Strategie: jedes Vorkommen von "Barbarendorf"/"Bonusdorf" im Text markiert einen
+// Treffer. Direkt danach (innerhalb eines kurzen Fensters) wird nach dem ersten
+// Koordinatenmuster (z.B. "563|432") gesucht, so wie es in Berichten direkt daneben
+// steht ("Barbarendorf (563|432)", "Bonusdorf (120|340)").
 
-var KEYWORD_PATTERN = /barbarendorf/gi;
+var KEYWORD_PATTERN = /barbarendorf|bonusdorf/gi;
 var COORD_PATTERN = /\d{1,3}\|\d{1,3}/;
 var SEARCH_WINDOW = 80;
 
-function extractBarbCoords(text) {
-  var result = [];
-  var seen = {};
+function extractCoords(text) {
+  var barb = [];
+  var bonus = [];
+  var seenBarb = {};
+  var seenBonus = {};
   var match;
 
   KEYWORD_PATTERN.lastIndex = 0;
   while ((match = KEYWORD_PATTERN.exec(text)) !== null) {
+    var isBonus = match[0].toLowerCase() === 'bonusdorf';
     var windowText = text.slice(match.index, match.index + SEARCH_WINDOW);
     var coordMatch = COORD_PATTERN.exec(windowText);
-    if (coordMatch) {
-      var coord = coordMatch[0];
-      if (!seen[coord]) {
-        seen[coord] = true;
-        result.push(coord);
+    if (!coordMatch) continue;
+
+    var coord = coordMatch[0];
+    if (isBonus) {
+      if (!seenBonus[coord]) {
+        seenBonus[coord] = true;
+        bonus.push(coord);
+      }
+    } else {
+      if (!seenBarb[coord]) {
+        seenBarb[coord] = true;
+        barb.push(coord);
       }
     }
   }
 
-  return result;
+  var mergedSeen = {};
+  var all = [];
+  barb.concat(bonus).forEach(function (coord) {
+    if (!mergedSeen[coord]) {
+      mergedSeen[coord] = true;
+      all.push(coord);
+    }
+  });
+
+  return { barb: barb, bonus: bonus, all: all };
 }
 
 function countOccurrences(text, pattern) {
@@ -42,27 +61,27 @@ function countOccurrences(text, pattern) {
 
 function extract() {
   var raw = document.getElementById('report-text').value;
-  var barbMentions = countOccurrences(raw, KEYWORD_PATTERN);
-  var coords = extractBarbCoords(raw);
+  var mentions = countOccurrences(raw, KEYWORD_PATTERN);
+  var coords = extractCoords(raw);
 
-  var statFound = document.getElementById('stat-found');
   var statBox = document.getElementById('result-box');
   var emptyNote = document.getElementById('empty-note');
 
-  statFound.textContent = '✓ ' + coords.length + ' Barbarendorf-Koordinate' + (coords.length === 1 ? '' : 'n') + ' gefunden';
+  document.getElementById('stat-barb').textContent = '✓ ' + coords.barb.length + ' Barbarendorf-Koordinate' + (coords.barb.length === 1 ? '' : 'n');
+  document.getElementById('stat-bonus').textContent = '★ ' + coords.bonus.length + ' Bonusdorf-Koordinate' + (coords.bonus.length === 1 ? '' : 'n');
 
-  if (coords.length === 0) {
+  if (coords.all.length === 0) {
     statBox.style.display = 'none';
     emptyNote.style.display = 'block';
-    emptyNote.textContent = barbMentions === 0
-      ? 'Im eingefügten Text wurde kein "Barbarendorf" gefunden. Stelle sicher, dass du den kompletten Berichtstext (inkl. Zielangabe) eingefügt hast.'
-      : '"Barbarendorf" wurde ' + barbMentions + ' mal gefunden, aber es konnten keine Koordinaten in der Nähe erkannt werden. Prüfe das Format des eingefügten Texts.';
+    emptyNote.textContent = mentions === 0
+      ? 'Im eingefügten Text wurde weder "Barbarendorf" noch "Bonusdorf" gefunden. Stelle sicher, dass du den kompletten Berichtstext (inkl. Zielangabe) eingefügt hast.'
+      : '"Barbarendorf"/"Bonusdorf" wurde ' + mentions + ' mal gefunden, aber es konnten keine Koordinaten in der Nähe erkannt werden. Prüfe das Format des eingefügten Texts.';
     return;
   }
 
   emptyNote.style.display = 'none';
-  document.getElementById('result-coords').value = coords.join(' ');
-  document.getElementById('result-count').textContent = coords.length + ' Koordinaten';
+  document.getElementById('result-coords').value = coords.all.join(' ');
+  document.getElementById('result-count').textContent = coords.all.length + ' Koordinaten';
   statBox.style.display = 'block';
 }
 
