@@ -535,6 +535,12 @@ textarea:focus {
   border: 1px solid rgba(198, 106, 90, 0.4);
 }
 
+.stat-pill.stat-bonus {
+  background: rgba(211, 163, 90, 0.14);
+  color: var(--accent-strong);
+  border: 1px solid rgba(211, 163, 90, 0.4);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
