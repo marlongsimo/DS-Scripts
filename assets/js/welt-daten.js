@@ -13,10 +13,16 @@ function formatNumber(n) {
   return Number(n || 0).toLocaleString('de-DE');
 }
 
-function formatTimestamp(iso) {
+function formatRelativeTime(iso) {
   if (!iso) return '–';
-  var d = new Date(iso);
-  return d.toLocaleString('de-DE');
+  var diffMs = Date.now() - new Date(iso).getTime();
+  var minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'vor wenigen Sekunden';
+  if (minutes < 60) return 'vor ' + minutes + ' Minute' + (minutes === 1 ? '' : 'n');
+  var hours = Math.floor(minutes / 60);
+  if (hours < 24) return 'vor ' + hours + ' Stunde' + (hours === 1 ? '' : 'n');
+  var days = Math.floor(hours / 24);
+  return 'vor ' + days + ' Tag' + (days === 1 ? '' : 'en');
 }
 
 async function loadWorldList() {
@@ -27,7 +33,7 @@ async function loadWorldList() {
   worlds.forEach(function (w) {
     var opt = document.createElement('option');
     opt.value = w.code;
-    opt.textContent = w.label + ' (Stand: ' + formatTimestamp(w.updatedAt) + ')';
+    opt.textContent = w.label + ' (Stand ' + formatRelativeTime(w.updatedAt) + ')';
     select.appendChild(opt);
   });
   return worlds;
@@ -45,7 +51,7 @@ async function loadWorldData(code) {
     currentData = await res.json();
     statusBox.style.display = 'none';
     document.getElementById('data-panels').style.display = 'block';
-    document.getElementById('updated-at').textContent = 'Stand: ' + formatTimestamp(currentData.updatedAt);
+    document.getElementById('updated-at').textContent = 'Stand ' + formatRelativeTime(currentData.updatedAt);
     renderAllies();
     renderPlayers();
   } catch (err) {
@@ -146,16 +152,20 @@ function formatCountdown(ms) {
   return pad(h) + ':' + pad(m) + ':' + pad(s);
 }
 
-function tickCountdown() {
+function tick() {
   var target = nextSyncDate();
-  var el = document.getElementById('next-update');
-  if (!el) return;
-  var remaining = target.getTime() - Date.now();
-  if (remaining <= 0) {
-    el.textContent = 'Aktualisierung läuft …';
-    return;
+  var nextEl = document.getElementById('next-update');
+  if (nextEl) {
+    var remaining = target.getTime() - Date.now();
+    nextEl.textContent = remaining <= 0
+      ? 'Aktualisierung läuft …'
+      : 'Nächste Aktualisierung in ca. ' + formatCountdown(remaining);
   }
-  el.textContent = 'Nächste Aktualisierung in ca. ' + formatCountdown(remaining);
+
+  var updatedEl = document.getElementById('updated-at');
+  if (updatedEl && currentData) {
+    updatedEl.textContent = 'Stand ' + formatRelativeTime(currentData.updatedAt);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -175,6 +185,6 @@ document.addEventListener('DOMContentLoaded', function () {
   setupSortableHeaders('allies-table', 'allies', renderAllies);
   setupSortableHeaders('players-table', 'players', renderPlayers);
 
-  tickCountdown();
-  setInterval(tickCountdown, 1000);
+  tick();
+  setInterval(tick, 1000);
 });
