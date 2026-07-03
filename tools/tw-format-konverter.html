@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TW Format-Konverter – DS-Scripts</title>
+  <meta name="description" content="Konvertiert BBCode- oder Workbench-Befehle in Katta-Planner-JSON und DS-Ultimate-CSV.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom:0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Tools</a> / TW Format-Konverter</p>
+        <h1>🔄 TW Format-Konverter</h1>
+        <p class="lead" style="max-width:640px;">
+          Wandelt BBCode- oder Workbench-Truppenbefehle in Katta-Planner-JSON
+          bzw. DS-Ultimate-Workbench-CSV um.
+        </p>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="container">
+
+        <div class="panel" style="margin-bottom:1.1rem;">
+          <p style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:600; margin-bottom:1rem;">Eingabe</p>
+
+          <div class="tabs">
+            <button class="tab active" type="button" onclick="switchTab('bbcode',this)">BBCode</button>
+            <button class="tab" type="button" onclick="switchTab('workbench',this)">Workbench</button>
+          </div>
+
+          <div id="tab-bbcode" class="tab-panel active">
+            <div class="field-row" style="margin-bottom:0.8rem;">
+              <div class="field" style="margin-bottom:0;">
+                <label for="worldSpeed">Weltgeschwindigkeit</label>
+                <input type="number" id="worldSpeed" value="1" min="0.1" step="0.1">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label for="unitSpeed">Einheitengeschwindigkeit</label>
+                <input type="number" id="unitSpeed" value="1" min="0.1" step="0.1">
+              </div>
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.8rem;">
+              Ram/Katta = 30 Min./Feld · Adel = 35 Min./Feld bei 1 / 1
+            </p>
+            <div class="field" style="margin-bottom:0;">
+              <label for="inpBB">BBCode-Eingabe</label>
+              <textarea id="inpBB" rows="7" placeholder="[*]7[|]...[unit]catapult[/unit]...[coord]544|619[/coord]...[coord]486|529[/coord]...|2026-06-27 16:07:16:872|[url=&quot;...village=19048...target=905...&quot;]Versammlungsplatz[/url][/*]"></textarea>
+            </div>
+          </div>
+
+          <div id="tab-workbench" class="tab-panel">
+            <div class="field" style="margin-bottom:0.4rem;">
+              <label for="inpWB">Workbench-Zeilen (eine pro Zeile)</label>
+              <textarea id="inpWB" rows="7" placeholder="19048&4626&ram&1782762026969&14&false&false&spear=MA==/sword=MA==/axe=MA==/archer=/spy=OA==/light=MA==/marcher=/heavy=MA==/ram=MA==/catapult=OQ==/knight=/snob=MA==/militia=MA=="></textarea>
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">
+              Ankunftszeit direkt aus Unix-Timestamp (ms) in Browserzeit · Koordinaten nicht enthalten → nur JSON-Export
+            </p>
+          </div>
+
+          <hr style="border:none; border-top:1px solid var(--border); margin:1rem 0;">
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="mergeChk">
+            <span onclick="document.getElementById('mergeChk').click()">Mit bestehender JSON zusammenführen</span>
+          </div>
+          <div id="mergeArea" class="field" style="display:none; margin-bottom:0;">
+            <label for="existingJson">Bestehende JSON einfügen</label>
+            <textarea id="existingJson" rows="4" placeholder='{"commands":{...}}'></textarea>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:1.1rem;">
+          <p style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:600; margin-bottom:1rem;">Aktionen</p>
+          <div class="button-row" style="justify-content:flex-start;">
+            <button class="btn btn-primary" type="button" onclick="convert()">⚔ Konvertieren</button>
+            <button class="btn btn-outline" type="button" onclick="copyActive()">⎘ Kopieren</button>
+            <button class="btn btn-outline" id="dlJson" type="button" onclick="downloadFile('json')" disabled>↓ JSON speichern</button>
+            <button class="btn btn-outline" id="dlCsv" type="button" onclick="downloadFile('csv')" disabled>↓ WB-CSV speichern</button>
+            <button class="btn btn-outline" type="button" onclick="clearAll()">✕ Leeren</button>
+          </div>
+          <div class="field" style="margin-top:1rem; margin-bottom:0; max-width:320px;">
+            <label for="filename">Dateiname <span style="text-transform:none; font-weight:400;">(.json / .csv wird ergänzt)</span></label>
+            <input type="text" id="filename" value="Anabol_de254">
+          </div>
+          <div id="status" class="status"></div>
+        </div>
+
+        <div class="panel" id="previewCard" style="display:none; margin-bottom:1.1rem;">
+          <p style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:600; margin-bottom:1rem;">Vorschau</p>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Von</th><th>Nach</th><th>Einheit</th><th>Distanz</th>
+                <th>Abschick</th><th>Ankunft</th><th>Laufzeit</th>
+              </tr></thead>
+              <tbody id="previewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel" id="outCard" style="display:none;">
+          <p style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:600; margin-bottom:1rem;">Ausgabe</p>
+          <div class="tabs">
+            <button class="out-tab active" type="button" onclick="switchOutTab('json',this)">Katta-Planner JSON</button>
+            <button class="out-tab" id="wbTabBtn" type="button" onclick="switchOutTab('wb',this)">DS-Ultimate Workbench</button>
+          </div>
+          <div id="out-json" class="out-panel active">
+            <textarea id="outJson" rows="10" readonly></textarea>
+          </div>
+          <div id="out-wb" class="out-panel">
+            <textarea id="outWb" rows="10" readonly></textarea>
+          </div>
+        </div>
+
+        <p style="font-size:0.78rem; color:var(--text-muted); text-align:center; margin-top:1.2rem;">
+          Tribal Wars · de254 · Browserzeit <span id="tzLabel"></span>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/tw-format-konverter.js"></script>
+</body>
+</html>
