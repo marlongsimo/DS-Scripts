@@ -59,7 +59,7 @@ function compare() {
     invalidBox.style.display = 'none';
   }
 
-  document.getElementById('result-coords').value = merged.join('\n');
+  document.getElementById('result-coords').value = merged.join(' ');
   document.getElementById('result-count').textContent = merged.length + ' Koordinaten gesamt';
   document.getElementById('result-box').style.display = 'block';
 }
