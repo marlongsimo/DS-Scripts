@@ -82,7 +82,7 @@
             </div>
           </div>
 
-          <h3>Installation</h3>
+          <h3>Installation (Desktop)</h3>
           <div class="install-box">
             <p style="margin-bottom:0.8rem;">
               Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach im
@@ -90,17 +90,39 @@
               um das Script zu starten.
             </p>
             <a class="bookmarklet"
-               href="javascript:(function(){var s=document.createElement('script');s.src='https://marlongsimo.github.io/DS-Scripts/scripts/clearBarbarianWalls.js?v='+Date.now();document.body.appendChild(s);})();"
+               href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/clearBarbarianWalls.js');"
                onclick="return false;"
                title="In die Lesezeichenleiste ziehen">
               🏴 Clear Barbarian Walls starten
             </a>
           </div>
 
-          <h3>Alternative: Browser-Konsole</h3>
-          <p>Im Spiel eingeloggt <code>F12</code> drücken, den Reiter „Konsole“ öffnen und folgende Zeile einfügen:</p>
-          <pre><code id="console-snippet">$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/clearBarbarianWalls.js')</code></pre>
+          <h3>Installation (Handy: iPhone/Android)</h3>
+          <p>
+            Auf dem Handy lässt sich das Bookmarklet nicht per Drag &amp; Drop
+            in die Lesezeichen-/Favoritenleiste ziehen. Stattdessen legst du
+            zuerst ein ganz normales Lesezeichen an und ersetzt dessen Adresse
+            danach durch den folgenden Code:
+          </p>
+          <pre><code id="console-snippet">javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/clearBarbarianWalls.js');</code></pre>
           <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
+
+          <p style="margin-top:1rem;"><strong>iPhone (Safari):</strong></p>
+          <ol style="margin:0 0 1rem 1.2rem; padding:0;">
+            <li>Diese Seite (oder eine beliebige andere) über das Teilen-Symbol als Lesezeichen speichern.</li>
+            <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
+            <li>Das Adressfeld leeren und den oben kopierten Code einfügen. Als Namen z.B. „Clear Barbarian Walls“ eintragen und speichern.</li>
+            <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben – es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
+            <li>Im Spiel im Bauernhof-Assistenten einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
+          </ol>
+
+          <p><strong>Android (Chrome):</strong></p>
+          <ol style="margin:0 0 0 1.2rem; padding:0;">
+            <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
+            <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben kopierten Code ersetzen, Namen anpassen und speichern.</li>
+            <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
+            <li>Im Spiel im Bauernhof-Assistenten das Lesezeichen aus der Leiste antippen.</li>
+          </ol>
 
           <h3 style="margin-top:1.6rem;">Quellcode</h3>
           <p>
