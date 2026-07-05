@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Entfernungs-Rechner – DS-Scripts</title>
-  <meta name="description" content="Berechne die Entfernung zwischen zwei Koordinaten in Die Stämme.">
+  <title>Scripts – DS-Scripts</title>
+  <meta name="description" content="Userscripts für Die Stämme: Installation per Bookmarklet oder Konsole.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,8 +19,8 @@
       <ul class="nav-links">
         <li><a href="../index.html" data-nav="start">Start</a></li>
         <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
-        <li><a href="index.html" data-nav="rechner">Rechner</a></li>
-        <li><a href="../scripts/index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="scripts">Scripts</a></li>
         <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
         <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
       </ul>
@@ -30,36 +30,25 @@
   <main>
     <section style="padding-bottom:0;">
       <div class="container">
-        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Rechner</a> / Entfernungs-Rechner</p>
-        <h1>📏 Entfernungs-Rechner</h1>
+        <p class="breadcrumb"><a href="../index.html">Start</a> / Scripts</p>
+        <h1>Scripts</h1>
         <p class="lead" style="max-width:640px;">
-          Berechnet die Entfernung zwischen zwei Koordinaten in Feldern.
+          Userscripts für Die Stämme. Alle Scripts sind Bookmarklets: Du ziehst
+          einen Link in deine Lesezeichenleiste und klickst ihn im Spiel an. Es
+          wird nichts installiert – der Code läuft nur, solange die Spielseite
+          geöffnet ist.
         </p>
       </div>
     </section>
 
     <section style="padding-top:0;">
       <div class="container">
-        <div class="calc-layout">
-          <form class="panel" id="calc-form">
-            <div class="field">
-              <label for="from-coord">Von (Koordinate)</label>
-              <input type="text" id="from-coord" placeholder="500|500" value="500|500" required>
-            </div>
-            <div class="field" style="margin-bottom:0;">
-              <label for="to-coord">Nach (Koordinate)</label>
-              <input type="text" id="to-coord" placeholder="510|515" value="510|515" required>
-            </div>
-
-            <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:1.1rem;">Berechnen</button>
-            <p id="calc-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.8rem;"></p>
-          </form>
-
-          <div class="result-box" id="result-box">
-            <div class="result-sub">Entfernung</div>
-            <div class="result-big" id="result-distance">–</div>
-            <div class="result-sub" style="margin-top:0.5rem;" id="result-delta"></div>
-          </div>
+        <div class="grid">
+          <a class="card" href="clear-barbarian-walls.html">
+            <span class="icon">🏴</span>
+            <h3>Clear Barbarian Walls</h3>
+            <p>Findet Barbarendörfer mit Mauer aus dem Bauernhof-Assistenten und bereitet passende Angriffslinks je Mauerlevel vor.</p>
+          </a>
         </div>
       </div>
     </section>
@@ -73,6 +62,5 @@
   </footer>
 
   <script src="../assets/js/main.js"></script>
-  <script src="../assets/js/entfernung.js"></script>
 </body>
 </html>
