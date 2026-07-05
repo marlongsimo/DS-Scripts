@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clear Barbarian Walls – DS-Scripts</title>
+  <meta name="description" content="Findet Barbarendörfer mit Mauer aus dem Bauernhof-Assistenten und bereitet passende Angriffslinks je Mauerlevel vor.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Scripts</a> / Clear Barbarian Walls</p>
+
+        <div class="script-detail">
+          <div class="tag-row" style="margin-bottom:0.8rem;">
+            <span class="badge">v1.6.1 (Mod)</span>
+            <span class="badge">Barbarendörfer</span>
+            <span class="badge">Bauernhof-Assistent</span>
+          </div>
+          <h2>🏴 Clear Barbarian Walls</h2>
+          <p>
+            Liest den Bauernhof-Assistenten (alle konfigurierten Seiten) aus und
+            listet daraus alle Barbarendörfer mit bekannter oder unbekannter
+            Mauer auf – sortiert nach Entfernung, mit direktem Link zum
+            zugehörigen Spähbericht. Für jedes Dorf wird passend zum Mauerlevel
+            ein vorausgefüllter Angriffslink im Versammlungsplatz geöffnet
+            (Äxte, Rammen, ein Späher); den Angriff musst du dort selbst
+            bestätigen – es wird nichts automatisch abgeschickt.
+          </p>
+          <p>
+            Diese modifizierte Version passt die Truppenzahlen an: Äxte folgen
+            der Formel <code>25 × Mauerlevel</code> (Level 1 = 25, Level 2 = 50,
+            usw.), und liegt kein Spähbericht vor (Mauer unbekannt), werden die
+            Werte für Mauerlevel 2 als Sicherheitsannahme verwendet.
+          </p>
+
+          <div class="script-meta">
+            <div>
+              <span class="label">Version</span>
+              <span class="value">v1.6.1 (Mod)</span>
+            </div>
+            <div>
+              <span class="label">Autor</span>
+              <span class="value">RedAlert (twscripts.dev)</span>
+            </div>
+            <div>
+              <span class="label">Mod</span>
+              <span class="value">JawJaw</span>
+            </div>
+            <div>
+              <span class="label">Voraussetzung</span>
+              <span class="value">Bauernhof-Assistent + Premium aktiv</span>
+            </div>
+            <div>
+              <span class="label">Äxte je Mauerlevel</span>
+              <span class="value">25 × Mauerlevel</span>
+            </div>
+            <div>
+              <span class="label">Unbekannte Mauer</span>
+              <span class="value">wie Mauerlevel 2</span>
+            </div>
+          </div>
+
+          <h3>Installation</h3>
+          <div class="install-box">
+            <p style="margin-bottom:0.8rem;">
+              Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach im
+              Spiel den Bauernhof-Assistenten und klicke auf das Lesezeichen,
+              um das Script zu starten.
+            </p>
+            <a class="bookmarklet"
+               href="javascript:(function(){var s=document.createElement('script');s.src='https://marlongsimo.github.io/DS-Scripts/scripts/clearBarbarianWalls.js?v='+Date.now();document.body.appendChild(s);})();"
+               onclick="return false;"
+               title="In die Lesezeichenleiste ziehen">
+              🏴 Clear Barbarian Walls starten
+            </a>
+          </div>
+
+          <h3>Alternative: Browser-Konsole</h3>
+          <p>Im Spiel eingeloggt <code>F12</code> drücken, den Reiter „Konsole“ öffnen und folgende Zeile einfügen:</p>
+          <pre><code id="console-snippet">$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/clearBarbarianWalls.js')</code></pre>
+          <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
+
+          <h3 style="margin-top:1.6rem;">Quellcode</h3>
+          <p>
+            <a href="https://github.com/marlongsimo/DS-Scripts/blob/main/scripts/clearBarbarianWalls.js" target="_blank" rel="noopener">
+              scripts/clearBarbarianWalls.js auf GitHub ansehen ↗
+            </a>
+          </p>
+
+          <div class="note warn" style="margin-top:1.4rem;">
+            Nutzung auf eigene Verantwortung. Das Script zeigt nur Daten an und
+            öffnet vorausgefüllte Angriffslinks – abgeschickt wird ein Angriff
+            erst, wenn du ihn im Versammlungsplatz selbst bestätigst. Bitte
+            trotzdem vorab die Regeln deines Servers zu Skripten/Bookmarklets
+            prüfen.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+    document.getElementById('copy-snippet').addEventListener('click', function () {
+      var text = document.getElementById('console-snippet').textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copy-snippet');
+        var original = btn.textContent;
+        btn.textContent = '✅ Kopiert!';
+        setTimeout(function () { btn.textContent = original; }, 1800);
+      });
+    });
+  </script>
+</body>
+</html>
