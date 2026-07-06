@@ -23,7 +23,7 @@
 
 // User Input
 if (typeof DEBUG !== 'boolean')
-    DEBUG = false;
+    DEBUG = true;
 
 // Script Config
 var scriptConfig = {
