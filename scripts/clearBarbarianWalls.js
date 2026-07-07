@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.1 (modified)
+ * Version: v1.6.2 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -12,7 +12,13 @@
  * --- Änderungen in dieser Version ---
  * 1. UNITS_TO_SEND: Äxte folgen der Formel 25 * Mauerlevel (Level 1 = 25, Level 2 = 50, usw.)
  * 2. calculateUnitsToSend(): wenn kein Spähbericht vorliegt (wall === '?'),
- *    werden die Werte von Mauerlevel 2 verwendet.
+ *    werden die Werte von Mauerlevel 1 verwendet (25 Äxte, 4 Rammen).
+ * 3. Die einzelnen Angriffs-Links pro Barbarendorf wurden entfernt. Statt
+ *    dessen erzeugt das Script ein einziges Bookmarklet, das im
+ *    Versammlungsplatz wiederholt angeklickt wird und automatisch das
+ *    nächstgelegene, noch nicht abgearbeitete Barbarendorf mit passender
+ *    Truppenzahl einträgt (Fortschritt via localStorage, Key
+ *    "RA_CBW_used_coords").
  */
 
 /* Copyright (c) RedAlert
@@ -35,7 +41,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.1 (Mod)',
+    version: 'v1.6.2 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -90,8 +96,6 @@ var translations = {
         Distance: 'Distance',
         Wall: 'Wall',
         'Last Attack Time': 'Last Attack Time',
-        Actions: 'Actions',
-        Attack: 'Attack',
         'barbarian villages where found': 'barbarian villages where found',
         'Showing the first': 'Showing the first',
         'barbarian villages.': 'barbarian villages.',
@@ -104,6 +108,10 @@ var translations = {
         'Settings saved!': 'Settings saved!',
         'Include reports with partial losses':
             'Include reports with partial losses',
+        'Drag this to your bookmarks bar, then click it repeatedly on the Rally Point screen.':
+            'Drag this to your bookmarks bar, then click it repeatedly on the Rally Point screen.',
+        'Attack nearest barbarian': 'Attack nearest barbarian',
+        Reset: 'Reset',
     },
 };
 
@@ -131,9 +139,17 @@ async function initClearBarbarianWalls(store) {
             const faTableRows = getFATableRows(faPages);
             const barbarians = getFABarbarians(faTableRows);
 
-            const content = prepareContent(barbarians, MAX_BARBARIANS);
+            const { content, bookmarklet, resetBookmarklet } = prepareContent(
+                barbarians,
+                MAX_BARBARIANS
+            );
             renderUI(content);
             jQuery('#barbVillagesCount').text(barbarians.length);
+
+            if (bookmarklet) {
+                jQuery('#raBarbBookmarklet').attr('href', bookmarklet);
+                jQuery('#raBarbBookmarkletReset').attr('href', resetBookmarklet);
+            }
 
             // updateMap(barbarians); // entfernt: auf der FA-Seite (am_farm) existiert keine Karte
 
@@ -222,7 +238,11 @@ function updateMap(barbarians) {
 // Prepare content
 function prepareContent(villages, maxBarbsToShow) {
     if (villages.length) {
-        const barbsTable = buildBarbsTable(villages, maxBarbsToShow);
+        const shownVillages = villages.slice(0, maxBarbsToShow);
+        const barbsTable = buildBarbsTable(shownVillages, maxBarbsToShow);
+        const { bookmarklet, resetBookmarklet, count } =
+            buildBarbBookmarklet(shownVillages);
+
         var content = `
 			<div>
 				<p>
@@ -237,13 +257,28 @@ function prepareContent(villages, maxBarbsToShow) {
 			<div class="ra-table-container">
 				${barbsTable}
 			</div>
+			<div class="ra-mb15" style="margin-top:10px;">
+				<p>${tt(
+                    'Drag this to your bookmarks bar, then click it repeatedly on the Rally Point screen.'
+                )}</p>
+				<a href="javascript:void(0);" id="raBarbBookmarklet" class="btn btn-confirm-yes">
+					⚔ ${tt('Attack nearest barbarian')} (${count})
+				</a>
+				<a href="javascript:void(0);" id="raBarbBookmarkletReset" class="btn">
+					↺ ${tt('Reset')}
+				</a>
+			</div>
 		`;
 
-        return content;
+        return { content, bookmarklet, resetBookmarklet };
     } else {
-        return `<b>${tt(
-            'No barbarian villages found fitting the criteria!'
-        )}</b>`;
+        return {
+            content: `<b>${tt(
+                'No barbarian villages found fitting the criteria!'
+            )}</b>`,
+            bookmarklet: null,
+            resetBookmarklet: null,
+        };
     }
 }
 
@@ -302,9 +337,6 @@ function renderUI(body) {
 
 			/* Helpers */
             .ra-mb15 { margin-bottom: 15px; }
-
-			/* Elements */
-			.already-sent-command { opacity: 0.6; }
         </style>
     `;
 
@@ -417,9 +449,6 @@ function buildBarbsTable(villages, maxBarbsToShow) {
 					<th>
 						${tt('Last Attack Time')}
 					</th>
-					<th>
-						${tt('Actions')}
-					</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -430,11 +459,8 @@ function buildBarbsTable(villages, maxBarbsToShow) {
         const { villageId, coord, wall, reportId, reportTime, type, distance } =
             village;
 
-        const unitsToSend = calculateUnitsToSend(wall);
-
         const villageUrl = `${game_data.link_base_pure}info_village&id=${villageId}`;
         const reportUrl = `${game_data.link_base_pure}report&mode=all&view=${reportId}`;
-        const commandUrl = `${game_data.link_base_pure}place&target=${villageId}${unitsToSend}&wall=${wall}`;
 
         barbsTable += `
 			<tr>
@@ -463,11 +489,6 @@ function buildBarbsTable(villages, maxBarbsToShow) {
 				<td>
 					${reportTime}
 				</td>
-				<td>
-					<a href="${commandUrl}" onClick="highlightOpenedCommands(this);" class="ra-clear-barb-wall-btn btn" target="_blank" rel="noopener noreferrer">
-						${tt('Attack')}
-					</a>
-				</td>
 			</tr>
 		`;
     });
@@ -480,11 +501,74 @@ function buildBarbsTable(villages, maxBarbsToShow) {
     return barbsTable;
 }
 
-// Action Handler: Highlight Opened Commands
-function highlightOpenedCommands(element) {
-    element.classList.add('btn-confirm-yes');
-    element.classList.add('btn-already-sent');
-    element.parentElement.parentElement.classList.add('already-sent-command');
+// Build the "attack nearest barbarian" bookmarklet (+ its reset counterpart).
+// Embeds one {coord, axe, ram, spy} entry per village so the troop counts can
+// differ per target based on that village's own wall level. Used exactly like
+// the Rally Point bookmarklet: click it repeatedly while on the Rally Point
+// screen, it fills in the nearest not-yet-used barbarian each time (progress
+// tracked in localStorage, separate key so it doesn't collide with other
+// nearest-target bookmarklets).
+function buildBarbBookmarklet(villages) {
+    const storageKey = 'RA_CBW_used_coords';
+
+    const targets = villages.map((village) => {
+        const units = calculateUnitsToSend(village.wall);
+        return {
+            coord: village.coord,
+            axe: units.axe,
+            ram: units.ram,
+            spy: units.spy,
+        };
+    });
+
+    const bookmarklet =
+        'javascript:(function(){' +
+        `var used=JSON.parse(localStorage.getItem('${storageKey}')||'[]');` +
+        `var targets=${JSON.stringify(targets)};` +
+        'var remaining=targets.filter(function(t){return used.indexOf(t.coord)===-1;});' +
+        'if(remaining.length===0){' +
+        "if(confirm('Alle Barbarendörfer abgearbeitet! Zurücksetzen?')){" +
+        `localStorage.removeItem('${storageKey}');` +
+        "alert('Zurückgesetzt!');" +
+        '}' +
+        '}else{' +
+        'var doc=document;' +
+        'if(window.frames.length>0&&window.main!=null)doc=window.main.document;' +
+        "if(doc.URL.indexOf('screen=place')===-1){" +
+        "alert('Bitte im Versammlungsplatz verwenden!');" +
+        '}else{' +
+        'var titleMatch=document.title.match(/\\((\\d+)\\|(\\d+)\\)/);' +
+        'if(!titleMatch){' +
+        "alert('Dorfkoordinaten nicht gefunden!');" +
+        '}else{' +
+        'var myX=parseInt(titleMatch[1]);' +
+        'var myY=parseInt(titleMatch[2]);' +
+        'var best=null;' +
+        'var bestDist=Infinity;' +
+        'remaining.forEach(function(t){' +
+        "var p=t.coord.split('|');" +
+        'var dx=parseInt(p[0])-myX;' +
+        'var dy=parseInt(p[1])-myY;' +
+        'var dist=Math.sqrt(dx*dx+dy*dy);' +
+        'if(dist<bestDist){bestDist=dist;best=t;}' +
+        '});' +
+        'used.push(best.coord);' +
+        `localStorage.setItem('${storageKey}',JSON.stringify(used));` +
+        "var coords=best.coord.split('|');" +
+        'doc.forms[0].x.value=coords[0];' +
+        'doc.forms[0].y.value=coords[1];' +
+        'doc.forms[0].axe.value=best.axe;' +
+        'doc.forms[0].ram.value=best.ram;' +
+        'doc.forms[0].spy.value=best.spy;' +
+        'end();' +
+        '}' +
+        '}' +
+        '}' +
+        '})();';
+
+    const resetBookmarklet = `javascript:localStorage.removeItem('${storageKey}');alert('Zurückgesetzt!');`;
+
+    return { bookmarklet, resetBookmarklet, count: targets.length };
 }
 
 // Helper: Get FA pages URLs for AJAX
@@ -594,19 +678,29 @@ function getFABarbarians(rows) {
     return barbarians;
 }
 
+// Helper: Parse a "&axe=..&ram=..&spy=.." unit string into {axe, ram, spy}
+function parseUnitsString(unitsString) {
+    const params = new URLSearchParams(unitsString);
+    return {
+        axe: parseInt(params.get('axe')) || 0,
+        ram: parseInt(params.get('ram')) || 0,
+        spy: parseInt(params.get('spy')) || 0,
+    };
+}
+
 // Helper: Calculate units to send based on wall level
 function calculateUnitsToSend(wall) {
     let wallToUnitAmounts = UNITS_TO_SEND;
 
-    // Kein Spähbericht vorhanden -> wie Mauerlevel 2 behandeln
+    // Kein Spähbericht vorhanden -> wie Mauerlevel 1 behandeln (25 Äxte, 4 Rammen)
     if (wall === '?') {
-        return wallToUnitAmounts[2];
+        return parseUnitsString(wallToUnitAmounts[1]);
     }
 
     if (wallToUnitAmounts[wall] !== undefined) {
-        return wallToUnitAmounts[wall];
+        return parseUnitsString(wallToUnitAmounts[wall]);
     } else {
-        return `&axe=500&ram=100&spy=1`;
+        return parseUnitsString('&axe=500&ram=100&spy=1');
     }
 }
 
