@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Clear Barbarian Walls – DS-Scripts</title>
-  <meta name="description" content="Findet Barbarendörfer mit Mauer aus dem Bauernhof-Assistenten und bereitet passende Angriffslinks je Mauerlevel vor.">
+  <meta name="description" content="Findet Barbarendörfer mit Mauer aus dem Bauernhof-Assistenten und erzeugt ein Bookmarklet, das im Versammlungsplatz automatisch die passende Truppenzahl je Mauerlevel einträgt.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,7 +34,7 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.6.1 (Mod)</span>
+            <span class="badge">v1.6.2 (Mod)</span>
             <span class="badge">Barbarendörfer</span>
             <span class="badge">Bauernhof-Assistent</span>
           </div>
@@ -43,22 +43,26 @@
             Liest den Bauernhof-Assistenten (alle konfigurierten Seiten) aus und
             listet daraus alle Barbarendörfer mit bekannter oder unbekannter
             Mauer auf – sortiert nach Entfernung, mit direktem Link zum
-            zugehörigen Spähbericht. Für jedes Dorf wird passend zum Mauerlevel
-            ein vorausgefüllter Angriffslink im Versammlungsplatz geöffnet
-            (Äxte, Rammen, ein Späher); den Angriff musst du dort selbst
-            bestätigen – es wird nichts automatisch abgeschickt.
+            zugehörigen Spähbericht. Statt einzelner Angriffslinks pro Dorf
+            erzeugt das Script ein einziges Bookmarklet: im Versammlungsplatz
+            gezogen/eingefügt und wiederholt angeklickt, trägt es automatisch
+            das nächstgelegene, noch nicht abgearbeitete Barbarendorf mit der
+            zum Mauerlevel passenden Truppenzahl ein (Äxte, Rammen, ein
+            Späher) – den Angriff musst du dort selbst bestätigen, es wird
+            nichts automatisch abgeschickt. Der Fortschritt bleibt im Browser
+            gespeichert (auch nach einem Reload).
           </p>
           <p>
             Diese modifizierte Version passt die Truppenzahlen an: Äxte folgen
             der Formel <code>25 × Mauerlevel</code> (Level 1 = 25, Level 2 = 50,
             usw.), und liegt kein Spähbericht vor (Mauer unbekannt), werden die
-            Werte für Mauerlevel 2 als Sicherheitsannahme verwendet.
+            Werte für Mauerlevel 1 verwendet (25 Äxte, 4 Rammen).
           </p>
 
           <div class="script-meta">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.6.1 (Mod)</span>
+              <span class="value">v1.6.2 (Mod)</span>
             </div>
             <div>
               <span class="label">Autor</span>
@@ -78,7 +82,11 @@
             </div>
             <div>
               <span class="label">Unbekannte Mauer</span>
-              <span class="value">wie Mauerlevel 2</span>
+              <span class="value">25 Äxte + 4 Rammen (wie Mauerlevel 1)</span>
+            </div>
+            <div>
+              <span class="label">Bedienung</span>
+              <span class="value">Erst im Bauernhof-Assistenten scannen lassen, dann das erzeugte Bookmarklet im Versammlungsplatz nutzen</span>
             </div>
           </div>
 
@@ -86,8 +94,9 @@
           <div class="install-box">
             <p style="margin-bottom:0.8rem;">
               Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach im
-              Spiel den Bauernhof-Assistenten und klicke auf das Lesezeichen,
-              um das Script zu starten.
+              Spiel den Bauernhof-Assistenten – das Script scannt automatisch
+              und zeigt am Ende der Übersicht ein neu generiertes Bookmarklet
+              an, das du dann im Versammlungsplatz wiederholt anklickst.
             </p>
             <a class="bookmarklet"
                href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/clearBarbarianWalls.js');"
@@ -132,11 +141,11 @@
           </p>
 
           <div class="note warn" style="margin-top:1.4rem;">
-            Nutzung auf eigene Verantwortung. Das Script zeigt nur Daten an und
-            öffnet vorausgefüllte Angriffslinks – abgeschickt wird ein Angriff
-            erst, wenn du ihn im Versammlungsplatz selbst bestätigst. Bitte
-            trotzdem vorab die Regeln deines Servers zu Skripten/Bookmarklets
-            prüfen.
+            Nutzung auf eigene Verantwortung. Das erzeugte Bookmarklet trägt
+            nur Koordinaten und Truppenzahlen in den Versammlungsplatz ein –
+            abgeschickt wird ein Angriff erst, wenn du ihn dort selbst
+            bestätigst. Bitte trotzdem vorab die Regeln deines Servers zu
+            Skripten/Bookmarklets prüfen.
           </div>
         </div>
       </div>
