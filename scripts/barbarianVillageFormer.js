@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.3
+ * Version: v1.4
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -59,6 +59,18 @@
  *     fehl, obwohl schon Berichte auf früheren Seiten gefunden wurden, wird
  *     jetzt ein sichtbarer Warnhinweis samt Diagnosedaten ins Panel
  *     gerendert (vorher wurde dieser Fall stillschweigend übergangen).
+ * 15. fetchReportListPages() nutzte für die erste Seite die selbst
+ *     zusammengebaute URL (link_base_pure + 'report&mode=attack'). Live
+ *     hat sich gezeigt, dass diese URL in der App keine Berichte-Liste
+ *     liefert, sondern einen einzelnen Bericht - obwohl die manuelle
+ *     App-Navigation zur gleichen Ansicht dort korrekt eine Liste zeigt.
+ *     findReportListNavLink() sucht jetzt zuerst im aktuellen (App-)DOM
+ *     nach einem echten Navigations-Link zu den Angriffsberichten (bzw.
+ *     ersatzweise irgendeinem Berichte-Link) und nutzt nur, wenn keiner
+ *     gefunden wird, die selbst zusammengebaute URL als Rückfallebene.
+ *     Außerdem: eine "0 Report-Links auf Seite 1"-Diagnose wird jetzt
+ *     wieder verworfen, sobald eine spätere Seite echte Treffer bringt,
+ *     statt widersprüchlich neben der Erfolgsmeldung stehen zu bleiben.
  */
 
 // User Input
@@ -70,7 +82,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.3',
+        version: 'v1.4',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -962,10 +974,42 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     // (statt alle Seiten-URLs im Voraus zu berechnen), da unklar ist, ob die
     // Paginierung über einen linearen Seitenindex oder einen Zeilen-Offset
     // läuft.
+    // Sucht im aktuell angezeigten (App-)DOM nach einem echten Navigations-
+    // Link zu den Angriffsberichten (z.B. im Spiel-Hauptmenü) - dieser Link
+    // ist garantiert korrekt, da es der gleiche ist, den man beim manuellen
+    // Antippen in der App-Navigation auch benutzt. Die selbst zusammen-
+    // gebaute URL (link_base_pure + 'report&mode=attack') hat sich live als
+    // nicht zuverlässig herausgestellt: sie lieferte statt der Berichte-
+    // Liste einen einzelnen Bericht zurück, obwohl die manuelle App-
+    // Navigation zur gleichen Ansicht dort eine echte Liste zeigt.
+    function findReportListNavLink() {
+        let navHref = null;
+        jQuery('a[href*="screen=report"]').each(function () {
+            const href = jQuery(this).attr('href');
+            if (href && href.indexOf('view=') === -1 && href.indexOf('mode=attack') !== -1) {
+                navHref = href;
+                return false; // .each() abbrechen, ersten Treffer nehmen
+            }
+        });
+        if (navHref) {
+            return navHref;
+        }
+        // Kein Link speziell für "Angriffsberichte" gefunden - notfalls
+        // irgendeinen Berichte-Navigations-Link nehmen (z.B. "Alle Berichte").
+        jQuery('a[href*="screen=report"]').each(function () {
+            const href = jQuery(this).attr('href');
+            if (href && href.indexOf('view=') === -1) {
+                navHref = href;
+                return false;
+            }
+        });
+        return navHref;
+    }
+
     async function fetchReportListPages(maxReportPagesToFetch) {
         const reportUrls = [];
         let debugInfo = '';
-        let currentUrl = game_data.link_base_pure + 'report&mode=attack';
+        let currentUrl = findReportListNavLink() || game_data.link_base_pure + 'report&mode=attack';
         let pageCount = 0;
 
         while (currentUrl && pageCount < maxReportPagesToFetch) {
@@ -994,7 +1038,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             reportUrls.push(...rowLinks);
             pageCount++;
 
-            if (pageCount === 1 && rowLinks.length === 0) {
+            if (rowLinks.length > 0) {
+                // Diese Seite hatte Treffer - eine evtl. vorherige "0 Treffer"-
+                // Diagnose ist damit überholt und darf nicht mehr angezeigt werden.
+                debugInfo = '';
+            } else if (pageCount === 1) {
                 const rawSample = typeof html === 'string' ? html : '';
                 debugInfo = `0 Report-Links auf der ersten Berichte-Seite gefunden.\n\nBeispiel-Inhalt (bitte zurückmelden):\n${rawSample.slice(
                     0,
