@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.7.1 (modified)
+ * Version: v1.7.2 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -63,6 +63,11 @@
  *     weiterhin unabhängig von der Berichtsfarbe) - diesmal mit dem
  *     tatsächlichen Icon-Dateinamen ("dots/green@2x.webp" statt der falsch
  *     angenommenen "green.webp").
+ * 14. Zusätzlich zu den ziehbaren Bookmarklet-Links gibt es jetzt je ein
+ *     schreibgeschütztes Textfeld mit dem fertigen Bookmarklet-Code plus
+ *     einen "Kopieren"-Button - in der mobilen App lässt sich nichts in
+ *     eine Lesezeichenleiste ziehen, daher muss der Code stattdessen in
+ *     ein manuell angelegtes Lesezeichen eingefügt werden können.
  */
 
 /* Copyright (c) RedAlert
@@ -85,7 +90,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.7.1 (Mod)',
+    version: 'v1.7.2 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -159,6 +164,11 @@ var translations = {
             'Drag this to your bookmarks bar, then click it repeatedly on the Rally Point screen.',
         'Attack nearest barbarian': 'Attack nearest barbarian',
         Reset: 'Reset',
+        'Or copy the code below into a manually created bookmark (e.g. on mobile, where dragging does not work):':
+            'Or copy the code below into a manually created bookmark (e.g. on mobile, where dragging does not work):',
+        Copy: 'Copy',
+        'Copy Reset': 'Copy Reset',
+        'Copied!': 'Copied!',
     },
 };
 
@@ -226,6 +236,9 @@ async function initClearBarbarianWalls(store) {
             if (bookmarklet) {
                 jQuery('#raBarbBookmarklet').attr('href', bookmarklet);
                 jQuery('#raBarbBookmarkletReset').attr('href', resetBookmarklet);
+                jQuery('#raBarbBookmarkletCode').val(bookmarklet);
+                jQuery('#raBarbBookmarkletResetCode').val(resetBookmarklet);
+                attachCopyBookmarkletHandlers();
             }
 
             // updateMap(barbarians); // entfernt: auf der FA-Seite (am_farm) existiert keine Karte
@@ -357,6 +370,17 @@ function prepareContent(villages, maxBarbsToShow, debugInfo) {
 				<a href="javascript:void(0);" id="raBarbBookmarkletReset" class="btn">
 					↺ ${tt('Reset')}
 				</a>
+				<p style="margin-top:10px;">${tt(
+                    'Or copy the code below into a manually created bookmark (e.g. on mobile, where dragging does not work):'
+                )}</p>
+				<div style="margin-bottom:8px;">
+					<textarea id="raBarbBookmarkletCode" readonly rows="2" style="width:100%; font-size:11px; word-break:break-all; box-sizing:border-box;"></textarea>
+					<a href="javascript:void(0);" id="raCopyBookmarklet" class="btn">📋 ${tt('Copy')}</a>
+				</div>
+				<div>
+					<textarea id="raBarbBookmarkletResetCode" readonly rows="2" style="width:100%; font-size:11px; word-break:break-all; box-sizing:border-box;"></textarea>
+					<a href="javascript:void(0);" id="raCopyBookmarkletReset" class="btn">📋 ${tt('Copy Reset')}</a>
+				</div>
 			</div>
 		`;
 
@@ -466,6 +490,53 @@ function getUiContainerSelector() {
 }
 
 // Action Handlers: Show Settings Panel
+// Action Handlers: Copy bookmarklet code (e.g. for manual bookmarks on mobile)
+function attachCopyBookmarkletHandlers() {
+    jQuery('#raCopyBookmarklet').on('click', function (e) {
+        e.preventDefault();
+        copyBookmarkletCode('raBarbBookmarkletCode', this);
+    });
+    jQuery('#raCopyBookmarkletReset').on('click', function (e) {
+        e.preventDefault();
+        copyBookmarkletCode('raBarbBookmarkletResetCode', this);
+    });
+}
+
+function copyBookmarkletCode(textareaId, buttonEl) {
+    const textarea = document.getElementById(textareaId);
+    if (!textarea) return;
+
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    // execCommand as the primary path: alert()/confirm() are known to not
+    // work in the mobile app's WebView, so the async clipboard API's
+    // permission prompt (if any) might be just as invisible there.
+    // execCommand runs synchronously within the click handler and the
+    // textarea stays visible/selected either way, so the text can always
+    // be copied manually as a fallback.
+    let success = false;
+    try {
+        success = document.execCommand('copy');
+    } catch (e) {
+        success = false;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textarea.value).catch(function () {});
+    }
+
+    if (buttonEl) {
+        const original = buttonEl.innerHTML;
+        if (success) {
+            buttonEl.innerHTML = '✅ ' + tt('Copied!');
+            setTimeout(function () {
+                buttonEl.innerHTML = original;
+            }, 1500);
+        }
+    }
+}
+
 function showSettingsPanel(store) {
     jQuery('#showSettingsPanel').on('click', function (e) {
         e.preventDefault();
