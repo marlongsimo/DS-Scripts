@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.5 (modified)
+ * Version: v1.6.6 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -34,6 +34,11 @@
  *    Pagination-Links – bei vielen Seiten wird mit "..." abgekürzt
  *    (z.B. "1 2 3 ... 22 23"), wodurch die reine Linkanzahl die
  *    tatsächliche Seitenzahl deutlich unterschätzt hat.
+ * 7. getFABarbarians() überspringt jetzt einzelne Zeilen mit unerwarteter
+ *    Struktur (z.B. fehlendes Koordinaten-Match) statt den gesamten Scan
+ *    abzubrechen. Zusätzlich zeigt der Fehlerfall beim Laden/Verarbeiten
+ *    jetzt den echten Fehlertext per alert() an, damit er sich auch ohne
+ *    Zugriff auf die Browser-/App-Konsole ablesen lässt.
  */
 
 /* Copyright (c) RedAlert
@@ -56,7 +61,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.5 (Mod)',
+    version: 'v1.6.6 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -172,8 +177,15 @@ async function initClearBarbarianWalls(store) {
             showSettingsPanel(store);
         },
         function (error) {
-            UI.ErrorMessage('Error fetching FA pages!');
             console.error(`${scriptInfo()} Error:`, error);
+            // Fehlerdetails zusätzlich sichtbar machen: in der App gibt es oft
+            // keinen Zugriff auf die Browser-Konsole, ohne diesen Text lässt
+            // sich das Problem sonst nicht zurückmelden.
+            const details =
+                (error && (error.message || error.statusText)) ||
+                String(error);
+            alert(`${scriptInfo()} Fehler beim Laden/Verarbeiten:\n\n${details}`);
+            UI.ErrorMessage('Error fetching FA pages!');
         }
     );
 }
@@ -657,52 +669,64 @@ function getFABarbarians(rows) {
     let barbarians = [];
 
     rows.forEach((row) => {
-        let shouldAdd = false;
+        // Einzelne Zeilen überspringen statt den ganzen Scan abzubrechen, falls
+        // eine Zeile nicht der erwarteten Struktur entspricht (z.B. fehlendes
+        // Koordinaten-Match) - gleiches Vorgehen wie im Schwester-Script
+        // "Barbarian Village Former" beim Auswerten einzelner Berichte.
+        try {
+            let shouldAdd = false;
 
-        let villageId = parseInt(
-            getParameterByName(
-                'target',
-                window.location.origin +
-                    jQuery(row).find('td').last().find('a').attr('href')
-            )
-        );
-        let coord = jQuery(row)
-            .find('td:eq(3) a')
-            .text()
-            .match(COORDS_REGEX)[0];
-        let wall = jQuery(row).find('td:eq(6)').text();
-        let distance = jQuery(row).find('td:eq(7)').text().trim();
-        let reportId = parseInt(
-            getParameterByName(
-                'view',
-                window.location.origin +
-                    jQuery(row).find('td:eq(3) a').attr('href')
-            )
-        );
-        let reportTime = jQuery(row).find('td:eq(4)').text().trim();
-        let type = jQuery(row).find('td:eq(1) img').attr('src');
-
-        const isGreenReportWithUnknownWall =
-            wall === '?' && type.includes('green.webp');
-
-        if (parseInt(wall) > 0 || wall === '?') {
-            shouldAdd = true;
-            if (isGreenReportWithUnknownWall) {
-                // do not show green reports with unknown wall on the table
-                shouldAdd = false;
+            let villageId = parseInt(
+                getParameterByName(
+                    'target',
+                    window.location.origin +
+                        jQuery(row).find('td').last().find('a').attr('href')
+                )
+            );
+            const coordMatch = jQuery(row)
+                .find('td:eq(3) a')
+                .text()
+                .match(COORDS_REGEX);
+            if (!coordMatch) {
+                return;
             }
-        }
+            let coord = coordMatch[0];
+            let wall = jQuery(row).find('td:eq(6)').text();
+            let distance = jQuery(row).find('td:eq(7)').text().trim();
+            let reportId = parseInt(
+                getParameterByName(
+                    'view',
+                    window.location.origin +
+                        jQuery(row).find('td:eq(3) a').attr('href')
+                )
+            );
+            let reportTime = jQuery(row).find('td:eq(4)').text().trim();
+            let type = jQuery(row).find('td:eq(1) img').attr('src') || '';
 
-        if (shouldAdd) {
-            barbarians.push({
-                villageId: villageId,
-                coord: coord,
-                distance: distance,
-                wall: wall,
-                reportId: reportId,
-                reportTime: reportTime,
-                type: type,
-            });
+            const isGreenReportWithUnknownWall =
+                wall === '?' && type.includes('green.webp');
+
+            if (parseInt(wall) > 0 || wall === '?') {
+                shouldAdd = true;
+                if (isGreenReportWithUnknownWall) {
+                    // do not show green reports with unknown wall on the table
+                    shouldAdd = false;
+                }
+            }
+
+            if (shouldAdd) {
+                barbarians.push({
+                    villageId: villageId,
+                    coord: coord,
+                    distance: distance,
+                    wall: wall,
+                    reportId: reportId,
+                    reportTime: reportTime,
+                    type: type,
+                });
+            }
+        } catch (e) {
+            console.warn(`${scriptInfo()} Zeile übersprungen (unerwartete Struktur):`, e);
         }
     });
 
