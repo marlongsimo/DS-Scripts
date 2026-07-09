@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.7 (modified)
+ * Version: v1.6.8 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -46,6 +46,9 @@
  * 9. Zeigt eine Debug-Meldung mit der ersten Zeilen-HTML an, wenn Zeilen
  *    gefunden wurden, aber keine davon als Barbarendorf erkannt wird -
  *    Hilfe zur Ferndiagnose ohne Konsolen-Zugriff (z.B. in der App).
+ * 10. Zeigt zusätzlich eine Debug-Meldung mit den rohen AJAX-Fragmenten an,
+ *     wenn schon vor dem Zeilen-Parsing gar keine Zeilen herauskommen -
+ *     tiefere Ferndiagnose-Stufe als Punkt 9.
  */
 
 /* Copyright (c) RedAlert
@@ -68,7 +71,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.7 (Mod)',
+    version: 'v1.6.8 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -167,6 +170,22 @@ async function initClearBarbarianWalls(store) {
         },
         function () {
             const faTableRows = getFATableRows(faPages);
+
+            if (faTableRows.length === 0) {
+                // Diagnose-Hilfe: es kamen schon vor dem Barbarendorf-Filter
+                // keine auswertbaren Zeilen aus den AJAX-Antworten heraus.
+                // Zeigt die rohen Fragmente an, um die tatsächliche
+                // Antwortstruktur der App sichtbar zu machen.
+                const rawSample = faPages.slice(0, 3).join('\n---\n');
+                console.warn(
+                    `${scriptInfo()} 0 Zeilen aus ${faPages.length} Roh-Fragmenten geparst. Beispiel:`,
+                    rawSample
+                );
+                alert(
+                    `${scriptInfo()} Debug: 0 Zeilen aus ${faPages.length} Fragmenten geparst.\n\nBeispiel-Inhalt (bitte zurückmelden):\n${rawSample.slice(0, 1500)}`
+                );
+            }
+
             const barbarians = getFABarbarians(faTableRows);
 
             if (barbarians.length === 0 && faTableRows.length > 0) {
