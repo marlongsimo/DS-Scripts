@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.7.0 (modified)
+ * Version: v1.7.1 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -57,8 +57,12 @@
  *     Bericht als 3 Zeilen (Haupt-Zeile mit id="village_<reportId>" + zwei
  *     Folgezeilen für Zeitstempel/Vorlagen-Buttons, die sich per rowspan die
  *     Mauer-/Distanz-Zelle teilen) statt der festen 8-Spalten-Struktur der
- *     Desktop-Tabelle. Außerdem entfällt der Ausschluss "grüner Bericht +
- *     unbekannte Mauer" - solche Dörfer sollen ebenfalls angezeigt werden.
+ *     Desktop-Tabelle.
+ * 13. Ausschluss "grüner Bericht + unbekannte Mauer" wieder eingebaut (bei
+ *     wall === '?' nur rote/gelbe Berichte aufnehmen, bekannte Mauer >0
+ *     weiterhin unabhängig von der Berichtsfarbe) - diesmal mit dem
+ *     tatsächlichen Icon-Dateinamen ("dots/green@2x.webp" statt der falsch
+ *     angenommenen "green.webp").
  */
 
 /* Copyright (c) RedAlert
@@ -81,7 +85,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.7.0 (Mod)',
+    version: 'v1.7.1 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -800,7 +804,14 @@ function getFABarbarians(rows) {
                 reportTime = jQuery(nextRow).text().trim();
             }
 
-            if (parseInt(wall) > 0 || wall === '?') {
+            // Bei unbekannter Mauer (wall === '?') nur bei rotem/gelbem Bericht
+            // aufnehmen, nicht bei grünem (Icon-Datei z.B. ".../dots/green@2x.webp").
+            // Bei bekannter Mauer (>0) spielt die Berichtsfarbe keine Rolle.
+            const isGreenReport = type.indexOf('/green') !== -1;
+            const shouldAdd =
+                wall === '?' ? !isGreenReport : parseInt(wall) > 0;
+
+            if (shouldAdd) {
                 barbarians.push({
                     villageId: villageId,
                     coord: coord,
