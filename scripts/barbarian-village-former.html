@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Barbarian Village Former – DS-Scripts</title>
-  <meta name="description" content="Wertet Angriffsberichte gegen Barbarendörfer aus und erzeugt eine Workbench-Befehlsliste, um Mauer und Gebäude gezielt herunterzukatapultieren.">
+  <meta name="description" content="Startet vom Versammlungsplatz aus (auch mobil), wertet Angriffsberichte gegen Barbarendörfer aus und erzeugt eine Workbench-Befehlsliste, um Mauer und Gebäude gezielt herunterzukatapultieren.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,20 +34,23 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.1</span>
+            <span class="badge">v1.2</span>
             <span class="badge">Barbarendörfer</span>
             <span class="badge">Berichte-Auswertung</span>
           </div>
           <h2>🏴 Barbarian Village Former</h2>
           <p>
-            Liest deine Angriffsberichte (Berichte-Übersicht im Modus
-            „Angriffsberichte") aus, ermittelt daraus über die enthaltenen
-            Spähdaten Mauer- und Gebäudelevel von Barbarendörfern und
-            berechnet passende Truppenkombinationen aus einer gewählten
-            Dorf-Gruppe: erst die Mauer mit Rammen/Äxten brechen, danach
-            das gewählte Gebäude in mehreren Schritten mit Katapulten
-            herunterstufen (bis zu einem Mindestlevel, in wählbaren
-            Level-Schritten pro Befehl).
+            Wird jetzt vom <strong>Versammlungsplatz</strong> aus gestartet
+            (nicht mehr von der Berichte-Übersicht) und lädt deine
+            Angriffsberichte gegen Barbarendörfer im Hintergrund automatisch
+            über alle Seiten der Berichte-Liste nach. Aus den enthaltenen
+            Spähdaten ermittelt es Mauer- und Gebäudelevel der
+            Barbarendörfer und berechnet passende Truppenkombinationen aus
+            einer gewählten Dorf-Gruppe: erst die Mauer mit Rammen/Äxten
+            brechen, danach das gewählte Gebäude in mehreren Schritten mit
+            Katapulten herunterstufen (bis zu einem Mindestlevel, in
+            wählbaren Level-Schritten pro Befehl). Läuft jetzt auch in der
+            mobilen Tribal-Wars-App.
           </p>
           <p>
             Das Ergebnis ist eine Liste fertiger Workbench-Befehle
@@ -60,7 +63,7 @@
           <div class="script-meta">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.1</span>
+              <span class="value">v1.2</span>
             </div>
             <div>
               <span class="label">Autor</span>
@@ -72,7 +75,7 @@
             </div>
             <div>
               <span class="label">Voraussetzung</span>
-              <span class="value">Berichte-Übersicht, Modus „Angriffsberichte" (Spähberichte gegen Barbarendörfer)</span>
+              <span class="value">Versammlungsplatz geöffnet, vorhandene Angriffsberichte gegen Barbarendörfer mit Spähdaten</span>
             </div>
             <div>
               <span class="label">Ausgabeformat</span>
@@ -84,8 +87,8 @@
           <div class="install-box">
             <p style="margin-bottom:0.8rem;">
               Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach
-              im Spiel die Berichte-Übersicht im Modus „Angriffsberichte"
-              und klicke auf das Lesezeichen, um das Script zu starten.
+              im Spiel den Versammlungsplatz und klicke auf das
+              Lesezeichen, um das Script zu starten.
             </p>
             <a class="bookmarklet"
                href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/barbarianVillageFormer.js');"
@@ -111,7 +114,7 @@
             <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
             <li>Das Adressfeld leeren und den oben kopierten Code einfügen. Als Namen z.B. „Barbarian Village Former“ eintragen und speichern.</li>
             <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben – es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
-            <li>Im Spiel in der Berichte-Übersicht (Modus „Angriffsberichte") einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
+            <li>Im Spiel am Versammlungsplatz einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
           </ol>
 
           <p><strong>Android (Chrome):</strong></p>
@@ -119,7 +122,7 @@
             <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
             <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben kopierten Code ersetzen, Namen anpassen und speichern.</li>
             <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
-            <li>Im Spiel in der Berichte-Übersicht das Lesezeichen aus der Leiste antippen.</li>
+            <li>Im Spiel am Versammlungsplatz das Lesezeichen aus der Leiste antippen.</li>
           </ol>
 
           <h3 style="margin-top:1.6rem;">Quellcode</h3>
