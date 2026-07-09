@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.3 (modified)
+ * Version: v1.6.4 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -24,6 +24,11 @@
  *    Assistent nicht immer mit einem klassischen ?screen=am_farm in der
  *    für window.location sichtbaren URL geladen, wodurch das Script dort
  *    das Farm-Assistent-Screen nicht erkannt hat.
+ * 5. renderUI()/startProgressBar() fügen das Overlay jetzt in #mobileContent
+ *    statt #contentContainer ein, wenn mobiledevice true ist (mobile
+ *    App/Ansicht hat kein #contentContainer) – vorher schlug das Einfügen
+ *    dort lautlos fehl, weshalb nach dem Redirect zum Bauernhof-Assistenten
+ *    scheinbar gar nichts mehr passierte.
  */
 
 /* Copyright (c) RedAlert
@@ -46,7 +51,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.3 (Mod)',
+    version: 'v1.6.4 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -346,10 +351,20 @@ function renderUI(body) {
     `;
 
     if (jQuery('#raClearBarbWalls').length < 1) {
-        jQuery('#contentContainer').prepend(content);
+        jQuery(getUiContainerSelector()).prepend(content);
     } else {
         jQuery('.ra-clear-barbs-walls-body').html(body);
     }
+}
+
+// Helper: In der mobilen App/Ansicht gibt es kein #contentContainer, dafür
+// #mobileContent (gleiche Unterscheidung wie im gehosteten Script
+// "Barbarian Village Former"). Ohne diese Unterscheidung landet das
+// eingefügte HTML nirgends und es passiert scheinbar gar nichts.
+function getUiContainerSelector() {
+    return typeof mobiledevice !== 'undefined' && mobiledevice
+        ? '#mobileContent'
+        : '#contentContainer';
 }
 
 // Action Handlers: Show Settings Panel
@@ -752,7 +767,8 @@ $.fetchAll = function (
 
 // Helper: Progress bar UI
 function startProgressBar(total) {
-    const width = jQuery('#contentContainer')[0].clientWidth;
+    const container = jQuery(getUiContainerSelector())[0];
+    const width = container ? container.clientWidth : 0;
     const preloaderContent = `
 		<div id="progressbar" class="progress-bar" style="margin-bottom:12px;">
         	<span class="count label">0/${total}</span>
@@ -763,7 +779,7 @@ function startProgressBar(total) {
 			</div>
     	</div>
 	`;
-    $('#contentContainer').eq(0).prepend(preloaderContent);
+    $(getUiContainerSelector()).eq(0).prepend(preloaderContent);
 }
 
 // Helper: Updates progress bar
