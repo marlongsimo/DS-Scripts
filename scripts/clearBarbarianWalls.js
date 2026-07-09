@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.2 (modified)
+ * Version: v1.6.3 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -19,6 +19,11 @@
  *    nächstgelegene, noch nicht abgearbeitete Barbarendorf mit passender
  *    Truppenzahl einträgt (Fortschritt via localStorage, Key
  *    "RA_CBW_used_coords").
+ * 4. Screen-Erkennung nutzt jetzt bevorzugt game_data.screen statt nur den
+ *    URL-Parameter zu lesen – in der mobilen App wird der Bauernhof-
+ *    Assistent nicht immer mit einem klassischen ?screen=am_farm in der
+ *    für window.location sichtbaren URL geladen, wodurch das Script dort
+ *    das Farm-Assistent-Screen nicht erkannt hat.
  */
 
 /* Copyright (c) RedAlert
@@ -41,7 +46,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.2 (Mod)',
+    version: 'v1.6.3 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -834,7 +839,10 @@ function tt(string) {
         game_data.features.FarmAssistent.active &&
         game_data.features.Premium.active
     ) {
-        const gameScreen = getParameterByName('screen');
+        // game_data.screen ist vom Spiel selbst gesetzt und unabhängig von der
+        // Browser-Adresszeile -> zuverlässiger als der URL-Parameter, den die
+        // mobile App nicht immer in der für window.location sichtbaren URL führt.
+        const gameScreen = game_data.screen || getParameterByName('screen');
         if (ALLOWED_GAME_SCREENS.includes(gameScreen)) {
             const state = readStorage(DEFAULT_STATE);
             initClearBarbarianWalls(state);
