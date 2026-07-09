@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.4 (modified)
+ * Version: v1.6.5 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -29,6 +29,11 @@
  *    App/Ansicht hat kein #contentContainer) – vorher schlug das Einfügen
  *    dort lautlos fehl, weshalb nach dem Redirect zum Bauernhof-Assistenten
  *    scheinbar gar nichts mehr passierte.
+ * 6. fetchFAPages() ermittelt die Seitenzahl jetzt über die höchste im
+ *    Pagination-Menü gefundene Seitenzahl statt über die Anzahl der
+ *    Pagination-Links – bei vielen Seiten wird mit "..." abgekürzt
+ *    (z.B. "1 2 3 ... 22 23"), wodurch die reine Linkanzahl die
+ *    tatsächliche Seitenzahl deutlich unterschätzt hat.
  */
 
 /* Copyright (c) RedAlert
@@ -51,7 +56,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.4 (Mod)',
+    version: 'v1.6.5 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -600,27 +605,33 @@ async function fetchFAPages(maxFAPagesToFetch) {
             const plunderListNav = jQuery(htmlDoc).find(
                 '#plunder_list_nav:eq(0) a'
             );
-            const firstFApage =
-                game_data.link_base_pure +
-                `am_farm&ajax=page_entries&Farm_page=0&class=&extended=1`;
 
-            // Getting amount of LA pages
-            const faPageURLs = [firstFApage];
-            jQuery(plunderListNav).each(function (index) {
-                index++;
-                if (index <= maxFAPagesToFetch - 1) {
-                    const currentPageNumber = parseInt(
-                        getParameterByName(
-                            'Farm_page',
-                            window.location.origin + jQuery(this).attr('href')
-                        )
-                    );
-                    faPageURLs.push(
-                        game_data.link_base_pure +
-                            `am_farm&ajax=page_entries&Farm_page=${currentPageNumber}&class=&extended=1&order=distance&dir=asc`
-                    );
+            // Höchste im Pagination-Menü vorkommende Seitenzahl ermitteln, statt
+            // die Anzahl der Links zu zählen: bei vielen Seiten wird die
+            // Pagination oft mit "..." abgekürzt (z.B. "1 2 3 ... 22 23"), dann
+            // gibt es weniger Links als tatsächliche Seiten und ein reines
+            // Abzählen der Links unterschätzt die Gesamtzahl deutlich.
+            let lastPageIndex = 0;
+            jQuery(plunderListNav).each(function () {
+                const pageNumber = parseInt(
+                    getParameterByName(
+                        'Farm_page',
+                        window.location.origin + jQuery(this).attr('href')
+                    )
+                );
+                if (!isNaN(pageNumber) && pageNumber > lastPageIndex) {
+                    lastPageIndex = pageNumber;
                 }
             });
+
+            const totalPages = Math.min(lastPageIndex + 1, maxFAPagesToFetch);
+            const faPageURLs = [];
+            for (let page = 0; page < totalPages; page++) {
+                faPageURLs.push(
+                    game_data.link_base_pure +
+                        `am_farm&ajax=page_entries&Farm_page=${page}&class=&extended=1&order=distance&dir=asc`
+                );
+            }
 
             return faPageURLs;
         })
