@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.9 (modified)
+ * Version: v1.7.0 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -53,6 +53,12 @@
  *     direkt im Panel (statt per alert()) - manche App-WebViews stellen
  *     alert()/confirm() gar nicht dar, wodurch die Diagnose dort unsichtbar
  *     blieb.
+ * 12. getFABarbarians() komplett neu geschrieben: die App rendert jeden
+ *     Bericht als 3 Zeilen (Haupt-Zeile mit id="village_<reportId>" + zwei
+ *     Folgezeilen für Zeitstempel/Vorlagen-Buttons, die sich per rowspan die
+ *     Mauer-/Distanz-Zelle teilen) statt der festen 8-Spalten-Struktur der
+ *     Desktop-Tabelle. Außerdem entfällt der Ausschluss "grüner Bericht +
+ *     unbekannte Mauer" - solche Dörfer sollen ebenfalls angezeigt werden.
  */
 
 /* Copyright (c) RedAlert
@@ -75,7 +81,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.9 (Mod)',
+    version: 'v1.7.0 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -736,56 +742,65 @@ function getFATableRows(pages) {
 }
 
 // Helper: Get barbarian villages with wall bigger then 0
+// Jeder Bericht wird als 3 <tr> gerendert: die erste (id="village_<reportId>")
+// trägt Koordinate/Icons/Links in der ersten Zelle (colspan=2) und Mauer+
+// Distanz in der zweiten Zelle (rowspan=3, durch <br> getrennt); die zwei
+// Folgezeilen (Zeitstempel, Vorlagen-Buttons) haben kein eigenes id und
+// teilen sich die gleiche zweite Zelle über den rowspan. Nur die erste Zeile
+// jedes Eintrags enthält also auswertbare Zieldaten.
 function getFABarbarians(rows) {
     let barbarians = [];
 
-    rows.forEach((row) => {
-        // Einzelne Zeilen überspringen statt den ganzen Scan abzubrechen, falls
-        // eine Zeile nicht der erwarteten Struktur entspricht (z.B. fehlendes
-        // Koordinaten-Match) - gleiches Vorgehen wie im Schwester-Script
-        // "Barbarian Village Former" beim Auswerten einzelner Berichte.
-        try {
-            let shouldAdd = false;
+    rows.forEach((row, index) => {
+        if (!row.id || row.id.indexOf('village_') !== 0) {
+            return;
+        }
 
-            let villageId = parseInt(
-                getParameterByName(
-                    'target',
-                    window.location.origin +
-                        jQuery(row).find('td').last().find('a').attr('href')
-                )
-            );
-            const coordMatch = jQuery(row)
-                .find('td:eq(3) a')
-                .text()
-                .match(COORDS_REGEX);
+        // Einzelne Einträge überspringen statt den ganzen Scan abzubrechen,
+        // falls einer nicht der erwarteten Struktur entspricht - gleiches
+        // Vorgehen wie im Schwester-Script "Barbarian Village Former" beim
+        // Auswerten einzelner Berichte.
+        try {
+            const firstCell = jQuery(row).find('td:eq(0)');
+
+            const coordMatch = firstCell.text().match(COORDS_REGEX);
             if (!coordMatch) {
                 return;
             }
-            let coord = coordMatch[0];
-            let wall = jQuery(row).find('td:eq(6)').text();
-            let distance = jQuery(row).find('td:eq(7)').text().trim();
-            let reportId = parseInt(
-                getParameterByName(
-                    'view',
-                    window.location.origin +
-                        jQuery(row).find('td:eq(3) a').attr('href')
-                )
+            const coord = coordMatch[0];
+
+            const reportHref =
+                firstCell.find('a[href*="screen=report"]').attr('href') || '';
+            const reportId = parseInt(
+                getParameterByName('view', window.location.origin + reportHref)
             );
-            let reportTime = jQuery(row).find('td:eq(4)').text().trim();
-            let type = jQuery(row).find('td:eq(1) img').attr('src') || '';
 
-            const isGreenReportWithUnknownWall =
-                wall === '?' && type.includes('green.webp');
+            const placeHref =
+                firstCell.find('a[href*="screen=place"]').attr('href') || '';
+            const villageId = parseInt(
+                getParameterByName('target', window.location.origin + placeHref)
+            );
 
-            if (parseInt(wall) > 0 || wall === '?') {
-                shouldAdd = true;
-                if (isGreenReportWithUnknownWall) {
-                    // do not show green reports with unknown wall on the table
-                    shouldAdd = false;
-                }
+            const type = firstCell.find('img[src*="dots/"]').attr('src') || '';
+
+            // Mauer- und Distanzwert stehen durch <br> getrennt in derselben
+            // Zelle (z.B. "<img .../wall.webp> ?<br><img .../rechts.webp> 1").
+            const wallCellHtml = jQuery(row).find('td:eq(1)').html() || '';
+            const [wallPart, distancePart] = wallCellHtml
+                .split(/<br\s*\/?>/i)
+                .map((part) => part.replace(/<[^>]+>/g, '').trim());
+            const wall = wallPart || '';
+            const distance = distancePart || '';
+
+            // Zeitstempel steht in der ersten Folgezeile desselben Eintrags
+            // (kein eigenes village_-id), falls vorhanden.
+            let reportTime = '';
+            const nextRow = rows[index + 1];
+            if (nextRow && (!nextRow.id || nextRow.id.indexOf('village_') !== 0)) {
+                reportTime = jQuery(nextRow).text().trim();
             }
 
-            if (shouldAdd) {
+            if (parseInt(wall) > 0 || wall === '?') {
                 barbarians.push({
                     villageId: villageId,
                     coord: coord,
@@ -797,7 +812,7 @@ function getFABarbarians(rows) {
                 });
             }
         } catch (e) {
-            console.warn(`${scriptInfo()} Zeile übersprungen (unerwartete Struktur):`, e);
+            console.warn(`${scriptInfo()} Eintrag übersprungen (unerwartete Struktur):`, e);
         }
     });
 
