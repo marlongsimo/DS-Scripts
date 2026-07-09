@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.6 (modified)
+ * Version: v1.6.7 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -39,6 +39,13 @@
  *    abzubrechen. Zusätzlich zeigt der Fehlerfall beim Laden/Verarbeiten
  *    jetzt den echten Fehlertext per alert() an, damit er sich auch ohne
  *    Zugriff auf die Browser-/App-Konsole ablesen lässt.
+ * 8. MAX_FA_PAGES_TO_FETCH ist jetzt praktisch unbegrenzt (9999) statt auf
+ *    20 Seiten gedeckelt - die tatsächliche Seitenzahl wird ohnehin schon
+ *    korrekt erkannt (siehe Punkt 6), diese Zahl war eine zusätzliche
+ *    künstliche Einschränkung obendrauf.
+ * 9. Zeigt eine Debug-Meldung mit der ersten Zeilen-HTML an, wenn Zeilen
+ *    gefunden wurden, aber keine davon als Barbarendorf erkannt wird -
+ *    Hilfe zur Ferndiagnose ohne Konsolen-Zugriff (z.B. in der App).
  */
 
 /* Copyright (c) RedAlert
@@ -61,7 +68,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.6 (Mod)',
+    version: 'v1.6.7 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -94,7 +101,10 @@ if ('TWMap' in window) mapOverlay = TWMap;
 var STORAGE_KEY = 'RA_CBW_STORE'; // key for sessionStorage
 var DEFAULT_STATE = {
     MAX_BARBARIANS: 100,
-    MAX_FA_PAGES_TO_FETCH: 20,
+    // Praktisch unbegrenzt: die eigentliche Deckelung ist ohnehin die Anzahl
+    // der tatsächlich vorhandenen Seiten (siehe fetchFAPages), dieser Wert
+    // greift nur noch als Notbremse gegen eine ausufernde Anzahl Requests.
+    MAX_FA_PAGES_TO_FETCH: 9999,
 };
 
 // Translations
@@ -158,6 +168,22 @@ async function initClearBarbarianWalls(store) {
         function () {
             const faTableRows = getFATableRows(faPages);
             const barbarians = getFABarbarians(faTableRows);
+
+            if (barbarians.length === 0 && faTableRows.length > 0) {
+                // Diagnose-Hilfe: es gibt Zeilen, aber keine wird als
+                // Barbarendorf erkannt - vermutlich weicht die Zeilenstruktur
+                // (z.B. in der mobilen App) von der erwarteten Struktur ab.
+                // Zeigt die erste Zeile als HTML an, damit sich das ohne
+                // Konsolen-Zugriff zurückmelden lässt.
+                const sample = faTableRows[0].outerHTML || '';
+                console.warn(
+                    `${scriptInfo()} 0 Barbarendörfer trotz ${faTableRows.length} Zeilen. Beispiel-Zeile:`,
+                    sample
+                );
+                alert(
+                    `${scriptInfo()} Debug: 0 von ${faTableRows.length} Zeilen erkannt.\n\nBeispiel-Zeile (bitte zurückmelden):\n${sample.slice(0, 1500)}`
+                );
+            }
 
             const { content, bookmarklet, resetBookmarklet } = prepareContent(
                 barbarians,
