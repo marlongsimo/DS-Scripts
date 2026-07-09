@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.1
+ * Version: v1.2
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -19,6 +19,24 @@
  * 5. Fixed a broken monotonic value in catsRequiredToBreak (row for target
  *    level 1: ...469, 534, 508, 691... -> 508 corrected to 608).
  * 6. Fixed German translation typo "kattern" -> "kürzen".
+ * 7. Trigger-Screen von der Berichte-Übersicht (screen=report&mode=attack)
+ *    auf den Versammlungsplatz (screen=place) umgestellt. Screen-Erkennung
+ *    nutzt jetzt game_data.screen statt twSDK.checkValidLocation(), da
+ *    diese intern nur window.location.href liest - in der mobilen App wird
+ *    der Screen dort nicht immer korrekt widergespiegelt (gleicher Bug wie
+ *    bei "Clear Barbarian Walls" gefunden und dort schon gefixt).
+ * 8. getReportUrls() (las #report_list aus dem Live-DOM) ersetzt durch
+ *    fetchReportListPages(): lädt die Berichte-Liste jetzt per AJAX über
+ *    alle Seiten, unabhängig vom aktuell angezeigten Screen - Voraussetzung
+ *    dafür, dass das Script vom Versammlungsplatz aus laufen kann, wo die
+ *    Berichte-Liste gar nicht im DOM vorhanden ist.
+ * 9. getUiContainerSelector() ergänzt (Vorbild: "Clear Barbarian Walls"):
+ *    #mobileContent/#contentContainer-Auswahl ist jetzt gegen ein
+ *    undefiniertes mobiledevice abgesichert (vorher ungeschützter
+ *    ReferenceError möglich) und an einer Stelle zusammengefasst statt
+ *    doppelt inline geprüft.
+ * 10. fetchTroopsForCurrentGroup(): Aufruf von tt(...) (undefinierte
+ *     globale Funktion) im Catch-Zweig auf twSDK.tt(...) korrigiert.
  */
 
 // User Input
@@ -30,7 +48,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.1',
+        version: 'v1.2',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -42,6 +60,8 @@ var scriptConfig = {
             'Redirecting...': 'Redirecting...',
             'There was an error!': 'There was an error!',
             'There was an error while fetching the report data!': 'There was an error while fetching the report data!',
+            'An error occured while fetching troop counts!': 'An error occured while fetching troop counts!',
+            'Error fetching report list page!': 'Error fetching report list page!',
             'Min. Level': 'Min. Level',
             'Building': 'Building',
             'Group': 'Group',
@@ -57,6 +77,8 @@ var scriptConfig = {
             'Redirecting...': 'Umleiten...',
             'There was an error!': 'Es gab einen Fehler!',
             'There was an error while fetching the report data!': 'Es gab einen fehler beim laden der Berichte!',
+            'An error occured while fetching troop counts!': 'Es gab einen Fehler beim Laden der Truppenanzahl!',
+            'Error fetching report list page!': 'Fehler beim Laden der Berichte-Liste!',
             'Min. Level': 'Min. Level',
             'Building': 'Gebaeude',
             'Group': 'Gruppe',
@@ -72,6 +94,8 @@ var scriptConfig = {
             'Redirecting...': 'Redirecionando...',
             'There was an error!': 'Houve um erro!',
             'There was an error while fetching the report data!': 'Houve um erro ao buscar os dados do relatório!',
+            'An error occured while fetching troop counts!': 'Houve um erro ao buscar a contagem de tropas!',
+            'Error fetching report list page!': 'Erro ao buscar a página da lista de relatórios!',
             'Min. Level': 'Nível Mínimo',
             'Building': 'Edifício',
             'Group': 'Grupo',
@@ -83,18 +107,26 @@ var scriptConfig = {
 	},
     },
     allowedMarkets: [],
-    allowedScreens: ['report'],
-    allowedModes: ['attack'],
+    allowedScreens: ['place'],
     isDebug: DEBUG,
     enableCountApi: false,
 };
+
+// Wie viele Seiten der Berichte-Liste maximal per AJAX geladen werden -
+// praktisch unbegrenzt (siehe "Clear Barbarian Walls", MAX_FA_PAGES_TO_FETCH).
+const MAX_REPORT_PAGES_TO_FETCH = 9999;
 
 $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript.src}`, async function() {
     // Initialize Library
     await twSDK.init(scriptConfig);
     const scriptInfo = twSDK.scriptInfo();
-    const isValidScreen = twSDK.checkValidLocation('screen');
-    const isValidMode = twSDK.checkValidLocation('mode');
+    // twSDK.checkValidLocation('screen') liest intern nur window.location.href
+    // (siehe twSDK.getParameterByName) - in der mobilen App wird der Screen
+    // dort nicht zuverlässig widergespiegelt. game_data.screen wird vom Spiel
+    // selbst gesetzt und ist auch in der App zuverlässig (gleicher Fix wie
+    // bei "Clear Barbarian Walls").
+    const gameScreen = game_data.screen || twSDK.getParameterByName('screen');
+    const isValidScreen = scriptConfig.allowedScreens.includes(gameScreen);
     let troopData = [];
     let unitInfo = await twSDK.getWorldUnitInfo();
     const catRamSpeed = parseInt(unitInfo.config.ram.speed);
@@ -125,14 +157,14 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     // Entry Point
     (async function() {
         try {
-            if (isValidScreen && isValidMode) {
+            if (isValidScreen) {
                 // Build user interface
                 const groups = await fetchVillageGroups();
                 renderUI(groups);
                 addFilterHandlers()
             } else {
                 UI.InfoMessage(twSDK.tt('Redirecting...'));
-                twSDK.redirectTo('report&mode=attack');
+                twSDK.redirectTo('place');
             }
         } catch (error) {
             UI.ErrorMessage(twSDK.tt('There was an error!'));
@@ -292,10 +324,43 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return buildingFilter;
     }
 
+    // Helper: rohes/unbekanntes HTML sicher als sichtbaren Text ins Panel
+    // rendern (für die Inline-Debug-Ausgabe unten) - alert()/confirm() sind
+    // in der App-WebView nachweislich unsichtbar (siehe "Clear Barbarian
+    // Walls"), Diagnosen müssen daher direkt im Panel erscheinen.
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function renderDebugInfo(text) {
+        jQuery('#raDebugInfo').html(
+            text
+                ? `<pre style="white-space:pre-wrap; word-break:break-all; margin-top:10px; padding:8px; background:rgba(0,0,0,0.08); font-size:11px; max-height:400px; overflow:auto;">${escapeHtml(
+                      text
+                  )}</pre>`
+                : ''
+        );
+    }
+
+    // Helper: In der mobilen App/Ansicht gibt es kein #contentContainer, dafür
+    // #mobileContent (gleiche Unterscheidung wie im gehosteten Script
+    // "Clear Barbarian Walls", das dieses Muster von hier übernommen hatte).
+    // typeof-Prüfung, damit ein nicht existierendes mobiledevice keinen
+    // ReferenceError wirft.
+    function getUiContainerSelector() {
+        return typeof mobiledevice !== 'undefined' && mobiledevice
+            ? '#mobileContent'
+            : '#contentContainer';
+    }
+
     // Render UI
     function renderUI(groups) {
         const groupsFilter = renderGroupsFilter(groups);
         const buildingFilter = renderBuildingFilter();
+        const isMobile = typeof mobiledevice !== 'undefined' && mobiledevice;
 
         const content = `
         <div class="ra-single-village-snipe" id="raSingleVillageSnipe">
@@ -340,6 +405,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 		  <div class="ra-mb15">
 		  <textarea id="barbCoordsList" style="width: 100%" class="ra-textarea" readonly=""></textarea>
 			</div>
+			<div id="raDebugInfo"></div>
         </div>
             <small>
                 <strong>
@@ -361,7 +427,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 			.ra-single-village-snipe select { width: 100%; padding: 5px 10px; border: 1px solid #000; font-size: 16px; line-height: 1; }
 			.ra-single-village-snipe .btn-confirm-yes { padding: 3px; }
 
-			${mobiledevice ? '.ra-single-village-snipe { margin: 5px; border-radius: 10px; } .ra-single-village-snipe h2 { margin: 0 0 10px 0; font-size: 18px; } .ra-single-village-snipe .ra-grid { grid-template-columns: 1fr } .ra-single-village-snipe .ra-grid > div { margin-bottom: 15px; } .ra-single-village-snipe .btn { margin-bottom: 8px; margin-right: 8px; } .ra-single-village-snipe select { height: auto; } .ra-single-village-snipe input[type="text"] { height: auto; } .ra-hide-on-mobile { display: none; }' : '.ra-single-village-snipe .ra-grid { display: grid; grid-template-columns: 150px 1fr 100px 150px 150px; grid-gap: 0 20px; }'}
+			${isMobile ? '.ra-single-village-snipe { margin: 5px; border-radius: 10px; } .ra-single-village-snipe h2 { margin: 0 0 10px 0; font-size: 18px; } .ra-single-village-snipe .ra-grid { grid-template-columns: 1fr } .ra-single-village-snipe .ra-grid > div { margin-bottom: 15px; } .ra-single-village-snipe .btn { margin-bottom: 8px; margin-right: 8px; } .ra-single-village-snipe select { height: auto; } .ra-single-village-snipe input[type="text"] { height: auto; } .ra-hide-on-mobile { display: none; }' : '.ra-single-village-snipe .ra-grid { display: grid; grid-template-columns: 150px 1fr 100px 150px 150px; grid-gap: 0 20px; }'}
 
 			/* Normal Table */
 			.ra-table { border-collapse: separate !important; border-spacing: 2px !important; }
@@ -389,11 +455,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     `;
 
         if (jQuery('.ra-single-village-snipe').length < 1) {
-            if (mobiledevice) {
-                jQuery('#mobileContent').prepend(content);
-            } else {
-                jQuery('#contentContainer').prepend(content);
-            }
+            jQuery(getUiContainerSelector()).prepend(content);
         } else {
             // FIX: `body` was undefined here; the intended variable is `content`.
             jQuery('.ra-single-village-snipe-data').html(content);
@@ -401,11 +463,16 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     }
 
     // Render: Build user interface
-    function getReports() {
+    async function getReports() {
 
         const buildingType = localStorage.getItem(`${scriptConfig.scriptData.prefix}_chosen_building`);
         var reportData = [];
-        const reportUrls = getReportUrls();
+        renderDebugInfo('');
+        const { reportUrls, debugInfo } = await fetchReportListPages(MAX_REPORT_PAGES_TO_FETCH);
+        if (reportUrls.length === 0) {
+            renderDebugInfo(debugInfo);
+            return;
+        }
         twSDK.startProgressBar(reportUrls.length);
         twSDK.getAll(reportUrls, function(index, data) {
             twSDK.updateProgressBar(index, reportUrls.length);
@@ -758,7 +825,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return homeTroops;
         }
         ).catch((error)=>{
-            UI.ErrorMessage(tt('An error occured while fetching troop counts!'));
+            UI.ErrorMessage(twSDK.tt('An error occured while fetching troop counts!'));
             console.error(`${scriptInfo()} Error:`, error);
         }
         );
@@ -766,17 +833,133 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return troopsForGroup;
     }
 
-    // Helper: Get all report IDs
-    function getReportUrls() {
+    // Helper: einzelne Berichte-Listen-Seite nach Report-Links durchsuchen
+    // (gleicher Selektor wie zuvor, jetzt auf per AJAX geladenes HTML statt
+    // auf das Live-DOM angewendet - Voraussetzung dafür, dass das Script vom
+    // Versammlungsplatz aus laufen kann, wo #report_list gar nicht existiert).
+    function extractReportRowLinks(htmlDoc) {
+        const links = [];
+        jQuery(htmlDoc)
+            .find('#report_list tbody tr')
+            .each(function () {
+                try {
+                    const reportUrl = jQuery(this).find('.report-link').attr('href');
+                    if (typeof reportUrl !== 'undefined' && reportUrl !== '') {
+                        links.push(reportUrl);
+                    }
+                } catch (e) {
+                    // einzelne kaputte Zeile überspringen, nicht den ganzen Abruf abbrechen
+                    console.warn(`${scriptInfo()} Report-Zeile übersprungen (unerwartete Struktur):`, e);
+                }
+            });
+        return links;
+    }
+
+    // Helper: Link zur nächsten Berichte-Listen-Seite finden. Es wird nicht
+    // von einem festen Parameternamen/Schrittweite ausgegangen (die genaue
+    // Paginierungs-Struktur der Berichte-Liste ist nicht mit Sicherheit
+    // bekannt) - stattdessen wird unter allen Links, die "mode=attack"
+    // enthalten aber kein einzelner Berichts-Link sind (kein "view="-Parameter),
+    // derjenige mit dem kleinsten numerischen Query-Parameter-Wert gesucht,
+    // der größer ist als der entsprechende Wert der aktuellen Seite.
+    function findNextReportPageUrl(htmlDoc, currentPageUrl) {
+        let currentParams;
+        try {
+            currentParams = new URL(currentPageUrl, window.location.origin).searchParams;
+        } catch (e) {
+            return null;
+        }
+
+        let bestUrl = null;
+        let bestValue = Infinity;
+
+        jQuery(htmlDoc)
+            .find('a[href*="mode=attack"]')
+            .each(function () {
+                const href = jQuery(this).attr('href');
+                if (!href || href.indexOf('view=') !== -1) {
+                    return;
+                }
+                let url;
+                try {
+                    url = new URL(href, window.location.origin);
+                } catch (e) {
+                    return;
+                }
+                for (const [key, value] of url.searchParams.entries()) {
+                    if (key === 'screen' || key === 'mode') {
+                        continue;
+                    }
+                    const numValue = parseInt(value);
+                    if (isNaN(numValue)) {
+                        continue;
+                    }
+                    const currentValue = parseInt(currentParams.get(key));
+                    const currentCompare = isNaN(currentValue) ? 0 : currentValue;
+                    if (numValue > currentCompare && numValue < bestValue) {
+                        bestValue = numValue;
+                        bestUrl = url.pathname + url.search;
+                    }
+                }
+            });
+
+        return bestUrl;
+    }
+
+    // Lädt die Berichte-Liste (Angriffsberichte) seitenweise per AJAX, egal
+    // von welchem Screen aus das Script läuft - Voraussetzung dafür, dass es
+    // vom Versammlungsplatz statt von der Berichte-Übersicht aus gestartet
+    // werden kann. Folgt der jeweils "nächsten Seite" Schritt für Schritt
+    // (statt alle Seiten-URLs im Voraus zu berechnen), da unklar ist, ob die
+    // Paginierung über einen linearen Seitenindex oder einen Zeilen-Offset
+    // läuft.
+    async function fetchReportListPages(maxReportPagesToFetch) {
         const reportUrls = [];
+        let debugInfo = '';
+        let currentUrl = game_data.link_base_pure + 'report&mode=attack';
+        let pageCount = 0;
 
-        jQuery('#report_list tbody tr').each(function() {
-            const reportUrl = jQuery(this).find('.report-link').attr('href');
-            if (typeof reportUrl !== 'undefined' && reportUrl !== '') {
-                reportUrls.push(reportUrl);
+        while (currentUrl && pageCount < maxReportPagesToFetch) {
+            let html;
+            try {
+                html = await jQuery.get(currentUrl);
+            } catch (error) {
+                UI.ErrorMessage(twSDK.tt('Error fetching report list page!'));
+                console.error(`${scriptInfo()} Error:`, error);
+                debugInfo = `Fehler beim Laden von Berichte-Seite ${pageCount + 1}:\n\n${
+                    (error && (error.statusText || error.message)) || String(error)
+                }`;
+                break;
             }
-        });
 
-        return reportUrls;
+            // DOMParser statt jQuery.parseHTML(): liefert ein echtes Document,
+            // in dem #report_list ein Nachfahre von <body> ist. Mit
+            // jQuery.parseHTML() landet #report_list dagegen oft als
+            // Top-Level-Element im Ergebnis-Array selbst, wodurch der
+            // zusammengesetzte Selektor "#report_list tbody tr" nichts findet
+            // (die eigene Scope-Wurzel zählt bei querySelectorAll nicht als
+            // Vorfahre ihrer selbst).
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, 'text/html');
+            const rowLinks = extractReportRowLinks(htmlDoc);
+            reportUrls.push(...rowLinks);
+            pageCount++;
+
+            if (pageCount === 1 && rowLinks.length === 0) {
+                const rawSample = typeof html === 'string' ? html : '';
+                debugInfo = `0 Report-Links auf der ersten Berichte-Seite gefunden.\n\nBeispiel-Inhalt (bitte zurückmelden):\n${rawSample.slice(
+                    0,
+                    2000
+                )}`;
+            }
+
+            currentUrl = findNextReportPageUrl(htmlDoc, currentUrl);
+        }
+
+        if (reportUrls.length === 0 && !debugInfo) {
+            debugInfo = `0 Berichte über ${pageCount} Seite(n) gefunden.`;
+        }
+
+        return { reportUrls, debugInfo };
     }
 });
