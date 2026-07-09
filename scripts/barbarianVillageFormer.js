@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.2
+ * Version: v1.3
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -37,6 +37,28 @@
  *    doppelt inline geprüft.
  * 10. fetchTroopsForCurrentGroup(): Aufruf von tt(...) (undefinierte
  *     globale Funktion) im Catch-Zweig auf twSDK.tt(...) korrigiert.
+ * 11. Kernbug gefunden und behoben: `scriptInfo` ist eine bereits fertig
+ *     zusammengesetzte Zeichenkette (`const scriptInfo = twSDK.scriptInfo();`),
+ *     wurde aber an 15 Stellen im ganzen Script fälschlich als Funktion
+ *     aufgerufen (`${scriptInfo()}`), was einen TypeError wirft. Da dieser
+ *     Aufruf u.a. im catch-Zweig von fetchReportListPages() VOR dem Setzen
+ *     von debugInfo stand, brach genau dort die gesamte Fehlerbehandlung
+ *     lautlos ab - dadurch erschien zwar die generische Toast-Meldung
+ *     ("Fehler beim Laden der Berichte"), aber nie der Debug-Textblock im
+ *     Panel. Alle 15 Vorkommen auf `${scriptInfo}` (ohne Aufruf) korrigiert.
+ * 12. twSDK.startProgressBar()/updateProgressBar() (Teil der extern
+ *     nachgeladenen, hier nicht patchbaren twSDK-Bibliothek) werden jetzt in
+ *     getReports() per try/catch abgesichert - ein Fehler dort (z.B. weil die
+ *     Fortschrittsanzeige von einem in der App nicht vorhandenen Element
+ *     ausgeht) wurde bisher von twSDK.getAll() fälschlich als genereller
+ *     Bericht-Fetch-Fehler behandelt und brach den gesamten Abruf ab.
+ * 13. Der onError-Callback von twSDK.getAll() in getReports() rendert jetzt
+ *     die Fehlerdetails zusätzlich sichtbar ins Panel (renderDebugInfo()),
+ *     statt nur eine generische Toast-Meldung zu zeigen.
+ * 14. Schlägt eine spätere Seite der Berichte-Liste in fetchReportListPages()
+ *     fehl, obwohl schon Berichte auf früheren Seiten gefunden wurden, wird
+ *     jetzt ein sichtbarer Warnhinweis samt Diagnosedaten ins Panel
+ *     gerendert (vorher wurde dieser Fall stillschweigend übergangen).
  */
 
 // User Input
@@ -48,7 +70,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.2',
+        version: 'v1.3',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -147,7 +169,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
         const villageGroups = await jQuery.get(fetchGroups).then((response)=>response).catch((error)=>{
             UI.ErrorMessage('Error fetching village groups!');
-            console.error(`${scriptInfo()} Error:`, error);
+            console.error(`${scriptInfo} Error:`, error);
         }
         );
 
@@ -178,7 +200,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         jQuery('#raGroupsFilter').on('change', function(e) {
             e.preventDefault();
             if (DEBUG) {
-                console.debug(`${scriptInfo()} selected group ID: `, e.target.value);
+                console.debug(`${scriptInfo} selected group ID: `, e.target.value);
             }
 
             localStorage.setItem(`${scriptConfig.scriptData.prefix}_chosen_group`, e.target.value);
@@ -190,7 +212,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             fetchTroopsForCurrentGroup(parseInt(e.target.value)).then(function(result) {
                 troopData = result;
                 if (DEBUG) {
-                    console.debug(`${scriptInfo()} troopData refreshed for group`, e.target.value, troopData);
+                    console.debug(`${scriptInfo} troopData refreshed for group`, e.target.value, troopData);
                 }
             });
         });
@@ -204,7 +226,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             e.preventDefault();
             e.target.value = e.target.value.replace(/\D/g, '')
             if (DEBUG) {
-                console.debug(`${scriptInfo()} Spy count: `, e.target.value);
+                console.debug(`${scriptInfo} Spy count: `, e.target.value);
             }
             if (e.target.value < 1 || isNaN(parseInt(e.target.value))) {
                 jQuery('#raSpy').val('1');
@@ -221,7 +243,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             e.preventDefault();
             e.target.value = e.target.value.replace(/\D/g, '')
             if (DEBUG) {
-                console.debug(`${scriptInfo()} Max Distance: `, e.target.value);
+                console.debug(`${scriptInfo} Max Distance: `, e.target.value);
             }
             if (e.target.value < 1 || isNaN(parseInt(e.target.value))) {
                 jQuery('#raMaxDistance').val('1');
@@ -235,7 +257,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             e.target.value = e.target.value.replace(/\D/g, '')
             e.preventDefault();
             if (DEBUG) {
-                console.debug(`${scriptInfo()} Max Step: `, e.target.value);
+                console.debug(`${scriptInfo} Max Step: `, e.target.value);
             }
             if (e.target.value < 1 || isNaN(parseInt(e.target.value))) {
                 jQuery('#raMaxStep').val('1');
@@ -249,7 +271,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             e.target.value = e.target.value.replace(/\D/g, '')
             e.preventDefault();
             if (DEBUG) {
-                console.debug(`${scriptInfo()} min building level: `, e.target.value);
+                console.debug(`${scriptInfo} min building level: `, e.target.value);
             }
             if (e.target.value > 29 || isNaN(parseInt(e.target.value))) {
                 jQuery('#raMinAmount').val('29');
@@ -261,7 +283,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         jQuery('#raBuildingFilter').on('change', function(e) {
             e.preventDefault();
             if (DEBUG) {
-                console.debug(`${scriptInfo()} selected building: `, e.target.value);
+                console.debug(`${scriptInfo} selected building: `, e.target.value);
             }
             localStorage.setItem(`${scriptConfig.scriptData.prefix}_chosen_building`, e.target.value);
         });
@@ -473,9 +495,31 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             renderDebugInfo(debugInfo);
             return;
         }
-        twSDK.startProgressBar(reportUrls.length);
+        // Nicht alle Seiten der Berichte-Liste konnten geladen werden, es wurden
+        // aber schon Berichte gefunden - Hinweis anzeigen statt stillschweigend
+        // nur mit den bisher gefundenen Berichten weiterzumachen.
+        if (debugInfo) {
+            renderDebugInfo(
+                `Warnung: nicht alle Seiten der Berichte-Liste konnten geladen werden. Es wird mit den bereits gefundenen ${reportUrls.length} Berichten weitergemacht.\n\n${debugInfo}`
+            );
+        }
+        // twSDK.startProgressBar()/updateProgressBar() sind Teil der extern
+        // nachgeladenen twSDK-Bibliothek. Scheitert die Fortschrittsanzeige in
+        // der App (z.B. weil sie von einem dort nicht vorhandenen Element
+        // ausgeht), darf das nicht den gesamten Bericht-Abruf abbrechen -
+        // twSDK.getAll() würde einen dort geworfenen Fehler sonst faelschlich
+        // als generellen Fetch-Fehler behandeln.
+        try {
+            twSDK.startProgressBar(reportUrls.length);
+        } catch (e) {
+            console.warn(`${scriptInfo} startProgressBar fehlgeschlagen:`, e);
+        }
         twSDK.getAll(reportUrls, function(index, data) {
-            twSDK.updateProgressBar(index, reportUrls.length);
+            try {
+                twSDK.updateProgressBar(index, reportUrls.length);
+            } catch (e) {
+                console.warn(`${scriptInfo} updateProgressBar fehlgeschlagen:`, e);
+            }
 
             const parser = new DOMParser();
             const htmlDoc = parser.parseFromString(data, 'text/html');
@@ -518,6 +562,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }, function(error) {
             UI.ErrorMessage(twSDK.tt('There was an error while fetching the report data!'));
             console.error(`${scriptInfo} Error: `, error);
+            const details =
+                (error && (error.stack || error.message || error.statusText)) || String(error);
+            renderDebugInfo(
+                `Fehler beim Laden der einzelnen Berichte (${reportData.length} von ${reportUrls.length} bereits verarbeitet):\n\n${details}`
+            );
         });
     }
 
@@ -738,8 +787,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         const spyAmount = localStorage.getItem(`${scriptConfig.scriptData.prefix}_spy`);
 
         if (DEBUG) {
-            console.debug(`${scriptInfo()} troopData at calculation time:`, troopData);
-            console.debug(`${scriptInfo()} farmingData at calculation time:`, farmingData);
+            console.debug(`${scriptInfo} troopData at calculation time:`, troopData);
+            console.debug(`${scriptInfo} farmingData at calculation time:`, farmingData);
         }
 
         const troopCombinations = findTroopCombinations(troopData, farmingData, minLevel, maxDistance, maxStep, spyAmount);
@@ -826,7 +875,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
         ).catch((error)=>{
             UI.ErrorMessage(twSDK.tt('An error occured while fetching troop counts!'));
-            console.error(`${scriptInfo()} Error:`, error);
+            console.error(`${scriptInfo} Error:`, error);
         }
         );
 
@@ -849,7 +898,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     }
                 } catch (e) {
                     // einzelne kaputte Zeile überspringen, nicht den ganzen Abruf abbrechen
-                    console.warn(`${scriptInfo()} Report-Zeile übersprungen (unerwartete Struktur):`, e);
+                    console.warn(`${scriptInfo} Report-Zeile übersprungen (unerwartete Struktur):`, e);
                 }
             });
         return links;
@@ -925,7 +974,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 html = await jQuery.get(currentUrl);
             } catch (error) {
                 UI.ErrorMessage(twSDK.tt('Error fetching report list page!'));
-                console.error(`${scriptInfo()} Error:`, error);
+                console.error(`${scriptInfo} Error:`, error);
                 debugInfo = `Fehler beim Laden von Berichte-Seite ${pageCount + 1}:\n\n${
                     (error && (error.statusText || error.message)) || String(error)
                 }`;
