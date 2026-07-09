@@ -1,6 +1,6 @@
 /*
  * Script Name: Clear Barbarian Walls
- * Version: v1.6.8 (modified)
+ * Version: v1.6.9 (modified)
  * Last Updated: 2025-08-15
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -49,6 +49,10 @@
  * 10. Zeigt zusätzlich eine Debug-Meldung mit den rohen AJAX-Fragmenten an,
  *     wenn schon vor dem Zeilen-Parsing gar keine Zeilen herauskommen -
  *     tiefere Ferndiagnose-Stufe als Punkt 9.
+ * 11. Alle Debug-Ausgaben (Punkt 9+10) sowie Fehlermeldungen erscheinen jetzt
+ *     direkt im Panel (statt per alert()) - manche App-WebViews stellen
+ *     alert()/confirm() gar nicht dar, wodurch die Diagnose dort unsichtbar
+ *     blieb.
  */
 
 /* Copyright (c) RedAlert
@@ -71,7 +75,7 @@ By uploading a user-generated mod (script) for use with Tribal Wars, you grant I
 
 var scriptData = {
     name: 'Clear Barbarian Walls',
-    version: 'v1.6.8 (Mod)',
+    version: 'v1.6.9 (Mod)',
     author: 'RedAlert',
     authorUrl: 'https://twscripts.dev/',
     helpLink:
@@ -170,6 +174,7 @@ async function initClearBarbarianWalls(store) {
         },
         function () {
             const faTableRows = getFATableRows(faPages);
+            let debugInfo = '';
 
             if (faTableRows.length === 0) {
                 // Diagnose-Hilfe: es kamen schon vor dem Barbarendorf-Filter
@@ -181,9 +186,7 @@ async function initClearBarbarianWalls(store) {
                     `${scriptInfo()} 0 Zeilen aus ${faPages.length} Roh-Fragmenten geparst. Beispiel:`,
                     rawSample
                 );
-                alert(
-                    `${scriptInfo()} Debug: 0 Zeilen aus ${faPages.length} Fragmenten geparst.\n\nBeispiel-Inhalt (bitte zurückmelden):\n${rawSample.slice(0, 1500)}`
-                );
+                debugInfo = `0 Zeilen aus ${faPages.length} Fragmenten geparst.\n\nBeispiel-Inhalt (bitte zurückmelden):\n${rawSample.slice(0, 2000)}`;
             }
 
             const barbarians = getFABarbarians(faTableRows);
@@ -199,14 +202,13 @@ async function initClearBarbarianWalls(store) {
                     `${scriptInfo()} 0 Barbarendörfer trotz ${faTableRows.length} Zeilen. Beispiel-Zeile:`,
                     sample
                 );
-                alert(
-                    `${scriptInfo()} Debug: 0 von ${faTableRows.length} Zeilen erkannt.\n\nBeispiel-Zeile (bitte zurückmelden):\n${sample.slice(0, 1500)}`
-                );
+                debugInfo = `0 von ${faTableRows.length} Zeilen erkannt.\n\nBeispiel-Zeile (bitte zurückmelden):\n${sample.slice(0, 2000)}`;
             }
 
             const { content, bookmarklet, resetBookmarklet } = prepareContent(
                 barbarians,
-                MAX_BARBARIANS
+                MAX_BARBARIANS,
+                debugInfo
             );
             renderUI(content);
             jQuery('#barbVillagesCount').text(barbarians.length);
@@ -223,13 +225,19 @@ async function initClearBarbarianWalls(store) {
         },
         function (error) {
             console.error(`${scriptInfo()} Error:`, error);
-            // Fehlerdetails zusätzlich sichtbar machen: in der App gibt es oft
-            // keinen Zugriff auf die Browser-Konsole, ohne diesen Text lässt
-            // sich das Problem sonst nicht zurückmelden.
+            // Fehlerdetails direkt im Panel anzeigen statt nur per alert():
+            // manche App-WebViews stellen alert()/confirm() gar nicht dar,
+            // ohne diesen Text lässt sich das Problem sonst nicht ohne
+            // Konsolen-Zugriff zurückmelden.
             const details =
-                (error && (error.message || error.statusText)) ||
+                (error && (error.stack || error.message || error.statusText)) ||
                 String(error);
-            alert(`${scriptInfo()} Fehler beim Laden/Verarbeiten:\n\n${details}`);
+            renderUI(
+                `<b>Error fetching FA pages!</b>` +
+                    `<pre style="white-space:pre-wrap; word-break:break-all; margin-top:10px; padding:8px; background:rgba(0,0,0,0.08); font-size:11px; max-height:400px; overflow:auto;">${escapeHtml(
+                        details
+                    )}</pre>`
+            );
             UI.ErrorMessage('Error fetching FA pages!');
         }
     );
@@ -308,7 +316,7 @@ function updateMap(barbarians) {
 }
 
 // Prepare content
-function prepareContent(villages, maxBarbsToShow) {
+function prepareContent(villages, maxBarbsToShow, debugInfo) {
     if (villages.length) {
         const shownVillages = villages.slice(0, maxBarbsToShow);
         const barbsTable = buildBarbsTable(shownVillages, maxBarbsToShow);
@@ -344,14 +352,32 @@ function prepareContent(villages, maxBarbsToShow) {
 
         return { content, bookmarklet, resetBookmarklet };
     } else {
+        // Debug-Info direkt im Panel anzeigen statt (nur) per alert(): manche
+        // App-WebViews stellen alert()/confirm() gar nicht dar, dann bliebe
+        // die Diagnose sonst komplett unsichtbar.
+        const debugBlock = debugInfo
+            ? `<pre style="white-space:pre-wrap; word-break:break-all; margin-top:10px; padding:8px; background:rgba(0,0,0,0.08); font-size:11px; max-height:400px; overflow:auto;">${escapeHtml(
+                  debugInfo
+              )}</pre>`
+            : '';
         return {
-            content: `<b>${tt(
-                'No barbarian villages found fitting the criteria!'
-            )}</b>`,
+            content:
+                `<b>${tt(
+                    'No barbarian villages found fitting the criteria!'
+                )}</b>` + debugBlock,
             bookmarklet: null,
             resetBookmarklet: null,
         };
     }
+}
+
+// Helper: HTML-Sonderzeichen escapen, damit roher Debug-Text als sichtbarer
+// Text erscheint statt als Markup interpretiert zu werden.
+function escapeHtml(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
 // Render UI
