@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.6
+ * Version: v1.7
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -102,6 +102,14 @@
  *     Dadurch war homeTroops bisher praktisch immer leer, unabhängig
  *     davon, wie viele Truppen tatsächlich vorhanden waren. Auf DOMParser
  *     umgestellt, wie an der anderen Stelle auch.
+ * 19. recordSample() (Diagnose bei "keine auswertbaren Berichte") zeigte
+ *     bisher blind die ersten 2000 Zeichen des Berichts-HTML - bei Seiten
+ *     mit langem Menü-/Formular-"Chrome" vor dem eigentlichen Inhalt lag
+ *     der relevante Bereich (wo #attack_spy_building_data stehen müsste)
+ *     komplett außerhalb des Ausschnitts, wodurch nicht erkennbar war, ob
+ *     die Kennung wirklich fehlt. Sucht jetzt gezielt nach den gesuchten
+ *     Kennungen im gesamten HTML und zeigt einen Ausschnitt um die
+ *     Fundstelle (oder einen expliziten "kommt nirgends vor"-Hinweis).
  */
 
 // User Input
@@ -113,7 +121,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.6',
+        version: 'v1.7',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -581,12 +589,41 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         // übrig bleiben ("All perfect" wäre dann irreführend, siehe dort).
         const stats = { noSpyData: 0, notBarbarian: 0, wrongBuilding: 0, parseError: 0 };
         let sampleReportHtml = '';
+        // Sucht im Beispiel-HTML gezielt nach den Kennungen, auf die die
+        // Ablehnungslogik prüft, statt blind die ersten 2000 Zeichen zu
+        // zeigen - bei Berichts-Seiten mit langem "Chrome"/Vorspann (Menüs,
+        // versteckte Formularfelder, Lade-Overlay) landete der eigentliche
+        // Berichtsinhalt bisher komplett außerhalb des abgeschnittenen
+        // Bereichs, wodurch nicht erkennbar war, ob die gesuchte Kennung
+        // wirklich fehlt oder nur weiter hinten im HTML steht.
         function recordSample(reason, htmlDoc) {
             if (sampleReportHtml) {
                 return;
             }
             const body = htmlDoc.body ? htmlDoc.body.innerHTML : '';
-            sampleReportHtml = `Grund: ${reason}\n\n${body.slice(0, 2000)}`;
+            const markers = ['attack_spy_building_data', 'attack_info_def'];
+            let firstMarkerIndex = -1;
+            let foundMarker = '';
+            markers.forEach((marker) => {
+                const idx = body.indexOf(marker);
+                if (idx !== -1 && (firstMarkerIndex === -1 || idx < firstMarkerIndex)) {
+                    firstMarkerIndex = idx;
+                    foundMarker = marker;
+                }
+            });
+
+            let excerpt;
+            let excerptNote;
+            if (firstMarkerIndex !== -1) {
+                const start = Math.max(0, firstMarkerIndex - 400);
+                excerpt = body.slice(start, start + 2000);
+                excerptNote = `Ausschnitt um die Fundstelle von "${foundMarker}" (Position ${firstMarkerIndex} von ${body.length} Zeichen):`;
+            } else {
+                excerpt = body.slice(-2000);
+                excerptNote = `Weder "attack_spy_building_data" noch "attack_info_def" kommen irgendwo im Berichts-HTML vor (Gesamtlänge ${body.length} Zeichen). Ausschnitt vom Ende:`;
+            }
+
+            sampleReportHtml = `Grund: ${reason}\n\n${excerptNote}\n${excerpt}`;
         }
 
         twSDK.getAll(reportUrls, function(index, data) {
