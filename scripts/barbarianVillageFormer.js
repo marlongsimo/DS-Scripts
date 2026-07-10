@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.14
+ * Version: v1.15
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -220,6 +220,20 @@
  *     erlaubt aber weiterhin lesenden Zugriff auf iframe.contentDocument.
  *     Ändert nichts an der Datenverlust-These aus Punkt 25 - war ein
  *     zusätzlicher, unabhängiger Fehler derselben iframe-Umstellung.
+ * 27. Live bestätigt (Nutzer hat ausdrücklich eine korrekt aktualisierte
+ *     v1.14 getestet, kein Cache-Problem): die Weiterleitung aus Punkt 26
+ *     bestand trotz sandbox-Fix weiterhin. Vermutete Ursache: die WebView
+ *     der mobilen App synchronisiert die Property-Zuweisung
+ *     "iframe.sandbox = '...'" (DOMTokenList) offenbar nicht zuverlässig auf
+ *     das tatsächliche HTML-Attribut zurück. Umgestellt auf
+ *     "iframe.setAttribute('sandbox', 'allow-same-origin')" - die
+ *     grundlegendere, seit langem etablierte Methode, ein HTML-Attribut zu
+ *     setzen. WICHTIG: auch dieser Fix gilt nicht als bestätigt, bis der
+ *     Nutzer erneut live getestet hat - hilft er ebenfalls nicht, deutet
+ *     das stark darauf hin, dass die App-WebView sandbox grundsätzlich
+ *     nicht respektiert, und ein Rückbau auf den Berichte-Screen als
+ *     Trigger (kein iframe, keine Navigation nötig) die einzige
+ *     verbleibende robuste Option wäre.
  */
 
 // User Input
@@ -231,7 +245,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.14',
+        version: 'v1.15',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -1456,7 +1470,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             // same-origin" (ohne "allow-scripts") deaktiviert jede
             // Skriptausführung im iframe, erlaubt aber weiterhin lesenden
             // Zugriff auf iframe.contentDocument.
-            iframe.sandbox = 'allow-same-origin';
+            // FIX (siehe Changelog Punkt 27): live bestätigt, dass die
+            // Weiterleitung trotz obigem Fix weiterhin auftrat - die
+            // Property-Zuweisung (iframe.sandbox = '...') scheint von der
+            // WebView der mobilen App nicht zuverlässig auf das tatsächliche
+            // HTML-Attribut zurückgeschrieben zu werden. setAttribute() ist
+            // die grundlegendere, seit langem etablierte Methode.
+            iframe.setAttribute('sandbox', 'allow-same-origin');
             let settled = false;
 
             function cleanup() {
