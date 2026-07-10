@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.5
+ * Version: v1.6
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -84,6 +84,24 @@
  *     (villageAnchor) testete bisher nur auf Wahrheitswert eines
  *     jQuery-Objekts (immer "truthy", auch wenn leer) statt auf
  *     villageAnchor.length > 0.
+ * 17. fetchTroopsForCurrentGroup() gibt jetzt zusätzlich zurück, welcher
+ *     Parsing-Zweig (mobil/Desktop) für die "overview_villages&mode=combined"-
+ *     Seite benutzt wurde. renderTroopDebugInfo() zeigt die tatsächlich
+ *     ermittelten Truppenzahlen pro Dorf sichtbar im Panel an, sooft die
+ *     Gruppe gewechselt oder das Script neu geladen wird - Grundlage, um zu
+ *     prüfen, ob z.B. Katapulte korrekt als "catapult"-Schlüssel mit dem
+ *     richtigen Wert ankommen (diese Funktion wurde bisher nie gegen echtes
+ *     App-HTML verifiziert).
+ * 18. Beim Testen der neuen Diagnose (Punkt 17) einen konkreten Bug
+ *     gefunden: fetchTroopsForCurrentGroup() nutzte jQuery.parseHTML() für
+ *     die "overview_villages&mode=combined"-Antwort - dabei landet
+ *     #combined_table oft als Top-Level-Element im Ergebnis-Array selbst,
+ *     wodurch der zusammengesetzte Selektor "#combined_table tr.nowrap"
+ *     nichts findet (exakt der gleiche Fehler, der schon bei
+ *     fetchReportListPages()/#report_list gefunden und behoben wurde).
+ *     Dadurch war homeTroops bisher praktisch immer leer, unabhängig
+ *     davon, wie viele Truppen tatsächlich vorhanden waren. Auf DOMParser
+ *     umgestellt, wie an der anderen Stelle auch.
  */
 
 // User Input
@@ -95,7 +113,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.5',
+        version: 'v1.6',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -235,7 +253,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             // "troopData is not iterable" errors during calculation whenever
             // a group other than the initially loaded one was selected).
             fetchTroopsForCurrentGroup(parseInt(e.target.value)).then(function(result) {
-                troopData = result;
+                troopData = result.homeTroops;
+                renderTroopDebugInfo(result.homeTroops, result.mobileCheck);
                 if (DEBUG) {
                     console.debug(`${scriptInfo} troopData refreshed for group`, e.target.value, troopData);
                 }
@@ -243,7 +262,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         });
         const groupOnLoad = localStorage.getItem(`${scriptConfig.scriptData.prefix}_chosen_group`);
         fetchTroopsForCurrentGroup(parseInt(groupOnLoad ?? 0)).then(function a(result) {
-            troopData = result
+            troopData = result.homeTroops;
+            renderTroopDebugInfo(result.homeTroops, result.mobileCheck);
         });
         localStorage.setItem(`${scriptConfig.scriptData.prefix}_spy`, localStorage.getItem(`${scriptConfig.scriptData.prefix}_spy`) ?? '1')
         jQuery('#raSpy').val(localStorage.getItem(`${scriptConfig.scriptData.prefix}_spy`) ?? '1')
@@ -389,6 +409,19 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                       text
                   )}</pre>`
                 : ''
+        );
+    }
+
+    // Zeigt die tatsächlich von fetchTroopsForCurrentGroup() ermittelten
+    // Truppenzahlen pro Dorf an (inkl. verwendetem Parsing-Zweig) - die
+    // Struktur der "overview_villages&mode=combined"-Seite in der App wurde
+    // in diesem Debugging-Bogen noch nie gegen echtes HTML verifiziert.
+    function renderTroopDebugInfo(homeTroops, mobileCheck) {
+        const lines = homeTroops.map((v) => `${v.coord}: ${JSON.stringify(v)}`);
+        renderDebugInfo(
+            `Truppen für gewählte Gruppe (Parsing-Zweig: ${
+                mobileCheck ? 'mobile' : 'desktop'
+            }, ${homeTroops.length} Dörfer):\n\n${lines.join('\n')}`
         );
     }
 
@@ -877,7 +910,15 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     async function fetchTroopsForCurrentGroup(groupId) {
         const mobileCheck = $('#mobileHeader').length > 0;
         const troopsForGroup = await jQuery.get(game_data.link_base_pure + `overview_villages&mode=combined&group=${groupId}&page=-1`).then(async(response)=>{
-            const htmlDoc = jQuery.parseHTML(response);
+            // DOMParser statt jQuery.parseHTML(): liefert ein echtes Document,
+            // in dem #combined_table ein Nachfahre von <body> ist. Mit
+            // jQuery.parseHTML() landet #combined_table dagegen oft als
+            // Top-Level-Element im Ergebnis-Array selbst, wodurch der
+            // zusammengesetzte Selektor "#combined_table tr.nowrap" nichts
+            // findet (die eigene Scope-Wurzel zählt bei querySelectorAll
+            // nicht als Vorfahre ihrer selbst) - exakt der gleiche Fehler, der
+            // schon bei fetchReportListPages() gefunden und behoben wurde.
+            const htmlDoc = new DOMParser().parseFromString(response, 'text/html');
             const homeTroops = [];
 
             if (mobileCheck) {
@@ -950,7 +991,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
         );
 
-        return troopsForGroup;
+        // mobileCheck wird mit zurückgegeben, damit der Aufrufer die
+        // tatsächlich ermittelten Truppenzahlen (inkl. welcher Parsing-Zweig
+        // benutzt wurde) sichtbar ins Panel rendern kann - die Struktur der
+        // "overview_villages&mode=combined"-Seite in der App wurde in diesem
+        // Debugging-Bogen noch nie verifiziert.
+        return { homeTroops: troopsForGroup ?? [], mobileCheck };
     }
 
     // Helper: einzelne Berichte-Listen-Seite nach Report-Links durchsuchen
