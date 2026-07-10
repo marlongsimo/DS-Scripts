@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.13
+ * Version: v1.14
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -207,6 +207,19 @@
  *     bisherigen Beobachtungen, aber KEINE endgültig bestätigte Behebung -
  *     der Nutzer muss weiterhin vorsichtig testen und zurückmelden, ob
  *     danach noch Berichte verschwinden.
+ * 26. Live bestätigt: das iframe aus Punkt 25 hatte kein sandbox-Attribut,
+ *     wodurch der Browser alle <script>-Tags der geladenen Berichte-Seite
+ *     ausführte - traf das ein Anti-Clickjacking-("Frame-Busting"-)Skript des
+ *     Spiels selbst (Muster: "if (window.top !== window.self)
+ *     window.top.location = ..."), zwang dieses den ECHTEN, sichtbaren
+ *     Browser-Tab zur Navigation auf die Berichte-Seite - der Nutzer landete
+ *     dort, ohne dass seine Schnellzugriffsleiste (Lesezeichen/Bookmarklets)
+ *     dort sichtbar/nutzbar war. fetchUrlViaIframe() setzt jetzt
+ *     iframe.sandbox = "allow-same-origin" (ohne "allow-scripts"): das
+ *     deaktiviert jede Skriptausführung im iframe (auch das Busting-Skript),
+ *     erlaubt aber weiterhin lesenden Zugriff auf iframe.contentDocument.
+ *     Ändert nichts an der Datenverlust-These aus Punkt 25 - war ein
+ *     zusätzlicher, unabhängiger Fehler derselben iframe-Umstellung.
  */
 
 // User Input
@@ -218,7 +231,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.13',
+        version: 'v1.14',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -1435,6 +1448,15 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return new Promise((resolve, reject) => {
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
+            // FIX (siehe Changelog Punkt 26): ohne sandbox führt der Browser
+            // alle <script>-Tags der geladenen Seite aus - trifft das ein
+            // Anti-Clickjacking-("Frame-Busting"-)Skript des Spiels selbst
+            // (z.B. "if (window.top !== window.self) window.top.location =
+            // ..."), zwingt es die ECHTE äußere Seite zur Navigation. "allow-
+            // same-origin" (ohne "allow-scripts") deaktiviert jede
+            // Skriptausführung im iframe, erlaubt aber weiterhin lesenden
+            // Zugriff auf iframe.contentDocument.
+            iframe.sandbox = 'allow-same-origin';
             let settled = false;
 
             function cleanup() {
