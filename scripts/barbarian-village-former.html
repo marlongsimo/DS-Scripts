@@ -34,7 +34,7 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.12</span>
+            <span class="badge">v1.13</span>
             <span class="badge">Barbarendörfer</span>
             <span class="badge">Berichte-Auswertung</span>
           </div>
@@ -63,7 +63,7 @@
           <div class="script-meta">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.12</span>
+              <span class="value">v1.13</span>
             </div>
             <div>
               <span class="label">Autor</span>
@@ -147,19 +147,25 @@
           </div>
 
           <div class="note warn" style="margin-top:1rem;">
-            <strong>Bekanntes Problem (Stand v1.12) – bitte Script derzeit
-            nur für gezielte Diagnose, nicht produktiv verwenden:</strong>
-            Live bestätigt: schon der reine Abruf der Angriffsberichte-Liste
-            per AJAX (ganz ohne einen einzigen Bericht zu öffnen) hat einen
-            Bericht aus dem Konto gelöscht. Manuelles Öffnen desselben
-            Berichte-Typs von Hand löscht ihn dagegen nachweislich nicht.
-            Die genaue Ursache ist weiterhin nicht bekannt. Es gibt jetzt
-            einen weiteren Diagnose-Button „Unbeteiligte Seite laden“, der
-            ausschließlich die Dorf-Übersicht abruft (kein Bezug zu
-            Berichten), um einzugrenzen, ob jeder AJAX-Abruf in dieser
-            App-Umgebung Berichte löscht, oder ob es spezifisch am
-            Berichte-Screen liegt. Bitte das Script bis auf Weiteres nur
-            mit größter Vorsicht verwenden und Beobachtungen zurückmelden.
+            <strong>Bekanntes Problem (Stand v1.13) – bitte weiterhin
+            vorsichtig testen:</strong> Es wurde live wiederholt bestätigt,
+            dass Berichte beim Ausführen dieses Scripts verschwinden
+            konnten, während manuelles Öffnen desselben Berichte-Typs sie
+            nachweislich nie löscht. Eine weitere Diagnose (Abruf einer
+            unbeteiligten Seite ohne Bezug zu Berichten) hat gezeigt, dass
+            die Ursache spezifisch am Berichte-Screen liegt, nicht an jedem
+            beliebigen Netzwerk-Request. Naheliegendste Erklärung: der
+            bisherige AJAX-Abruf (<code>jQuery.get()</code>) unterscheidet
+            sich technisch von einer echten Seiten-Navigation (z.B. fehlender
+            „X-Requested-With“-Header) – genau das, was beim manuellen Tap
+            auf einen Link passiert und nachweislich sicher ist. v1.13
+            ersetzt daher jeden Zugriff auf den Berichte-Screen (Liste UND
+            Einzelberichte) durch eine echte Navigation über ein
+            unsichtbares iframe statt per AJAX. Das ist die naheliegendste
+            Erklärung basierend auf allen bisherigen Beobachtungen, aber
+            <strong>keine endgültig bestätigte Behebung</strong> – bitte
+            weiterhin vorsichtig testen und zurückmelden, ob danach noch
+            Berichte verschwinden.
           </div>
         </div>
       </div>
