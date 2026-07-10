@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.4
+ * Version: v1.5
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -71,6 +71,19 @@
  *     Außerdem: eine "0 Report-Links auf Seite 1"-Diagnose wird jetzt
  *     wieder verworfen, sobald eine spätere Seite echte Treffer bringt,
  *     statt widersprüchlich neben der Erfolgsmeldung stehen zu bleiben.
+ * 16. getReports(): "All perfect" wurde bisher auch dann gezeigt, wenn gar
+ *     kein einziger Bericht auswertbar war (0 Befehle berechnet, weil
+ *     reportData komplett leer war) - inhaltlich aber ein völlig anderer
+ *     Fall als "alle Berichte ausgewertet, nichts mehr zu tun". Jeder
+ *     Bericht wird jetzt explizit pro Ablehnungsgrund gezählt (fehlende
+ *     Spähdaten / kein Barbarendorf / gewähltes Gebäude nicht erspäht /
+ *     Parse-Fehler) statt nur stillschweigend per Exception übersprungen
+ *     zu werden; bleiben am Ende 0 Berichte übrig, wird eine Diagnose samt
+ *     Statistik und echtem Beispiel-HTML ins Panel gerendert statt
+ *     "All perfect" zu zeigen. Nebenbei behoben: die Barbarendorf-Prüfung
+ *     (villageAnchor) testete bisher nur auf Wahrheitswert eines
+ *     jQuery-Objekts (immer "truthy", auch wenn leer) statt auf
+ *     villageAnchor.length > 0.
  */
 
 // User Input
@@ -82,7 +95,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.4',
+        version: 'v1.5',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -509,11 +522,14 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
         // Nicht alle Seiten der Berichte-Liste konnten geladen werden, es wurden
         // aber schon Berichte gefunden - Hinweis anzeigen statt stillschweigend
-        // nur mit den bisher gefundenen Berichten weiterzumachen.
-        if (debugInfo) {
-            renderDebugInfo(
-                `Warnung: nicht alle Seiten der Berichte-Liste konnten geladen werden. Es wird mit den bereits gefundenen ${reportUrls.length} Berichten weitergemacht.\n\n${debugInfo}`
-            );
+        // nur mit den bisher gefundenen Berichten weiterzumachen. Wird unten
+        // ggf. der "Keine auswertbaren Berichte"-Diagnose vorangestellt, statt
+        // von renderDebugInfo() einfach überschrieben zu werden.
+        const partialPageWarning = debugInfo
+            ? `Warnung: nicht alle Seiten der Berichte-Liste konnten geladen werden. Es wird mit den bereits gefundenen ${reportUrls.length} Berichten weitergemacht.\n\n${debugInfo}`
+            : '';
+        if (partialPageWarning) {
+            renderDebugInfo(partialPageWarning);
         }
         // twSDK.startProgressBar()/updateProgressBar() sind Teil der extern
         // nachgeladenen twSDK-Bibliothek. Scheitert die Fortschrittsanzeige in
@@ -526,6 +542,20 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         } catch (e) {
             console.warn(`${scriptInfo} startProgressBar fehlgeschlagen:`, e);
         }
+        // Zählt, aus welchem Grund Berichte aussortiert werden, statt sie nur
+        // stillschweigend über eine geworfene Exception zu überspringen -
+        // Grundlage für die Diagnose weiter unten, falls am Ende 0 Berichte
+        // übrig bleiben ("All perfect" wäre dann irreführend, siehe dort).
+        const stats = { noSpyData: 0, notBarbarian: 0, wrongBuilding: 0, parseError: 0 };
+        let sampleReportHtml = '';
+        function recordSample(reason, htmlDoc) {
+            if (sampleReportHtml) {
+                return;
+            }
+            const body = htmlDoc.body ? htmlDoc.body.innerHTML : '';
+            sampleReportHtml = `Grund: ${reason}\n\n${body.slice(0, 2000)}`;
+        }
+
         twSDK.getAll(reportUrls, function(index, data) {
             try {
                 twSDK.updateProgressBar(index, reportUrls.length);
@@ -535,27 +565,43 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
             const parser = new DOMParser();
             const htmlDoc = parser.parseFromString(data, 'text/html');
-            // Read building data
-            let report = null;
             try {
-                report = JSON.parse(jQuery(htmlDoc).find('#attack_spy_building_data')[0].defaultValue);
+                const spyDataEl = jQuery(htmlDoc).find('#attack_spy_building_data')[0];
+                if (!spyDataEl) {
+                    stats.noSpyData++;
+                    recordSample('kein #attack_spy_building_data-Element gefunden', htmlDoc);
+                    return;
+                }
+                const report = JSON.parse(spyDataEl.defaultValue);
                 var spyResults = {};
                 for (var i = 0; i < report.length; i++) {
                     spyResults[report[i].id] = report[i];
                 }
+                // FIX: villageAnchor ist ein jQuery-Objekt und damit immer
+                // "truthy", auch wenn leer - die Barbarendorf-Prüfung muss auf
+                // .length testen, sonst greift sie nie.
                 const villageAnchor = jQuery(htmlDoc).find('#attack_info_def > tbody > tr > td > span[data-player=0]');
-                if (spyResults !== null && typeof spyResults[buildingType] !== 'undefined' && villageAnchor) {
-                    const reportInfo = {
-                        wall: parseInt(typeof spyResults['wall'] === 'undefined' ? 0 : spyResults['wall'].level),
-                        building: parseInt(spyResults[buildingType].level),
-                        villageId: villageAnchor[0].getAttribute('data-id'),
-                        coord: twSDK.getCoordFromString(villageAnchor.text()),
-                        lastCommand: new Date(),
-                    };
-                    reportData.push(reportInfo);
+                if (villageAnchor.length === 0) {
+                    stats.notBarbarian++;
+                    recordSample('kein Barbarendorf als Ziel (data-player=0 nicht gefunden)', htmlDoc);
+                    return;
                 }
+                if (typeof spyResults[buildingType] === 'undefined') {
+                    stats.wrongBuilding++;
+                    recordSample(`gewähltes Gebäude "${buildingType}" nicht erspäht`, htmlDoc);
+                    return;
+                }
+                const reportInfo = {
+                    wall: parseInt(typeof spyResults['wall'] === 'undefined' ? 0 : spyResults['wall'].level),
+                    building: parseInt(spyResults[buildingType].level),
+                    villageId: villageAnchor[0].getAttribute('data-id'),
+                    coord: twSDK.getCoordFromString(villageAnchor.text()),
+                    lastCommand: new Date(),
+                };
+                reportData.push(reportInfo);
             } catch (e) {
-                // Not usable Report
+                stats.parseError++;
+                recordSample(`Parse-Fehler: ${e.message}`, htmlDoc);
                 console.log(e);
             }
 
@@ -567,7 +613,20 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 wbCommands += convertWbCommand(command, i);
                 i++;
             });
-            if (commands.length == 0) {
+            if (reportData.length === 0) {
+                // Nicht mit "All perfect" verwechseln: hier wurde KEIN einziger
+                // Bericht erfolgreich ausgewertet, statt dass ausgewertete
+                // Berichte einfach nichts mehr zu tun übrig ließen.
+                renderDebugInfo(
+                    (partialPageWarning ? `${partialPageWarning}\n\n` : '') +
+                        `Keine auswertbaren Berichte gefunden (von ${reportUrls.length} geladenen Berichten):\n` +
+                        `- ohne Spähdaten (kein Späher gesendet/Späher gestorben): ${stats.noSpyData}\n` +
+                        `- kein Barbarendorf als Ziel: ${stats.notBarbarian}\n` +
+                        `- gewähltes Gebäude "${buildingType}" nicht erspäht: ${stats.wrongBuilding}\n` +
+                        `- Parse-Fehler: ${stats.parseError}\n\n` +
+                        `Beispiel-Bericht (bitte zurückmelden):\n${sampleReportHtml}`
+                );
+            } else if (commands.length === 0) {
                 UI.SuccessMessage("All perfect");
             }
             $('#barbCoordsList').val(wbCommands);
