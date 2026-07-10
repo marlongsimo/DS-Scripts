@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.8
+ * Version: v1.9
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -115,16 +115,27 @@
  *     einem benutzerdefinierten Berichte-Ordner (z.B. "Hochladen", "Terra",
  *     "Archiv" - group_id ungleich 0) oder zur allgemeinen Liste gehörte.
  *     Live hat sich bestätigt, dass dadurch ein eigener Ordner ("Hochladen")
- *     statt der Angriffsberichte-Liste gescannt wurde - und da dieser Ordner
- *     offenbar eine eigene "nach dem Lesen löschen"-Regel hatte, wurden
- *     dadurch echte Berichte permanent gelöscht (auch aus "Alle Berichte"
- *     verschwunden, keine reine Ansichtssache). isGeneralReportListLink()
- *     schließt jetzt jeden Link mit group_id ungleich 0 explizit aus; wird
- *     gar kein allgemeiner Link gefunden, wird auf die selbst zusammen-
- *     gebaute (garantiert ordner-freie) URL zurückgefallen statt auf einen
+ *     statt der Angriffsberichte-Liste gescannt wurde (dieser konkrete
+ *     Ordner hatte laut Nutzer keine eigene Lösch-Regel - die genaue
+ *     Ursache für die zuvor beobachteten gelöschten Berichte bleibt
+ *     unklar, siehe Punkt 21). isGeneralReportListLink() schließt jetzt
+ *     jeden Link mit group_id ungleich 0 explizit aus; wird gar kein
+ *     allgemeiner Link gefunden, wird auf die selbst zusammengebaute
+ *     (garantiert ordner-freie) URL zurückgefallen statt auf einen
  *     Ordner-Link. Zusätzlich zeigt das Panel jetzt IMMER an, welche
  *     Berichte-Liste tatsächlich verwendet wurde (auch bei Erfolg), damit
  *     so etwas beim nächsten Mal sofort auffällt.
+ * 21. Kernursache für "keine Spähdaten gefunden" gefunden: .report-link
+ *     lieferte teils href="#" (die eigentliche Navigation läuft über
+ *     onclick/JavaScript statt über einen echten Link). jQuery.get('#')
+ *     lädt dabei einfach die AKTUELL GELADENE Seite erneut (der Browser
+ *     löst "#" relativ zur aktuellen URL auf) - das erklärt, warum als
+ *     "Beispiel-Bericht" wiederholt die allgemeine Berichte-Listen-Seite
+ *     (samt Reiter-Konfiguration) statt echtem Berichtsinhalt auftauchte.
+ *     isNavigableReportUrl() schließt "#", "javascript:"-Links, leere und
+ *     undefinierte hrefs jetzt aus; extractReportRowLinks() zählt solche
+ *     Zeilen separat und liefert eine Beispiel-Zeile zur Diagnose, statt
+ *     sie stillschweigend als (nutzlose) Berichts-URL zu behandeln.
  */
 
 // User Input
@@ -136,7 +147,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.8',
+        version: 'v1.9',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -589,7 +600,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         const baseNote =
             sourceNote +
             (debugInfo
-                ? `\n\nWarnung: nicht alle Seiten der Berichte-Liste konnten geladen werden. Es wird mit den bereits gefundenen ${reportUrls.length} Berichten weitergemacht.\n\n${debugInfo}`
+                ? `\n\nHinweis zur Berichte-Liste (${reportUrls.length} Berichte gefunden):\n\n${debugInfo}`
                 : '');
         renderDebugInfo(baseNote);
         // twSDK.startProgressBar()/updateProgressBar() sind Teil der extern
@@ -1063,22 +1074,46 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     // (gleicher Selektor wie zuvor, jetzt auf per AJAX geladenes HTML statt
     // auf das Live-DOM angewendet - Voraussetzung dafür, dass das Script vom
     // Versammlungsplatz aus laufen kann, wo #report_list gar nicht existiert).
+    // Ein href wie "#" oder "javascript:..." ist kein echter, per GET
+    // abrufbarer Link, sondern ein reiner JS-/Modal-Auslöser (die eigentliche
+    // Navigation passiert dann über onclick). Ein solcher Link würde beim
+    // Abruf per jQuery.get() einfach die AKTUELL GELADENE Seite erneut
+    // zurückliefern (der Browser löst "#" relativ zur aktuellen URL auf) -
+    // das erklärt, warum als "Beispiel-Bericht" wiederholt die allgemeine
+    // Berichte-Listen-Seite (samt Reiter-Konfiguration) statt echtem
+    // Berichtsinhalt auftauchte.
+    function isNavigableReportUrl(href) {
+        return (
+            typeof href !== 'undefined' &&
+            href !== '' &&
+            href !== '#' &&
+            href.indexOf('javascript:') !== 0
+        );
+    }
+
     function extractReportRowLinks(htmlDoc) {
         const links = [];
+        let nonNavigableCount = 0;
+        let sampleRowHtml = '';
         jQuery(htmlDoc)
             .find('#report_list tbody tr')
             .each(function () {
                 try {
                     const reportUrl = jQuery(this).find('.report-link').attr('href');
-                    if (typeof reportUrl !== 'undefined' && reportUrl !== '') {
+                    if (isNavigableReportUrl(reportUrl)) {
                         links.push(reportUrl);
+                    } else {
+                        nonNavigableCount++;
+                        if (!sampleRowHtml) {
+                            sampleRowHtml = this.outerHTML || '';
+                        }
                     }
                 } catch (e) {
                     // einzelne kaputte Zeile überspringen, nicht den ganzen Abruf abbrechen
                     console.warn(`${scriptInfo} Report-Zeile übersprungen (unerwartete Struktur):`, e);
                 }
             });
-        return links;
+        return { links, nonNavigableCount, sampleRowHtml };
     }
 
     // Helper: Link zur nächsten Berichte-Listen-Seite finden. Es wird nicht
@@ -1193,6 +1228,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     async function fetchReportListPages(maxReportPagesToFetch) {
         const reportUrls = [];
         let debugInfo = '';
+        let totalNonNavigableCount = 0;
+        let nonNavigableSampleHtml = '';
         const startUrl = findReportListNavLink() || game_data.link_base_pure + 'report&mode=attack';
         let currentUrl = startUrl;
         let pageCount = 0;
@@ -1219,8 +1256,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             // Vorfahre ihrer selbst).
             const parser = new DOMParser();
             const htmlDoc = parser.parseFromString(html, 'text/html');
-            const rowLinks = extractReportRowLinks(htmlDoc);
+            const { links: rowLinks, nonNavigableCount, sampleRowHtml } = extractReportRowLinks(htmlDoc);
             reportUrls.push(...rowLinks);
+            totalNonNavigableCount += nonNavigableCount;
+            if (nonNavigableCount > 0 && !nonNavigableSampleHtml) {
+                nonNavigableSampleHtml = sampleRowHtml;
+            }
             pageCount++;
 
             if (rowLinks.length > 0) {
@@ -1238,7 +1279,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             currentUrl = findNextReportPageUrl(htmlDoc, currentUrl);
         }
 
-        if (reportUrls.length === 0 && !debugInfo) {
+        if (totalNonNavigableCount > 0) {
+            const nonNavNote = `${totalNonNavigableCount} Berichte-Zeile(n) hatten keinen abrufbaren Link (href="#" o.ä. statt einer echten URL, vermutlich wird der Bericht per Klick/JavaScript statt über einen normalen Link geöffnet) und wurden übersprungen.\n\nBeispiel-Zeile (bitte zurückmelden):\n${nonNavigableSampleHtml.slice(
+                0,
+                2000
+            )}`;
+            debugInfo = debugInfo ? `${debugInfo}\n\n${nonNavNote}` : nonNavNote;
+        } else if (reportUrls.length === 0 && !debugInfo) {
             debugInfo = `0 Berichte über ${pageCount} Seite(n) gefunden.`;
         }
 
