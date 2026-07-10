@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.7
+ * Version: v1.8
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -110,6 +110,21 @@
  *     die Kennung wirklich fehlt. Sucht jetzt gezielt nach den gesuchten
  *     Kennungen im gesamten HTML und zeigt einen Ausschnitt um die
  *     Fundstelle (oder einen expliziten "kommt nirgends vor"-Hinweis).
+ * 20. Kritischer Bug live bestätigt: findReportListNavLink() nahm bisher den
+ *     ERSTEN im DOM gefundenen Berichte-Link, unabhängig davon, ob er zu
+ *     einem benutzerdefinierten Berichte-Ordner (z.B. "Hochladen", "Terra",
+ *     "Archiv" - group_id ungleich 0) oder zur allgemeinen Liste gehörte.
+ *     Live hat sich bestätigt, dass dadurch ein eigener Ordner ("Hochladen")
+ *     statt der Angriffsberichte-Liste gescannt wurde - und da dieser Ordner
+ *     offenbar eine eigene "nach dem Lesen löschen"-Regel hatte, wurden
+ *     dadurch echte Berichte permanent gelöscht (auch aus "Alle Berichte"
+ *     verschwunden, keine reine Ansichtssache). isGeneralReportListLink()
+ *     schließt jetzt jeden Link mit group_id ungleich 0 explizit aus; wird
+ *     gar kein allgemeiner Link gefunden, wird auf die selbst zusammen-
+ *     gebaute (garantiert ordner-freie) URL zurückgefallen statt auf einen
+ *     Ordner-Link. Zusätzlich zeigt das Panel jetzt IMMER an, welche
+ *     Berichte-Liste tatsächlich verwendet wurde (auch bei Erfolg), damit
+ *     so etwas beim nächsten Mal sofort auffällt.
  */
 
 // User Input
@@ -121,7 +136,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.7',
+        version: 'v1.8',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -556,22 +571,27 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         const buildingType = localStorage.getItem(`${scriptConfig.scriptData.prefix}_chosen_building`);
         var reportData = [];
         renderDebugInfo('');
-        const { reportUrls, debugInfo } = await fetchReportListPages(MAX_REPORT_PAGES_TO_FETCH);
+        const { reportUrls, debugInfo, startUrl } = await fetchReportListPages(MAX_REPORT_PAGES_TO_FETCH);
+        // Immer sichtbar machen, welche Berichte-Liste tatsächlich verwendet
+        // wurde - live bestätigt, dass ein versehentlich gewählter
+        // Ordner-/Gruppen-Link (z.B. ein eigener Berichte-Ordner statt der
+        // allgemeinen Liste) sonst unbemerkt geblieben wäre.
+        const sourceNote = `Quelle der Berichte-Liste: ${startUrl}`;
         if (reportUrls.length === 0) {
-            renderDebugInfo(debugInfo);
+            renderDebugInfo(`${sourceNote}\n\n${debugInfo}`);
             return;
         }
         // Nicht alle Seiten der Berichte-Liste konnten geladen werden, es wurden
         // aber schon Berichte gefunden - Hinweis anzeigen statt stillschweigend
-        // nur mit den bisher gefundenen Berichten weiterzumachen. Wird unten
-        // ggf. der "Keine auswertbaren Berichte"-Diagnose vorangestellt, statt
-        // von renderDebugInfo() einfach überschrieben zu werden.
-        const partialPageWarning = debugInfo
-            ? `Warnung: nicht alle Seiten der Berichte-Liste konnten geladen werden. Es wird mit den bereits gefundenen ${reportUrls.length} Berichten weitergemacht.\n\n${debugInfo}`
-            : '';
-        if (partialPageWarning) {
-            renderDebugInfo(partialPageWarning);
-        }
+        // nur mit den bisher gefundenen Berichten weiterzumachen. baseNote
+        // (Quelle + ggf. Warnung) wird unten jedem weiteren renderDebugInfo()-
+        // Aufruf vorangestellt, statt von diesen einfach überschrieben zu werden.
+        const baseNote =
+            sourceNote +
+            (debugInfo
+                ? `\n\nWarnung: nicht alle Seiten der Berichte-Liste konnten geladen werden. Es wird mit den bereits gefundenen ${reportUrls.length} Berichten weitergemacht.\n\n${debugInfo}`
+                : '');
+        renderDebugInfo(baseNote);
         // twSDK.startProgressBar()/updateProgressBar() sind Teil der extern
         // nachgeladenen twSDK-Bibliothek. Scheitert die Fortschrittsanzeige in
         // der App (z.B. weil sie von einem dort nicht vorhandenen Element
@@ -688,7 +708,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 // Bericht erfolgreich ausgewertet, statt dass ausgewertete
                 // Berichte einfach nichts mehr zu tun übrig ließen.
                 renderDebugInfo(
-                    (partialPageWarning ? `${partialPageWarning}\n\n` : '') +
+                    `${baseNote}\n\n` +
                         `Keine auswertbaren Berichte gefunden (von ${reportUrls.length} geladenen Berichten):\n` +
                         `- ohne Spähdaten (kein Späher gesendet/Späher gestorben): ${stats.noSpyData}\n` +
                         `- kein Barbarendorf als Ziel: ${stats.notBarbarian}\n` +
@@ -698,6 +718,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 );
             } else if (commands.length === 0) {
                 UI.SuccessMessage("All perfect");
+                renderDebugInfo(baseNote);
+            } else {
+                renderDebugInfo(baseNote);
             }
             $('#barbCoordsList').val(wbCommands);
         }, function(error) {
@@ -706,7 +729,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             const details =
                 (error && (error.stack || error.message || error.statusText)) || String(error);
             renderDebugInfo(
-                `Fehler beim Laden der einzelnen Berichte (${reportData.length} von ${reportUrls.length} bereits verarbeitet):\n\n${details}`
+                `${baseNote}\n\nFehler beim Laden der einzelnen Berichte (${reportData.length} von ${reportUrls.length} bereits verarbeitet):\n\n${details}`
             );
         });
     }
@@ -1124,11 +1147,28 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     // nicht zuverlässig herausgestellt: sie lieferte statt der Berichte-
     // Liste einen einzelnen Bericht zurück, obwohl die manuelle App-
     // Navigation zur gleichen Ansicht dort eine echte Liste zeigt.
+    // Ordner-/Gruppen-Links (z.B. eigene Berichte-Ordner wie "Hochladen",
+    // "Archiv", "Terra" usw., die der Nutzer selbst angelegt hat) haben einen
+    // group_id-Parameter ungleich 0. Solche Links dürfen NIE als
+    // Berichte-Listen-Quelle verwendet werden: sie zeigen nur eine
+    // benutzerdefinierte Teilmenge, und manche Ordner haben sogar eigene
+    // "nach dem Lesen automatisch löschen"-Regeln - live bestätigt, dass ein
+    // versehentlich gewählter Ordner-Link dadurch echte Berichte permanent
+    // gelöscht hat.
+    function isGeneralReportListLink(href) {
+        return href.indexOf('group_id=') === -1 || href.indexOf('group_id=0') !== -1;
+    }
+
     function findReportListNavLink() {
         let navHref = null;
         jQuery('a[href*="screen=report"]').each(function () {
             const href = jQuery(this).attr('href');
-            if (href && href.indexOf('view=') === -1 && href.indexOf('mode=attack') !== -1) {
+            if (
+                href &&
+                href.indexOf('view=') === -1 &&
+                href.indexOf('mode=attack') !== -1 &&
+                isGeneralReportListLink(href)
+            ) {
                 navHref = href;
                 return false; // .each() abbrechen, ersten Treffer nehmen
             }
@@ -1137,10 +1177,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return navHref;
         }
         // Kein Link speziell für "Angriffsberichte" gefunden - notfalls
-        // irgendeinen Berichte-Navigations-Link nehmen (z.B. "Alle Berichte").
+        // irgendeinen allgemeinen (nicht Ordner-/Gruppen-gebundenen)
+        // Berichte-Navigations-Link nehmen (z.B. "Alle Berichte"). Ordner-
+        // Links werden hier bewusst NIE verwendet, siehe isGeneralReportListLink().
         jQuery('a[href*="screen=report"]').each(function () {
             const href = jQuery(this).attr('href');
-            if (href && href.indexOf('view=') === -1) {
+            if (href && href.indexOf('view=') === -1 && isGeneralReportListLink(href)) {
                 navHref = href;
                 return false;
             }
@@ -1151,7 +1193,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     async function fetchReportListPages(maxReportPagesToFetch) {
         const reportUrls = [];
         let debugInfo = '';
-        let currentUrl = findReportListNavLink() || game_data.link_base_pure + 'report&mode=attack';
+        const startUrl = findReportListNavLink() || game_data.link_base_pure + 'report&mode=attack';
+        let currentUrl = startUrl;
         let pageCount = 0;
 
         while (currentUrl && pageCount < maxReportPagesToFetch) {
@@ -1199,6 +1242,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             debugInfo = `0 Berichte über ${pageCount} Seite(n) gefunden.`;
         }
 
-        return { reportUrls, debugInfo };
+        return { reportUrls, debugInfo, startUrl };
     }
 });
