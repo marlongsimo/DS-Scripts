@@ -34,7 +34,7 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.13</span>
+            <span class="badge">v1.14</span>
             <span class="badge">Barbarendörfer</span>
             <span class="badge">Berichte-Auswertung</span>
           </div>
@@ -63,7 +63,7 @@
           <div class="script-meta">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.13</span>
+              <span class="value">v1.14</span>
             </div>
             <div>
               <span class="label">Autor</span>
@@ -147,7 +147,7 @@
           </div>
 
           <div class="note warn" style="margin-top:1rem;">
-            <strong>Bekanntes Problem (Stand v1.13) – bitte weiterhin
+            <strong>Bekanntes Problem (Stand v1.14) – bitte weiterhin
             vorsichtig testen:</strong> Es wurde live wiederholt bestätigt,
             dass Berichte beim Ausführen dieses Scripts verschwinden
             konnten, während manuelles Öffnen desselben Berichte-Typs sie
@@ -158,7 +158,7 @@
             bisherige AJAX-Abruf (<code>jQuery.get()</code>) unterscheidet
             sich technisch von einer echten Seiten-Navigation (z.B. fehlender
             „X-Requested-With“-Header) – genau das, was beim manuellen Tap
-            auf einen Link passiert und nachweislich sicher ist. v1.13
+            auf einen Link passiert und nachweislich sicher ist. v1.14
             ersetzt daher jeden Zugriff auf den Berichte-Screen (Liste UND
             Einzelberichte) durch eine echte Navigation über ein
             unsichtbares iframe statt per AJAX. Das ist die naheliegendste
@@ -166,6 +166,17 @@
             <strong>keine endgültig bestätigte Behebung</strong> – bitte
             weiterhin vorsichtig testen und zurückmelden, ob danach noch
             Berichte verschwinden.
+            <br><br>
+            <strong>Nachtrag v1.14:</strong> Die iframe-Umstellung aus v1.13
+            hatte einen eigenen, unabhängigen Fehler: da das iframe kein
+            <code>sandbox</code>-Attribut hatte, führte der Browser das
+            Anti-Clickjacking-Skript der echten Berichte-Seite mit aus –
+            dieses zwang den sichtbaren Browser-Tab zur Berichte-Seite, wo
+            die Schnellzugriffsleiste (Lesezeichen/Bookmarklets) nicht
+            nutzbar war. Ist jetzt durch <code>sandbox="allow-same-origin"</code>
+            behoben (deaktiviert jede Skriptausführung im iframe, erlaubt
+            aber weiterhin Lesezugriff auf den Inhalt) – das Script sollte
+            jetzt am Versammlungsplatz bleiben, ohne wegzuspringen.
           </div>
         </div>
       </div>
