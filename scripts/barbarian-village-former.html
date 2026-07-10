@@ -34,7 +34,7 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.11</span>
+            <span class="badge">v1.12</span>
             <span class="badge">Barbarendörfer</span>
             <span class="badge">Berichte-Auswertung</span>
           </div>
@@ -63,7 +63,7 @@
           <div class="script-meta">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.11</span>
+              <span class="value">v1.12</span>
             </div>
             <div>
               <span class="label">Autor</span>
@@ -147,23 +147,19 @@
           </div>
 
           <div class="note warn" style="margin-top:1rem;">
-            <strong>Bekanntes Problem (Stand v1.11):</strong> Es wurde
-            live wiederholt beobachtet, dass beim Ausführen des Scripts
-            Angriffsberichte aus dem Konto verschwinden – zuletzt sogar
-            ein kompletter, eigens zur Beobachtung angelegter Berichte-
-            Ordner, unabhängig davon, welche der gefundenen Berichte das
-            Script tatsächlich einzeln abgerufen hat. Manuelles Öffnen
-            desselben Berichte-Typs von Hand löscht ihn dagegen
-            nachweislich nicht. Die genaue Ursache ist weiterhin nicht
-            bestätigt. Um sie einzugrenzen, gibt es jetzt einen
-            zusätzlichen Button „Diagnose: Nur Berichte-Liste laden“, der
-            ausschließlich die Berichte-Liste lädt und anzeigt, aber
-            keinen einzigen Bericht öffnet – damit lässt sich testen, ob
-            schon das reine Laden der Liste oder erst das Öffnen
-            einzelner Berichte die Ursache ist. Bitte das Script bis auf
-            Weiteres nur mit größter Vorsicht (idealerweise zunächst nur
-            über den Diagnose-Button) verwenden und Beobachtungen
-            zurückmelden.
+            <strong>Bekanntes Problem (Stand v1.12) – bitte Script derzeit
+            nur für gezielte Diagnose, nicht produktiv verwenden:</strong>
+            Live bestätigt: schon der reine Abruf der Angriffsberichte-Liste
+            per AJAX (ganz ohne einen einzigen Bericht zu öffnen) hat einen
+            Bericht aus dem Konto gelöscht. Manuelles Öffnen desselben
+            Berichte-Typs von Hand löscht ihn dagegen nachweislich nicht.
+            Die genaue Ursache ist weiterhin nicht bekannt. Es gibt jetzt
+            einen weiteren Diagnose-Button „Unbeteiligte Seite laden“, der
+            ausschließlich die Dorf-Übersicht abruft (kein Bezug zu
+            Berichten), um einzugrenzen, ob jeder AJAX-Abruf in dieser
+            App-Umgebung Berichte löscht, oder ob es spezifisch am
+            Berichte-Screen liegt. Bitte das Script bis auf Weiteres nur
+            mit größter Vorsicht verwenden und Beobachtungen zurückmelden.
           </div>
         </div>
       </div>
