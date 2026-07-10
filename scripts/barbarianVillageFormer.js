@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.12
+ * Version: v1.13
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -191,6 +191,22 @@
  *     bekannt - das Script sollte bis auf Weiteres nur mit größter Vorsicht
  *     und nur für gezielte Diagnose verwendet werden, nicht für den
  *     eigentlichen produktiven Einsatz.
+ * 25. Live bestätigt: der Abruf einer unbeteiligten Seite (Punkt 24) löscht
+ *     KEINE Berichte - die Ursache liegt also spezifisch am Berichte-Screen,
+ *     nicht an jedem beliebigen AJAX-Request. Kernänderung: JEDER Zugriff auf
+ *     den Berichte-Screen (Liste UND Einzelberichte) läuft nicht mehr über
+ *     jQuery.get()/twSDK.getAll() (also XHR/AJAX), sondern über die neue
+ *     fetchUrlViaIframe() - eine echte Navigation über ein unsichtbares
+ *     iframe, ohne "X-Requested-With"-Header, so wie es der Browser bei
+ *     einem echten Tap auf einen Link auch täte. Das bildet exakt den
+ *     Unterschied zum manuellen Öffnen nach, das nachweislich nie Berichte
+ *     löscht. fetchReportListPages() und der komplette Einzelbericht-Abruf in
+ *     getReports() (vorher twSDK.getAll(), jetzt eine eigene sequentielle
+ *     Schleife über fetchUrlViaIframe()) wurden entsprechend umgestellt.
+ *     WICHTIG: dies ist die naheliegendste Erklärung basierend auf allen
+ *     bisherigen Beobachtungen, aber KEINE endgültig bestätigte Behebung -
+ *     der Nutzer muss weiterhin vorsichtig testen und zurückmelden, ob
+ *     danach noch Berichte verschwinden.
  */
 
 // User Input
@@ -202,7 +218,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.12',
+        version: 'v1.13',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -781,11 +797,30 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             sampleReportHtml = `Grund: ${reason}\n\n${excerptNote}\n${excerpt}`;
         }
 
-        twSDK.getAll(reportUrls, function(index, data) {
+        // FIX (siehe Changelog Punkt 25): twSDK.getAll() ruft intern
+        // vermutlich jQuery.get()/XHR für jede Berichts-URL auf - genau die
+        // Art von Request, die sich für die Berichte-LISTE bereits als
+        // datenzerstörend bestätigt hat. Da nie isoliert getestet wurde, ob
+        // der Abruf einzelner Berichte für sich genommen sicher ist, wird
+        // hier bewusst NICHT mehr twSDK.getAll() verwendet, sondern jeder
+        // Bericht einzeln, nacheinander, über fetchUrlViaIframe() (echte
+        // Navigation statt XHR) geladen.
+        let fetchAborted = false;
+        let fetchAbortError = null;
+        for (let index = 0; index < reportUrls.length; index++) {
             try {
                 twSDK.updateProgressBar(index, reportUrls.length);
             } catch (e) {
                 console.warn(`${scriptInfo} updateProgressBar fehlgeschlagen:`, e);
+            }
+
+            let data;
+            try {
+                data = await fetchUrlViaIframe(reportUrls[index]);
+            } catch (fetchErr) {
+                fetchAborted = true;
+                fetchAbortError = fetchErr;
+                break;
             }
 
             const parser = new DOMParser();
@@ -795,12 +830,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 if (!spyDataEl) {
                     stats.noSpyData++;
                     recordSample('kein #attack_spy_building_data-Element gefunden', htmlDoc);
-                    return;
+                    continue;
                 }
                 const report = JSON.parse(spyDataEl.defaultValue);
                 var spyResults = {};
-                for (var i = 0; i < report.length; i++) {
-                    spyResults[report[i].id] = report[i];
+                for (let j = 0; j < report.length; j++) {
+                    spyResults[report[j].id] = report[j];
                 }
                 // FIX: villageAnchor ist ein jQuery-Objekt und damit immer
                 // "truthy", auch wenn leer - die Barbarendorf-Prüfung muss auf
@@ -809,12 +844,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 if (villageAnchor.length === 0) {
                     stats.notBarbarian++;
                     recordSample('kein Barbarendorf als Ziel (data-player=0 nicht gefunden)', htmlDoc);
-                    return;
+                    continue;
                 }
                 if (typeof spyResults[buildingType] === 'undefined') {
                     stats.wrongBuilding++;
                     recordSample(`gewähltes Gebäude "${buildingType}" nicht erspäht`, htmlDoc);
-                    return;
+                    continue;
                 }
                 const reportInfo = {
                     wall: parseInt(typeof spyResults['wall'] === 'undefined' ? 0 : spyResults['wall'].level),
@@ -829,44 +864,47 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 recordSample(`Parse-Fehler: ${e.message}`, htmlDoc);
                 console.log(e);
             }
+        }
 
-        }, function() {
-            const commands = doCalculations(reportData);
-            let wbCommands = ""
-            let i = 0;
-            commands.forEach(function(command) {
-                wbCommands += convertWbCommand(command, i);
-                i++;
-            });
-            if (reportData.length === 0) {
-                // Nicht mit "All perfect" verwechseln: hier wurde KEIN einziger
-                // Bericht erfolgreich ausgewertet, statt dass ausgewertete
-                // Berichte einfach nichts mehr zu tun übrig ließen.
-                renderDebugInfo(
-                    `${baseNote}\n\n` +
-                        `Keine auswertbaren Berichte gefunden (von ${reportUrls.length} geladenen Berichten):\n` +
-                        `- ohne Spähdaten (kein Späher gesendet/Späher gestorben): ${stats.noSpyData}\n` +
-                        `- kein Barbarendorf als Ziel: ${stats.notBarbarian}\n` +
-                        `- gewähltes Gebäude "${buildingType}" nicht erspäht: ${stats.wrongBuilding}\n` +
-                        `- Parse-Fehler: ${stats.parseError}\n\n` +
-                        `Beispiel-Bericht (bitte zurückmelden):\n${sampleReportHtml}`
-                );
-            } else if (commands.length === 0) {
-                UI.SuccessMessage("All perfect");
-                renderDebugInfo(baseNote);
-            } else {
-                renderDebugInfo(baseNote);
-            }
-            $('#barbCoordsList').val(wbCommands);
-        }, function(error) {
+        if (fetchAborted) {
             UI.ErrorMessage(twSDK.tt('There was an error while fetching the report data!'));
-            console.error(`${scriptInfo} Error: `, error);
+            console.error(`${scriptInfo} Error: `, fetchAbortError);
             const details =
-                (error && (error.stack || error.message || error.statusText)) || String(error);
+                (fetchAbortError && (fetchAbortError.stack || fetchAbortError.message || fetchAbortError.statusText)) ||
+                String(fetchAbortError);
             renderDebugInfo(
                 `${baseNote}\n\nFehler beim Laden der einzelnen Berichte (${reportData.length} von ${reportUrls.length} bereits verarbeitet):\n\n${details}`
             );
+            return;
+        }
+
+        const commands = doCalculations(reportData);
+        let wbCommands = ""
+        let i = 0;
+        commands.forEach(function(command) {
+            wbCommands += convertWbCommand(command, i);
+            i++;
         });
+        if (reportData.length === 0) {
+            // Nicht mit "All perfect" verwechseln: hier wurde KEIN einziger
+            // Bericht erfolgreich ausgewertet, statt dass ausgewertete
+            // Berichte einfach nichts mehr zu tun übrig ließen.
+            renderDebugInfo(
+                `${baseNote}\n\n` +
+                    `Keine auswertbaren Berichte gefunden (von ${reportUrls.length} geladenen Berichten):\n` +
+                    `- ohne Spähdaten (kein Späher gesendet/Späher gestorben): ${stats.noSpyData}\n` +
+                    `- kein Barbarendorf als Ziel: ${stats.notBarbarian}\n` +
+                    `- gewähltes Gebäude "${buildingType}" nicht erspäht: ${stats.wrongBuilding}\n` +
+                    `- Parse-Fehler: ${stats.parseError}\n\n` +
+                    `Beispiel-Bericht (bitte zurückmelden):\n${sampleReportHtml}`
+            );
+        } else if (commands.length === 0) {
+            UI.SuccessMessage("All perfect");
+            renderDebugInfo(baseNote);
+        } else {
+            renderDebugInfo(baseNote);
+        }
+        $('#barbCoordsList').val(wbCommands);
     }
 
     // returns necessary amount of axes
@@ -1385,6 +1423,53 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return navHref;
     }
 
+    // Live bestätigt (siehe Changelog Punkt 24): ein per jQuery.get() (also
+    // per XHR/AJAX) abgerufener Berichte-Request löscht Berichte, obwohl
+    // derselbe Screen manuell per echter Navigation geöffnet nachweislich
+    // NICHTS löscht. Diese Funktion lädt eine URL stattdessen über ein
+    // unsichtbares iframe - eine echte Navigation (kein XHR, kein
+    // "X-Requested-With"-Header), so wie es der Browser bei einem echten Tap
+    // auf einen Link auch täte. Ersetzt jQuery.get() an JEDER Stelle, die mit
+    // dem Berichte-Screen zu tun hat (Liste UND Einzelberichte).
+    function fetchUrlViaIframe(url, timeoutMs) {
+        return new Promise((resolve, reject) => {
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            let settled = false;
+
+            function cleanup() {
+                clearTimeout(timeoutId);
+                if (iframe.parentNode) {
+                    iframe.parentNode.removeChild(iframe);
+                }
+            }
+
+            const timeoutId = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                reject(new Error(`Timeout beim Laden von ${url} (echte Navigation via iframe)`));
+            }, timeoutMs || 20000);
+
+            iframe.onload = function () {
+                if (settled) return;
+                settled = true;
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const html = iframeDoc.documentElement ? iframeDoc.documentElement.outerHTML : '';
+                    cleanup();
+                    resolve(html);
+                } catch (e) {
+                    cleanup();
+                    reject(e);
+                }
+            };
+
+            iframe.src = url;
+            document.body.appendChild(iframe);
+        });
+    }
+
     async function fetchReportListPages(maxReportPagesToFetch) {
         const reportUrls = [];
         let debugInfo = '';
@@ -1397,7 +1482,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         while (currentUrl && pageCount < maxReportPagesToFetch) {
             let html;
             try {
-                html = await jQuery.get(currentUrl);
+                html = await fetchUrlViaIframe(currentUrl);
             } catch (error) {
                 UI.ErrorMessage(twSDK.tt('Error fetching report list page!'));
                 console.error(`${scriptInfo} Error:`, error);
