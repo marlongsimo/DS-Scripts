@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.11
+ * Version: v1.12
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -173,6 +173,24 @@
  *     Berichte vor"-Leerzustand-Zeile (eine einzelne <td colspan="...">
  *     ohne Link) fälschlich für eine echte Berichts-Zeile und zeigte sie
  *     als verwirrende "Beispiel-Zeile ohne Link" an.
+ * 24. ENTSCHEIDENDER BEFUND - live mit dem Diagnose-Button aus Punkt 23
+ *     bestätigt: der Bericht verschwand, OBWOHL twSDK.getAll() (und damit
+ *     jeder Einzelbericht-Abruf) in diesem Modus GAR NICHT aufgerufen wird -
+ *     es wurde ausschließlich die Berichte-LISTE per jQuery.get() geladen.
+ *     Das beweist: der Abruf einzelner Berichte war nie die Ursache: schon
+ *     das reine Laden der Angriffsberichte-Liste per AJAX genügt, um einen
+ *     Bericht zu löschen. Damit sind sämtliche URL-Filter-Fixes aus den
+ *     Punkten 20-23 zwar für sich genommen sinnvolle Verbesserungen, haben
+ *     das eigentliche Problem aber nie adressiert. Neuer Diagnose-Button
+ *     ("Unbeteiligte Seite laden"): fetchUnrelatedScreenDiagnose() ruft
+ *     ausschließlich die Dorf-Übersicht (screen=overview) ab, die nichts mit
+ *     Berichten zu tun hat - weder Berichte-Liste noch Einzelbericht wird
+ *     dabei angefragt. Ziel: eingrenzen, ob JEDER jQuery.get()-Aufruf in
+ *     dieser App-Umgebung Berichte löscht, oder ob es spezifisch am
+ *     Berichte-Screen liegt. WICHTIG: die Ursache ist weiterhin nicht
+ *     bekannt - das Script sollte bis auf Weiteres nur mit größter Vorsicht
+ *     und nur für gezielte Diagnose verwendet werden, nicht für den
+ *     eigentlichen produktiven Einsatz.
  */
 
 // User Input
@@ -184,7 +202,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.11',
+        version: 'v1.12',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -425,7 +443,39 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             e.preventDefault();
             getReports(true);
         });
+        // Diagnose-Modus (siehe Changelog Punkt 24): live bestätigt, dass
+        // schon der reine Berichte-LISTEN-Abruf (ohne jeden Einzelbericht-
+        // Fetch) einen Bericht gelöscht hat. Um einzugrenzen, ob JEDER
+        // jQuery.get()-Aufruf in dieser App-Umgebung Berichte löscht, oder ob
+        // es spezifisch am Berichte-Screen liegt, ruft dieser Button eine
+        // völlig unbeteiligte Spielseite ab (Dorf-Übersicht), die nichts mit
+        // Berichten zu tun hat - keine Berichte-Liste, kein Einzelbericht.
+        jQuery('#raUnrelatedScreenDiagnose').on('click', function(e) {
+            e.preventDefault();
+            fetchUnrelatedScreenDiagnose();
+        });
 
+    }
+
+    // Diagnose-Modus (siehe Changelog Punkt 24): ruft eine völlig unbeteiligte
+    // Spielseite ab (Dorf-Übersicht statt Berichte), um zu prüfen, ob JEDER
+    // AJAX-Request in dieser App-Umgebung Berichte löscht, oder ob es
+    // spezifisch am Berichte-Screen liegt. Fasst absichtlich weder
+    // #report_list noch irgendeinen einzelnen Bericht an.
+    async function fetchUnrelatedScreenDiagnose() {
+        renderDebugInfo('');
+        const testUrl = `${game_data.link_base_pure}overview`;
+        try {
+            const response = await jQuery.get(testUrl);
+            renderDebugInfo(
+                `Diagnose (unbeteiligte Seite): ${testUrl} wurde erfolgreich abgerufen ` +
+                    `(Antwortlänge: ${response.length} Zeichen). Dabei wurde NICHTS mit Berichten ` +
+                    `gemacht - weder die Berichte-Liste noch ein einzelner Bericht wurde angefragt. ` +
+                    `Bitte danach prüfen, ob trotzdem ein Bericht verschwunden ist.`
+            );
+        } catch (e) {
+            renderDebugInfo(`Diagnose (unbeteiligte Seite) fehlgeschlagen: ${(e && e.message) || e}`);
+        }
     }
 
     // Helper: Render groups filter
@@ -566,6 +616,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 		<div class="ra-mb15">
 			<a href="javascript:void(0);" id="raListOnlyDiagnose" class="btn">
 				Diagnose: Nur Berichte-Liste laden (keine Berichte öffnen)
+			</a>
+		</div>
+		<div class="ra-mb15">
+			<a href="javascript:void(0);" id="raUnrelatedScreenDiagnose" class="btn">
+				Diagnose: Unbeteiligte Seite laden (kein Bezug zu Berichten)
 			</a>
 		</div>
 		  <div class="ra-mb15">
