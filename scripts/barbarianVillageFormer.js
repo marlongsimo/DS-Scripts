@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.15
+ * Version: v1.16
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -234,6 +234,40 @@
  *     nicht respektiert, und ein Rückbau auf den Berichte-Screen als
  *     Trigger (kein iframe, keine Navigation nötig) die einzige
  *     verbleibende robuste Option wäre.
+ * 28. Live bestätigt: auch der setAttribute-Fix aus Punkt 27 hat die
+ *     Weiterleitung nicht behoben - die App-WebView respektiert das
+ *     sandbox-Attribut also grundsätzlich nicht zuverlässig, unabhängig
+ *     davon, wie es gesetzt wird. Beide JS-seitigen Fixes für dieses
+ *     Problem sind damit ausgeschöpft. Rückbau auf den ursprünglichen
+ *     Trigger-Screen (Berichte-Übersicht, screen=report&mode=attack)
+ *     statt Versammlungsplatz: die Berichte-LISTE wird jetzt wieder direkt
+ *     aus dem bereits geladenen Live-DOM gelesen
+ *     (extractReportRowLinks(document) statt fetchReportListPages()) -
+ *     dafür ist überhaupt kein Netzwerk-Request mehr nötig, womit für
+ *     diesen Teil jedes Restrisiko (Datenverlust wie in Punkt 24, Redirect
+ *     wie in Punkt 26/27) entfällt. Bewusste Rücknahme: es
+ *     können nur noch Berichte auf der gerade angezeigten Seite verarbeitet
+ *     werden, kein automatisches Weiterblättern mehr (Rücknahme der in
+ *     Punkt 8 eingeführten Paginierung). Aus demselben Grund bewusst KEIN
+ *     zusätzliches mode=attack-Gate wieder eingeführt (hätte dieselbe
+ *     Mobile-Unzuverlässigkeit wie das game_data.screen-Problem, ohne ein
+ *     sicheres Äquivalent zum Auslesen) - stattdessen filtert weiterhin
+ *     die bestehende Ablehnungslogik pro Bericht (notBarbarian/
+ *     wrongBuilding) nicht-passende Berichte heraus.
+ *     Der Abruf EINZELNER Berichte bleibt unverändert über
+ *     fetchUrlViaIframe() (siehe Punkt 25), da dies weiterhin die beste
+ *     bekannte Verteidigung gegen den in Punkt 24 bestätigten AJAX-
+ *     Datenverlust ist. WICHTIG: es ist NICHT bestätigt, ob einzelne
+ *     Berichts-Seiten dasselbe Frame-Busting-Skript enthalten wie die
+ *     Berichte-Liste - alle bisherigen Redirect-Beobachtungen stammen aus
+ *     Läufen, in denen die Liste ZUSÄTZLICH per iframe geladen wurde.
+ *     Sollte der Redirect beim Abruf einzelner Berichte erneut auftreten,
+ *     gibt es aktuell keine weitere Rückzugsoption, da einzelne Berichte
+ *     nie vorab im DOM vorhanden sind. Diagnose-Buttons "Nur Berichte-
+ *     Liste laden" (Punkt 23) und "Unbeteiligte Seite laden" (Punkt 24)
+ *     entfernt - ihre Erkenntnisse bleiben in diesem Changelog
+ *     dokumentiert, sind aber nicht mehr aktionabel, da kein AJAX-Listen-
+ *     Abruf mehr existiert, den man isolieren müsste.
  */
 
 // User Input
@@ -245,7 +279,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.15',
+        version: 'v1.16',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -304,14 +338,10 @@ var scriptConfig = {
 	},
     },
     allowedMarkets: [],
-    allowedScreens: ['place'],
+    allowedScreens: ['report'],
     isDebug: DEBUG,
     enableCountApi: false,
 };
-
-// Wie viele Seiten der Berichte-Liste maximal per AJAX geladen werden -
-// praktisch unbegrenzt (siehe "Clear Barbarian Walls", MAX_FA_PAGES_TO_FETCH).
-const MAX_REPORT_PAGES_TO_FETCH = 9999;
 
 $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript.src}`, async function() {
     // Initialize Library
@@ -361,7 +391,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 addFilterHandlers()
             } else {
                 UI.InfoMessage(twSDK.tt('Redirecting...'));
-                twSDK.redirectTo('place');
+                twSDK.redirectTo('report&mode=attack');
             }
         } catch (error) {
             UI.ErrorMessage(twSDK.tt('There was an error!'));
@@ -476,49 +506,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             e.preventDefault();
             twSDK.copyToClipboard($('#barbCoordsList').val());
         })
-        // Diagnose-Modus (siehe Changelog Punkt 23): ruft NUR die
-        // Berichte-Liste ab und zeigt, welche Berichts-URLs gefunden wurden -
-        // ruft aber KEINEN einzigen Bericht selbst ab (kein jQuery.get() auf
-        // eine view=-URL). Damit lässt sich isolieren, ob schon das Laden der
-        // Liste allein zum beobachteten Verschwinden von Berichten führt,
-        // oder ob es am Abruf der einzelnen Berichte liegt.
-        jQuery('#raListOnlyDiagnose').on('click', function(e) {
-            e.preventDefault();
-            getReports(true);
-        });
-        // Diagnose-Modus (siehe Changelog Punkt 24): live bestätigt, dass
-        // schon der reine Berichte-LISTEN-Abruf (ohne jeden Einzelbericht-
-        // Fetch) einen Bericht gelöscht hat. Um einzugrenzen, ob JEDER
-        // jQuery.get()-Aufruf in dieser App-Umgebung Berichte löscht, oder ob
-        // es spezifisch am Berichte-Screen liegt, ruft dieser Button eine
-        // völlig unbeteiligte Spielseite ab (Dorf-Übersicht), die nichts mit
-        // Berichten zu tun hat - keine Berichte-Liste, kein Einzelbericht.
-        jQuery('#raUnrelatedScreenDiagnose').on('click', function(e) {
-            e.preventDefault();
-            fetchUnrelatedScreenDiagnose();
-        });
 
-    }
-
-    // Diagnose-Modus (siehe Changelog Punkt 24): ruft eine völlig unbeteiligte
-    // Spielseite ab (Dorf-Übersicht statt Berichte), um zu prüfen, ob JEDER
-    // AJAX-Request in dieser App-Umgebung Berichte löscht, oder ob es
-    // spezifisch am Berichte-Screen liegt. Fasst absichtlich weder
-    // #report_list noch irgendeinen einzelnen Bericht an.
-    async function fetchUnrelatedScreenDiagnose() {
-        renderDebugInfo('');
-        const testUrl = `${game_data.link_base_pure}overview`;
-        try {
-            const response = await jQuery.get(testUrl);
-            renderDebugInfo(
-                `Diagnose (unbeteiligte Seite): ${testUrl} wurde erfolgreich abgerufen ` +
-                    `(Antwortlänge: ${response.length} Zeichen). Dabei wurde NICHTS mit Berichten ` +
-                    `gemacht - weder die Berichte-Liste noch ein einzelner Bericht wurde angefragt. ` +
-                    `Bitte danach prüfen, ob trotzdem ein Bericht verschwunden ist.`
-            );
-        } catch (e) {
-            renderDebugInfo(`Diagnose (unbeteiligte Seite) fehlgeschlagen: ${(e && e.message) || e}`);
-        }
     }
 
     // Helper: Render groups filter
@@ -656,16 +644,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 				${twSDK.tt('Export as WB format')}
 			</a>
 		</div>
-		<div class="ra-mb15">
-			<a href="javascript:void(0);" id="raListOnlyDiagnose" class="btn">
-				Diagnose: Nur Berichte-Liste laden (keine Berichte öffnen)
-			</a>
-		</div>
-		<div class="ra-mb15">
-			<a href="javascript:void(0);" id="raUnrelatedScreenDiagnose" class="btn">
-				Diagnose: Unbeteiligte Seite laden (kein Bezug zu Berichten)
-			</a>
-		</div>
+		<p style="font-size:0.85em; opacity:0.8;">
+			Verarbeitet nur die aktuell angezeigte Berichte-Seite. Zeigt das Spiel
+			mehr Berichte auf weiteren Seiten, bitte pro Seite erneut ausführen.
+		</p>
 		  <div class="ra-mb15">
 		  <textarea id="barbCoordsList" style="width: 100%" class="ra-textarea" readonly=""></textarea>
 			</div>
@@ -727,43 +709,24 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     }
 
     // Render: Build user interface
-    // listOnly: Diagnose-Modus (siehe Changelog Punkt 23) - ruft NUR die
-    // Berichte-Liste ab und zeigt, welche Berichts-URLs gefunden wurden,
-    // ruft aber KEINEN einzelnen Bericht ab (kein jQuery.get() auf eine
-    // view=-URL). Damit lässt sich isolieren, ob schon der Liste-Fetch
-    // allein zum beobachteten Verschwinden von Berichten führt.
-    async function getReports(listOnly) {
+    async function getReports() {
 
         const buildingType = localStorage.getItem(`${scriptConfig.scriptData.prefix}_chosen_building`);
         var reportData = [];
         renderDebugInfo('');
-        const { reportUrls, debugInfo, startUrl } = await fetchReportListPages(MAX_REPORT_PAGES_TO_FETCH);
-        // Immer sichtbar machen, welche Berichte-Liste tatsächlich verwendet
-        // wurde - live bestätigt, dass ein versehentlich gewählter
-        // Ordner-/Gruppen-Link (z.B. ein eigener Berichte-Ordner statt der
-        // allgemeinen Liste) sonst unbemerkt geblieben wäre.
+        const { reportUrls, debugInfo, startUrl } = readReportListFromCurrentPage();
+        // Immer sichtbar machen, welche Berichte-Seite tatsächlich verwendet
+        // wurde.
         const sourceNote = `Quelle der Berichte-Liste: ${startUrl}`;
         if (reportUrls.length === 0) {
             renderDebugInfo(`${sourceNote}\n\n${debugInfo}`);
             return;
         }
-        if (listOnly) {
-            // Bewusst KEIN twSDK.getAll(reportUrls, ...) hier - genau das ist
-            // der Zweck dieses Diagnose-Modus: die einzelnen Berichte werden
-            // nicht angerührt, nur ihre URLs angezeigt.
-            renderDebugInfo(
-                `${sourceNote}\n\n` +
-                    `Diagnose-Modus: ${reportUrls.length} Berichte-URL(s) gefunden, ` +
-                    `es wurde aber KEINE davon abgerufen (kein Bericht wurde geöffnet):\n\n` +
-                    reportUrls.join('\n')
-            );
-            return;
-        }
-        // Nicht alle Seiten der Berichte-Liste konnten geladen werden, es wurden
-        // aber schon Berichte gefunden - Hinweis anzeigen statt stillschweigend
-        // nur mit den bisher gefundenen Berichten weiterzumachen. baseNote
-        // (Quelle + ggf. Warnung) wird unten jedem weiteren renderDebugInfo()-
-        // Aufruf vorangestellt, statt von diesen einfach überschrieben zu werden.
+        // Manche Zeilen hatten keinen abrufbaren Link, es wurden aber schon
+        // Berichte gefunden - Hinweis anzeigen statt stillschweigend nur mit
+        // den gefundenen Berichten weiterzumachen. baseNote (Quelle + ggf.
+        // Warnung) wird unten jedem weiteren renderDebugInfo()-Aufruf
+        // vorangestellt, statt von diesen einfach überschrieben zu werden.
         const baseNote =
             sourceNote +
             (debugInfo
@@ -1259,10 +1222,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return { homeTroops: troopsForGroup ?? [], mobileCheck };
     }
 
-    // Helper: einzelne Berichte-Listen-Seite nach Report-Links durchsuchen
-    // (gleicher Selektor wie zuvor, jetzt auf per AJAX geladenes HTML statt
-    // auf das Live-DOM angewendet - Voraussetzung dafür, dass das Script vom
-    // Versammlungsplatz aus laufen kann, wo #report_list gar nicht existiert).
+    // Helper: Berichte-Liste nach Report-Links durchsuchen. Wird gegen das
+    // Live-DOM aufgerufen (siehe readReportListFromCurrentPage(), Changelog
+    // Punkt 28) - das Script läuft wieder auf der Berichte-Übersicht selbst,
+    // #report_list ist also bereits geladen; funktioniert unverändert auch
+    // gegen ein per DOMParser geparstes Dokument, falls je wieder gebraucht.
     // Ein href wie "#" oder "javascript:..." ist kein echter, per GET
     // abrufbarer Link, sondern ein reiner JS-/Modal-Auslöser (die eigentliche
     // Navigation passiert dann über onclick). Ein solcher Link würde beim
@@ -1341,115 +1305,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return { links, nonNavigableCount, sampleRowHtml };
     }
 
-    // Helper: Link zur nächsten Berichte-Listen-Seite finden. Es wird nicht
-    // von einem festen Parameternamen/Schrittweite ausgegangen (die genaue
-    // Paginierungs-Struktur der Berichte-Liste ist nicht mit Sicherheit
-    // bekannt) - stattdessen wird unter allen Links, die "mode=attack"
-    // enthalten aber kein einzelner Berichts-Link sind (kein "view="-Parameter),
-    // derjenige mit dem kleinsten numerischen Query-Parameter-Wert gesucht,
-    // der größer ist als der entsprechende Wert der aktuellen Seite.
-    function findNextReportPageUrl(htmlDoc, currentPageUrl) {
-        let currentParams;
-        try {
-            currentParams = new URL(currentPageUrl, window.location.origin).searchParams;
-        } catch (e) {
-            return null;
-        }
-
-        let bestUrl = null;
-        let bestValue = Infinity;
-
-        jQuery(htmlDoc)
-            .find('a[href*="mode=attack"]')
-            .each(function () {
-                const href = jQuery(this).attr('href');
-                if (!href || href.indexOf('view=') !== -1) {
-                    return;
-                }
-                let url;
-                try {
-                    url = new URL(href, window.location.origin);
-                } catch (e) {
-                    return;
-                }
-                for (const [key, value] of url.searchParams.entries()) {
-                    if (key === 'screen' || key === 'mode') {
-                        continue;
-                    }
-                    const numValue = parseInt(value);
-                    if (isNaN(numValue)) {
-                        continue;
-                    }
-                    const currentValue = parseInt(currentParams.get(key));
-                    const currentCompare = isNaN(currentValue) ? 0 : currentValue;
-                    if (numValue > currentCompare && numValue < bestValue) {
-                        bestValue = numValue;
-                        bestUrl = url.pathname + url.search;
-                    }
-                }
-            });
-
-        return bestUrl;
-    }
-
-    // Lädt die Berichte-Liste (Angriffsberichte) seitenweise per AJAX, egal
-    // von welchem Screen aus das Script läuft - Voraussetzung dafür, dass es
-    // vom Versammlungsplatz statt von der Berichte-Übersicht aus gestartet
-    // werden kann. Folgt der jeweils "nächsten Seite" Schritt für Schritt
-    // (statt alle Seiten-URLs im Voraus zu berechnen), da unklar ist, ob die
-    // Paginierung über einen linearen Seitenindex oder einen Zeilen-Offset
-    // läuft.
-    // Sucht im aktuell angezeigten (App-)DOM nach einem echten Navigations-
-    // Link zu den Angriffsberichten (z.B. im Spiel-Hauptmenü) - dieser Link
-    // ist garantiert korrekt, da es der gleiche ist, den man beim manuellen
-    // Antippen in der App-Navigation auch benutzt. Die selbst zusammen-
-    // gebaute URL (link_base_pure + 'report&mode=attack') hat sich live als
-    // nicht zuverlässig herausgestellt: sie lieferte statt der Berichte-
-    // Liste einen einzelnen Bericht zurück, obwohl die manuelle App-
-    // Navigation zur gleichen Ansicht dort eine echte Liste zeigt.
-    // Ordner-/Gruppen-Links (z.B. eigene Berichte-Ordner wie "Hochladen",
-    // "Archiv", "Terra" usw., die der Nutzer selbst angelegt hat) haben einen
-    // group_id-Parameter ungleich 0. Solche Links dürfen NIE als
-    // Berichte-Listen-Quelle verwendet werden: sie zeigen nur eine
-    // benutzerdefinierte Teilmenge, und manche Ordner haben sogar eigene
-    // "nach dem Lesen automatisch löschen"-Regeln - live bestätigt, dass ein
-    // versehentlich gewählter Ordner-Link dadurch echte Berichte permanent
-    // gelöscht hat.
-    function isGeneralReportListLink(href) {
-        return href.indexOf('group_id=') === -1 || href.indexOf('group_id=0') !== -1;
-    }
-
-    function findReportListNavLink() {
-        let navHref = null;
-        jQuery('a[href*="screen=report"]').each(function () {
-            const href = jQuery(this).attr('href');
-            if (
-                href &&
-                href.indexOf('view=') === -1 &&
-                href.indexOf('mode=attack') !== -1 &&
-                isGeneralReportListLink(href)
-            ) {
-                navHref = href;
-                return false; // .each() abbrechen, ersten Treffer nehmen
-            }
-        });
-        if (navHref) {
-            return navHref;
-        }
-        // Kein Link speziell für "Angriffsberichte" gefunden - notfalls
-        // irgendeinen allgemeinen (nicht Ordner-/Gruppen-gebundenen)
-        // Berichte-Navigations-Link nehmen (z.B. "Alle Berichte"). Ordner-
-        // Links werden hier bewusst NIE verwendet, siehe isGeneralReportListLink().
-        jQuery('a[href*="screen=report"]').each(function () {
-            const href = jQuery(this).attr('href');
-            if (href && href.indexOf('view=') === -1 && isGeneralReportListLink(href)) {
-                navHref = href;
-                return false;
-            }
-        });
-        return navHref;
-    }
-
     // Live bestätigt (siehe Changelog Punkt 24): ein per jQuery.get() (also
     // per XHR/AJAX) abgerufener Berichte-Request löscht Berichte, obwohl
     // derselbe Screen manuell per echter Navigation geöffnet nachweislich
@@ -1512,70 +1367,28 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         });
     }
 
-    async function fetchReportListPages(maxReportPagesToFetch) {
-        const reportUrls = [];
+    // FIX (siehe Changelog Punkt 28): kein Netzwerk-Request mehr für die
+    // Berichte-LISTE - das Script läuft wieder auf der Berichte-Übersicht
+    // selbst (wie vor der gesamten Versammlungsplatz-Migration), die Liste
+    // ist also bereits im Live-DOM vorhanden. extractReportRowLinks() ist
+    // bereits transport-unabhängig geschrieben und funktioniert unverändert
+    // gegen das echte `document`. Dadurch entfällt für diesen Teil jedes
+    // Restrisiko (weder Datenverlust noch Frame-Busting-Redirect können
+    // hier noch auftreten, da schlicht keine Netzwerk-Anfrage stattfindet).
+    // Bewusste Rücknahme: nur die AKTUELL angezeigte Berichte-Seite wird
+    // verarbeitet, kein automatisches Weiterblättern über mehrere Seiten
+    // mehr (wie im ursprünglichen Design vor der Paginierung aus Punkt 8).
+    function readReportListFromCurrentPage() {
+        const { links, nonNavigableCount, sampleRowHtml } = extractReportRowLinks(document);
         let debugInfo = '';
-        let totalNonNavigableCount = 0;
-        let nonNavigableSampleHtml = '';
-        const startUrl = findReportListNavLink() || game_data.link_base_pure + 'report&mode=attack';
-        let currentUrl = startUrl;
-        let pageCount = 0;
-
-        while (currentUrl && pageCount < maxReportPagesToFetch) {
-            let html;
-            try {
-                html = await fetchUrlViaIframe(currentUrl);
-            } catch (error) {
-                UI.ErrorMessage(twSDK.tt('Error fetching report list page!'));
-                console.error(`${scriptInfo} Error:`, error);
-                debugInfo = `Fehler beim Laden von Berichte-Seite ${pageCount + 1}:\n\n${
-                    (error && (error.statusText || error.message)) || String(error)
-                }`;
-                break;
-            }
-
-            // DOMParser statt jQuery.parseHTML(): liefert ein echtes Document,
-            // in dem #report_list ein Nachfahre von <body> ist. Mit
-            // jQuery.parseHTML() landet #report_list dagegen oft als
-            // Top-Level-Element im Ergebnis-Array selbst, wodurch der
-            // zusammengesetzte Selektor "#report_list tbody tr" nichts findet
-            // (die eigene Scope-Wurzel zählt bei querySelectorAll nicht als
-            // Vorfahre ihrer selbst).
-            const parser = new DOMParser();
-            const htmlDoc = parser.parseFromString(html, 'text/html');
-            const { links: rowLinks, nonNavigableCount, sampleRowHtml } = extractReportRowLinks(htmlDoc);
-            reportUrls.push(...rowLinks);
-            totalNonNavigableCount += nonNavigableCount;
-            if (nonNavigableCount > 0 && !nonNavigableSampleHtml) {
-                nonNavigableSampleHtml = sampleRowHtml;
-            }
-            pageCount++;
-
-            if (rowLinks.length > 0) {
-                // Diese Seite hatte Treffer - eine evtl. vorherige "0 Treffer"-
-                // Diagnose ist damit überholt und darf nicht mehr angezeigt werden.
-                debugInfo = '';
-            } else if (pageCount === 1) {
-                const rawSample = typeof html === 'string' ? html : '';
-                debugInfo = `0 Report-Links auf der ersten Berichte-Seite gefunden.\n\nBeispiel-Inhalt (bitte zurückmelden):\n${rawSample.slice(
-                    0,
-                    2000
-                )}`;
-            }
-
-            currentUrl = findNextReportPageUrl(htmlDoc, currentUrl);
-        }
-
-        if (totalNonNavigableCount > 0) {
-            const nonNavNote = `${totalNonNavigableCount} Berichte-Zeile(n) hatten keinen abrufbaren Link (href="#" o.ä. statt einer echten URL, vermutlich wird der Bericht per Klick/JavaScript statt über einen normalen Link geöffnet) und wurden übersprungen.\n\nBeispiel-Zeile (bitte zurückmelden):\n${nonNavigableSampleHtml.slice(
+        if (nonNavigableCount > 0) {
+            debugInfo = `${nonNavigableCount} Berichte-Zeile(n) auf dieser Seite hatten keinen abrufbaren Link (href="#" o.ä. statt einer echten URL, vermutlich wird der Bericht per Klick/JavaScript statt über einen normalen Link geöffnet) und wurden übersprungen.\n\nBeispiel-Zeile (bitte zurückmelden):\n${sampleRowHtml.slice(
                 0,
                 2000
             )}`;
-            debugInfo = debugInfo ? `${debugInfo}\n\n${nonNavNote}` : nonNavNote;
-        } else if (reportUrls.length === 0 && !debugInfo) {
-            debugInfo = `0 Berichte über ${pageCount} Seite(n) gefunden.`;
+        } else if (links.length === 0) {
+            debugInfo = `0 Berichte auf der aktuell angezeigten Seite gefunden.`;
         }
-
-        return { reportUrls, debugInfo, startUrl };
+        return { reportUrls: links, debugInfo, startUrl: window.location.href };
     }
 });

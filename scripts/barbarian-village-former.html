@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Barbarian Village Former – DS-Scripts</title>
-  <meta name="description" content="Startet vom Versammlungsplatz aus (auch mobil), wertet Angriffsberichte gegen Barbarendörfer aus und erzeugt eine Workbench-Befehlsliste, um Mauer und Gebäude gezielt herunterzukatapultieren.">
+  <meta name="description" content="Startet von der Angriffsberichte-Übersicht aus (auch mobil), wertet Angriffsberichte gegen Barbarendörfer aus und erzeugt eine Workbench-Befehlsliste, um Mauer und Gebäude gezielt herunterzukatapultieren.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,23 +34,24 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.15</span>
+            <span class="badge">v1.16</span>
             <span class="badge">Barbarendörfer</span>
             <span class="badge">Berichte-Auswertung</span>
           </div>
           <h2>🏴 Barbarian Village Former</h2>
           <p>
-            Wird jetzt vom <strong>Versammlungsplatz</strong> aus gestartet
-            (nicht mehr von der Berichte-Übersicht) und lädt deine
-            Angriffsberichte gegen Barbarendörfer im Hintergrund automatisch
-            über alle Seiten der Berichte-Liste nach. Aus den enthaltenen
-            Spähdaten ermittelt es Mauer- und Gebäudelevel der
+            Wird von der <strong>Angriffsberichte-Übersicht</strong>
+            (screen=report&amp;mode=attack) aus gestartet und liest die dort
+            bereits angezeigte Berichte-Liste direkt aus. Verarbeitet nur die
+            aktuell angezeigte Seite - bei mehreren Seiten mit Berichten
+            bitte das Script auf jeder Seite erneut ausführen. Aus den
+            enthaltenen Spähdaten ermittelt es Mauer- und Gebäudelevel der
             Barbarendörfer und berechnet passende Truppenkombinationen aus
             einer gewählten Dorf-Gruppe: erst die Mauer mit Rammen/Äxten
             brechen, danach das gewählte Gebäude in mehreren Schritten mit
             Katapulten herunterstufen (bis zu einem Mindestlevel, in
-            wählbaren Level-Schritten pro Befehl). Läuft jetzt auch in der
-            mobilen Tribal-Wars-App.
+            wählbaren Level-Schritten pro Befehl). Läuft auch in der mobilen
+            Tribal-Wars-App.
           </p>
           <p>
             Das Ergebnis ist eine Liste fertiger Workbench-Befehle
@@ -63,7 +64,7 @@
           <div class="script-meta">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.15</span>
+              <span class="value">v1.16</span>
             </div>
             <div>
               <span class="label">Autor</span>
@@ -75,7 +76,7 @@
             </div>
             <div>
               <span class="label">Voraussetzung</span>
-              <span class="value">Versammlungsplatz geöffnet, vorhandene Angriffsberichte gegen Barbarendörfer mit Spähdaten</span>
+              <span class="value">Angriffsberichte-Übersicht (screen=report&amp;mode=attack) geöffnet, mit vorhandenen Berichten gegen Barbarendörfer inkl. Spähdaten auf der aktuellen Seite</span>
             </div>
             <div>
               <span class="label">Ausgabeformat</span>
@@ -87,8 +88,8 @@
           <div class="install-box">
             <p style="margin-bottom:0.8rem;">
               Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach
-              im Spiel den Versammlungsplatz und klicke auf das
-              Lesezeichen, um das Script zu starten.
+              im Spiel die Berichte-Übersicht (Angriffsberichte) und klicke
+              auf das Lesezeichen, um das Script zu starten.
             </p>
             <a class="bookmarklet"
                href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/barbarianVillageFormer.js');"
@@ -114,7 +115,7 @@
             <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
             <li>Das Adressfeld leeren und den oben kopierten Code einfügen. Als Namen z.B. „Barbarian Village Former“ eintragen und speichern.</li>
             <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben – es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
-            <li>Im Spiel am Versammlungsplatz einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
+            <li>Im Spiel die Berichte-Übersicht (Angriffsberichte) öffnen, dort einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
           </ol>
 
           <p><strong>Android (Chrome):</strong></p>
@@ -122,7 +123,7 @@
             <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
             <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben kopierten Code ersetzen, Namen anpassen und speichern.</li>
             <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
-            <li>Im Spiel am Versammlungsplatz das Lesezeichen aus der Leiste antippen.</li>
+            <li>Im Spiel die Berichte-Übersicht (Angriffsberichte) öffnen und dort das Lesezeichen aus der Leiste antippen.</li>
           </ol>
 
           <h3 style="margin-top:1.6rem;">Quellcode</h3>
@@ -140,54 +141,46 @@
             es besteht also eine Laufzeitabhängigkeit von einer
             Drittanbieter-Domain. Bitte vorab die Regeln deines Servers zu
             Skripten/Bookmarklets prüfen. Das Script liest zum Auswerten
-            immer die allgemeine Angriffsberichte-Liste, niemals einen
-            deiner selbst angelegten Berichte-Ordner (z.B. „Hochladen“,
-            „Archiv“) – im Panel wird nach jedem Lauf angezeigt, welche
-            Berichte-Liste tatsächlich verwendet wurde.
+            die Berichte-Liste, die gerade angezeigt wird – achte also
+            selbst darauf, auf der allgemeinen Angriffsberichte-Liste zu
+            sein und nicht in einem eigenen Berichte-Ordner (z.B.
+            „Hochladen“, „Archiv“); im Panel wird nach jedem Lauf
+            angezeigt, welche Seite tatsächlich verwendet wurde.
           </div>
 
           <div class="note warn" style="margin-top:1rem;">
-            <strong>Bekanntes Problem (Stand v1.15) – bitte weiterhin
-            vorsichtig testen:</strong> Es wurde live wiederholt bestätigt,
-            dass Berichte beim Ausführen dieses Scripts verschwinden
-            konnten, während manuelles Öffnen desselben Berichte-Typs sie
-            nachweislich nie löscht. Eine weitere Diagnose (Abruf einer
-            unbeteiligten Seite ohne Bezug zu Berichten) hat gezeigt, dass
-            die Ursache spezifisch am Berichte-Screen liegt, nicht an jedem
-            beliebigen Netzwerk-Request. Naheliegendste Erklärung: der
-            bisherige AJAX-Abruf (<code>jQuery.get()</code>) unterscheidet
-            sich technisch von einer echten Seiten-Navigation (z.B. fehlender
-            „X-Requested-With“-Header) – genau das, was beim manuellen Tap
-            auf einen Link passiert und nachweislich sicher ist. v1.15
-            ersetzt daher jeden Zugriff auf den Berichte-Screen (Liste UND
-            Einzelberichte) durch eine echte Navigation über ein
-            unsichtbares iframe statt per AJAX. Das ist die naheliegendste
-            Erklärung basierend auf allen bisherigen Beobachtungen, aber
-            <strong>keine endgültig bestätigte Behebung</strong> – bitte
-            weiterhin vorsichtig testen und zurückmelden, ob danach noch
-            Berichte verschwinden.
+            <strong>Vorgeschichte (Stand v1.16):</strong> in früheren
+            Versionen (v1.3–v1.15) startete dieses Script vom
+            Versammlungsplatz aus und lud die Berichte-Liste dafür per
+            Netzwerk-Request nach. Dabei wurde live wiederholt bestätigt,
+            dass echte Angriffsberichte beim Ausführen des Scripts
+            verschwinden konnten, während manuelles Öffnen desselben
+            Berichte-Typs sie nachweislich nie löscht. Ein Zwischenfix
+            (Laden über ein unsichtbares iframe statt per AJAX) führte zu
+            einem weiteren, unabhängigen Problem: die mobile App-WebView
+            leitete dabei sichtbar zur Berichte-Seite weiter, ohne dass
+            zwei verschiedene Sandbox-Fixes das beheben konnten.
             <br><br>
-            <strong>Nachtrag v1.14:</strong> Die iframe-Umstellung aus v1.13
-            hatte einen eigenen, unabhängigen Fehler: da das iframe kein
-            <code>sandbox</code>-Attribut hatte, führte der Browser das
-            Anti-Clickjacking-Skript der echten Berichte-Seite mit aus –
-            dieses zwang den sichtbaren Browser-Tab zur Berichte-Seite, wo
-            die Schnellzugriffsleiste (Lesezeichen/Bookmarklets) nicht
-            nutzbar war. Der Fix (<code>sandbox="allow-same-origin"</code>)
-            hat in der echten mobilen App aber <strong>nicht</strong>
-            gegriffen – die Weiterleitung bestand weiterhin, obwohl der Fix
-            nachweislich korrekt getestet wurde.
+            <strong>Lösung in v1.16:</strong> das Script läuft jetzt wieder
+            von der Angriffsberichte-Übersicht aus und liest die Berichte-
+            <strong>Liste</strong> direkt aus der bereits geladenen Seite –
+            dafür ist überhaupt kein Netzwerk-Request mehr nötig. Damit
+            entfällt für die Liste jedes Restrisiko (weder Datenverlust
+            noch die Weiterleitung können hier noch auftreten, da schlicht
+            keine Anfrage mehr stattfindet). Einzige Einschränkung: es wird
+            nur die gerade angezeigte Seite verarbeitet, kein automatisches
+            Weiterblättern mehr über mehrere Berichte-Seiten.
             <br><br>
-            <strong>Nachtrag v1.15:</strong> Vermutete Ursache: die App-
-            WebView synchronisiert die Property-Zuweisung
-            (<code>iframe.sandbox = '...'</code>) offenbar nicht zuverlässig
-            auf das tatsächliche HTML-Attribut zurück. Umgestellt auf
-            <code>iframe.setAttribute('sandbox', 'allow-same-origin')</code>
-            – die grundlegendere, seit langem etablierte Methode. Auch das
-            ist noch <strong>nicht bestätigt</strong> – bitte erneut testen,
-            ob das Script jetzt am Versammlungsplatz bleibt. Hilft auch das
-            nicht, deutet vieles darauf hin, dass die App-WebView
-            <code>sandbox</code> grundsätzlich nicht zuverlässig respektiert.
+            <strong>Verbleibende, noch nicht bestätigte Unsicherheit:</strong>
+            einzelne Berichte werden weiterhin per Netzwerk abgerufen (über
+            dasselbe iframe-Verfahren wie zuvor, da das die beste bekannte
+            Verteidigung gegen den bestätigten Datenverlust ist). Es ist
+            nicht bestätigt, ob dabei dieselbe Weiterleitungs-Problematik
+            erneut auftreten kann – alle bisherigen Beobachtungen dazu
+            stammen aus Läufen, bei denen zusätzlich die Liste per iframe
+            geladen wurde. Bitte weiterhin testen und zurückmelden, ob (a)
+            Berichte erhalten bleiben und (b) beim Öffnen einzelner
+            Berichte eine Weiterleitung auftritt.
           </div>
         </div>
       </div>
