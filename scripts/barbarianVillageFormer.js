@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.10
+ * Version: v1.11
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -157,6 +157,22 @@
  *     KEINE bestätigte endgültige Behebung der Ursache - weiterhin
  *     vorsichtig testen und insbesondere prüfen, ob jetzt wirklich 0
  *     Berichte durch das Script verschwinden.
+ * 23. WICHTIG - trotz Punkt 22 (view=-Pflicht) live erneut bestätigt: Berichte
+ *     verschwanden weiterhin, und zwar diesmal der GESAMTE manuelle Ordner,
+ *     in den der Nutzer sie zur Beobachtung verschoben hatte - unabhängig
+ *     davon, welche der gefundenen Berichte das Script überhaupt abgerufen
+ *     hat. Das deutet darauf hin, dass die Ursache eventuell nicht (nur) am
+ *     Abruf einzelner Berichte liegt, sondern schon am Abruf der Berichte-
+ *     LISTE selbst liegen könnte. Um das zu isolieren, gibt es jetzt einen
+ *     Diagnose-Button ("Nur Berichte-Liste laden"): getReports(true) ruft
+ *     ausschließlich fetchReportListPages() auf, zeigt die gefundenen
+ *     Berichts-URLs an, ruft aber KEINEN einzigen Bericht per jQuery.get()
+ *     ab - so lässt sich live testen, ob schon das reine Laden der Liste
+ *     zum Verschwinden führt, oder erst der Abruf einzelner Berichte.
+ *     Nebenbei behoben: isReportDataRow() hielt eine "Derzeit liegen keine
+ *     Berichte vor"-Leerzustand-Zeile (eine einzelne <td colspan="...">
+ *     ohne Link) fälschlich für eine echte Berichts-Zeile und zeigte sie
+ *     als verwirrende "Beispiel-Zeile ohne Link" an.
  */
 
 // User Input
@@ -168,7 +184,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.10',
+        version: 'v1.11',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -399,6 +415,16 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             e.preventDefault();
             twSDK.copyToClipboard($('#barbCoordsList').val());
         })
+        // Diagnose-Modus (siehe Changelog Punkt 23): ruft NUR die
+        // Berichte-Liste ab und zeigt, welche Berichts-URLs gefunden wurden -
+        // ruft aber KEINEN einzigen Bericht selbst ab (kein jQuery.get() auf
+        // eine view=-URL). Damit lässt sich isolieren, ob schon das Laden der
+        // Liste allein zum beobachteten Verschwinden von Berichten führt,
+        // oder ob es am Abruf der einzelnen Berichte liegt.
+        jQuery('#raListOnlyDiagnose').on('click', function(e) {
+            e.preventDefault();
+            getReports(true);
+        });
 
     }
 
@@ -537,6 +563,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 				${twSDK.tt('Export as WB format')}
 			</a>
 		</div>
+		<div class="ra-mb15">
+			<a href="javascript:void(0);" id="raListOnlyDiagnose" class="btn">
+				Diagnose: Nur Berichte-Liste laden (keine Berichte öffnen)
+			</a>
+		</div>
 		  <div class="ra-mb15">
 		  <textarea id="barbCoordsList" style="width: 100%" class="ra-textarea" readonly=""></textarea>
 			</div>
@@ -598,7 +629,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     }
 
     // Render: Build user interface
-    async function getReports() {
+    // listOnly: Diagnose-Modus (siehe Changelog Punkt 23) - ruft NUR die
+    // Berichte-Liste ab und zeigt, welche Berichts-URLs gefunden wurden,
+    // ruft aber KEINEN einzelnen Bericht ab (kein jQuery.get() auf eine
+    // view=-URL). Damit lässt sich isolieren, ob schon der Liste-Fetch
+    // allein zum beobachteten Verschwinden von Berichten führt.
+    async function getReports(listOnly) {
 
         const buildingType = localStorage.getItem(`${scriptConfig.scriptData.prefix}_chosen_building`);
         var reportData = [];
@@ -611,6 +647,18 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         const sourceNote = `Quelle der Berichte-Liste: ${startUrl}`;
         if (reportUrls.length === 0) {
             renderDebugInfo(`${sourceNote}\n\n${debugInfo}`);
+            return;
+        }
+        if (listOnly) {
+            // Bewusst KEIN twSDK.getAll(reportUrls, ...) hier - genau das ist
+            // der Zweck dieses Diagnose-Modus: die einzelnen Berichte werden
+            // nicht angerührt, nur ihre URLs angezeigt.
+            renderDebugInfo(
+                `${sourceNote}\n\n` +
+                    `Diagnose-Modus: ${reportUrls.length} Berichte-URL(s) gefunden, ` +
+                    `es wurde aber KEINE davon abgerufen (kein Bericht wurde geöffnet):\n\n` +
+                    reportUrls.join('\n')
+            );
             return;
         }
         // Nicht alle Seiten der Berichte-Liste konnten geladen werden, es wurden
@@ -1129,9 +1177,19 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     // sie mangels <thead> mit im tbody steht, wie live beobachtet) hat
     // stattdessen <th>-Zellen und keinen Bericht-Inhalt - sie darf nicht als
     // "Beispiel-Zeile" für die Diagnose herhalten, sonst bekommen wir nie eine
-    // echte Berichts-Zeile zu sehen.
+    // echte Berichts-Zeile zu sehen. Ebenfalls live beobachtet: eine "Derzeit
+    // liegen keine Berichte vor"-Leerzustand-Zeile mit genau einer <td
+    // colspan="..."> - auch keine echte Berichts-Zeile, sonst wird sie
+    // fälschlich als "Zeile ohne Link" gezählt/gezeigt.
     function isReportDataRow(row) {
-        return jQuery(row).find('td').length > 0 && jQuery(row).find('th').length === 0;
+        const cells = jQuery(row).find('td');
+        if (cells.length === 0 || jQuery(row).find('th').length > 0) {
+            return false;
+        }
+        if (cells.length === 1 && cells.first().attr('colspan')) {
+            return false;
+        }
+        return true;
     }
 
     function extractReportRowLinks(htmlDoc) {
