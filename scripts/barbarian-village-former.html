@@ -34,7 +34,7 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.9</span>
+            <span class="badge">v1.10</span>
             <span class="badge">Barbarendörfer</span>
             <span class="badge">Berichte-Auswertung</span>
           </div>
@@ -63,7 +63,7 @@
           <div class="script-meta">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.9</span>
+              <span class="value">v1.10</span>
             </div>
             <div>
               <span class="label">Autor</span>
@@ -144,6 +144,20 @@
             deiner selbst angelegten Berichte-Ordner (z.B. „Hochladen“,
             „Archiv“) – im Panel wird nach jedem Lauf angezeigt, welche
             Berichte-Liste tatsächlich verwendet wurde.
+          </div>
+
+          <div class="note warn" style="margin-top:1rem;">
+            <strong>Bekanntes Problem (Stand v1.10):</strong> Es wurde
+            live beobachtet, dass beim Ausführen des Scripts vereinzelt
+            ein Angriffsbericht aus dem Konto verschwindet – manuelles
+            Öffnen desselben Berichte-Typs von Hand löscht ihn dagegen
+            nachweislich nicht. Die genaue Ursache ist noch nicht
+            abschließend bestätigt; v1.10 prüft Berichts-Links jetzt
+            strenger (nur echte „Bericht ansehen“-URLs mit
+            <code>view=</code>-Parameter werden noch abgerufen), das ist
+            aber eine verschärfte Sicherheitsmaßnahme und keine
+            bestätigte endgültige Behebung. Bitte weiterhin vorsichtig
+            testen und beobachten, ob danach noch Berichte verschwinden.
           </div>
         </div>
       </div>

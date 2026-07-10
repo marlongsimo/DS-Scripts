@@ -1,6 +1,6 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.9
+ * Version: v1.10
  * Last Updated: 2024-01-07
  * Author Contact: secundum, SaveBank
  *
@@ -136,6 +136,27 @@
  *     undefinierte hrefs jetzt aus; extractReportRowLinks() zählt solche
  *     Zeilen separat und liefert eine Beispiel-Zeile zur Diagnose, statt
  *     sie stillschweigend als (nutzlose) Berichts-URL zu behandeln.
+ * 22. WICHTIG - Datenverlust trotz Punkt 20 und 21 weiterhin live bestätigt:
+ *     ein Bericht wurde erneut gelöscht, und zwar genau der eine von vielen
+ *     Zeilen, der laut Diagnose einen "abrufbaren" (nicht href="#") Link
+ *     hatte. Manuelles Öffnen desselben Berichte-Typs von Hand löscht ihn
+ *     nachweislich NICHT - die Löschung wird also von irgendeinem
+ *     jQuery.get()-Aufruf des Scripts selbst ausgelöst. Naheliegendste
+ *     Erklärung: die als "abrufbar" erkannte href war zwar kein "#", aber
+ *     möglicherweise trotzdem nicht der "Bericht ansehen"-Link, sondern ein
+ *     anderer Link in derselben Zeile (z.B. ein GET-basierter Lösch-
+ *     Schnellzugriff) mit derselben CSS-Klasse. isNavigableReportUrl()
+ *     verlangt jetzt zusätzlich einen "view="-Parameter in der href - das
+ *     einzige in diesem gesamten Debugging bisher zuverlässig bestätigte
+ *     Merkmal einer echten Einzelbericht-URL. Außerdem: extractReportRowLinks()
+ *     ignoriert jetzt via isReportDataRow() Kopfzeilen (<th>-Zellen statt
+ *     <td>, z.B. die "select all"-Zeile, die ohne <thead> mit im tbody
+ *     liegt) vollständig - weder Zählung noch Beispiel-Zeile - damit die
+ *     Diagnose beim nächsten Mal eine echte Berichts-Zeile zeigt statt der
+ *     Kopfzeile. HINWEIS: Dies ist eine verschärfte Sicherheitsmaßnahme,
+ *     KEINE bestätigte endgültige Behebung der Ursache - weiterhin
+ *     vorsichtig testen und insbesondere prüfen, ob jetzt wirklich 0
+ *     Berichte durch das Script verschwinden.
  */
 
 // User Input
@@ -147,7 +168,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.9',
+        version: 'v1.10',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -1082,13 +1103,35 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     // das erklärt, warum als "Beispiel-Bericht" wiederholt die allgemeine
     // Berichte-Listen-Seite (samt Reiter-Konfiguration) statt echtem
     // Berichtsinhalt auftauchte.
+    // WICHTIG (Sicherheitsmaßnahme nach bestätigtem Datenverlust): eine href
+    // wird nur akzeptiert, wenn sie zusätzlich einen view=-Parameter enthält.
+    // "#"/"javascript:" allein auszuschließen reichte nicht - ein Bericht
+    // wurde live trotzdem gelöscht, obwohl manuelles Öffnen desselben
+    // Berichts-Typs nichts löscht. Das deutet darauf hin, dass die als
+    // "abrufbar" erkannte URL evtl. gar nicht der Anzeige-Link war, sondern
+    // zufällig ein anderer Link in derselben Zeile (z.B. ein GET-basierter
+    // Schnellzugriff wie "Bericht löschen"), der über dieselbe CSS-Klasse
+    // gefunden wurde. Jede echte "Bericht ansehen"-URL in diesem gesamten
+    // Debugging-Bogen hatte einen view=-Parameter (z.B.
+    // "screen=report&mode=all&view=172713555") - das ist die verlässlichste
+    // bekannte Kennung. Ohne view= wird die URL NICHT abgerufen.
     function isNavigableReportUrl(href) {
         return (
             typeof href !== 'undefined' &&
             href !== '' &&
             href !== '#' &&
-            href.indexOf('javascript:') !== 0
+            href.indexOf('javascript:') !== 0 &&
+            href.indexOf('view=') !== -1
         );
+    }
+
+    // Eine echte Berichts-Zeile hat <td>-Zellen; die Tabellen-Kopfzeile (falls
+    // sie mangels <thead> mit im tbody steht, wie live beobachtet) hat
+    // stattdessen <th>-Zellen und keinen Bericht-Inhalt - sie darf nicht als
+    // "Beispiel-Zeile" für die Diagnose herhalten, sonst bekommen wir nie eine
+    // echte Berichts-Zeile zu sehen.
+    function isReportDataRow(row) {
+        return jQuery(row).find('td').length > 0 && jQuery(row).find('th').length === 0;
     }
 
     function extractReportRowLinks(htmlDoc) {
@@ -1099,6 +1142,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             .find('#report_list tbody tr')
             .each(function () {
                 try {
+                    if (!isReportDataRow(this)) {
+                        // Kopfzeile o.ä. - weder zählen noch als Beispiel verwenden.
+                        return;
+                    }
                     const reportUrl = jQuery(this).find('.report-link').attr('href');
                     if (isNavigableReportUrl(reportUrl)) {
                         links.push(reportUrl);
