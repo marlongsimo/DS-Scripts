@@ -1,239 +1,71 @@
 /*
  * Script Name: Barbarian Village Former
- * Version: v1.15
- * Last Updated: 2024-01-07
+ * Version: v1.16-test-fetch
+ * Last Updated: 2026-07-12
  * Author Contact: secundum, SaveBank
  *
- * === FIXES applied in this version ===
+ * === Änderung in dieser Testversion (v1.16-test-fetch) ===
+ * Diagnose-Idee: iframe-Navigation (v1.15, Punkte 25-27) verhindert zwar
+ * offenbar XHR-bedingtes Löschen von Berichten, führt aber auf dem Handy zu
+ * einer sichtbaren Weiterleitung zur Berichte-Übersicht, wodurch die
+ * Schnellleiste/Bookmarklets verloren geht. Testweise wird
+ * fetchUrlViaIframe() durch fetchUrlViaAjax() (echtes fetch(), OHNE den von
+ * jQuery.get()/jQuery.ajax() automatisch gesetzten Header
+ * "X-Requested-With: XMLHttpRequest") ersetzt. Hypothese: nicht AJAX an sich
+ * verursacht das Löschen, sondern speziell dieser Header, an dem der Server
+ * "AJAX" von "echter Navigation" unterscheidet. fetch() setzt diesen Header
+ * standardmäßig nicht und navigiert (anders als jQuery.get, aber genau wie
+ * das vorige iframe) nicht sichtbar weg - OHNE dessen Redirect-Nachteil.
+ * WICHTIG: NICHT bestätigt, nur ein gezielter Test. Bitte mit dem Button
+ * "Nur Berichte-Liste laden" zuerst prüfen, ob dabei (a) keine Weiterleitung
+ * mehr passiert und (b) trotzdem kein Bericht verschwindet, bevor der
+ * echte Berichts-Abruf (getReports()) benutzt wird. fetchUrlViaIframe()
+ * bleibt im Code erhalten, falls zurückgewechselt werden muss.
+ *
+ * === FIXES aus v1.15 (unverändert) ===
  * 1. Group-change handler now correctly awaits fetchTroopsForCurrentGroup()
- *    instead of assigning the raw Promise to troopData. This was causing
- *    "troopData is not iterable" errors whenever a group other than the
- *    initially loaded one was selected, which surfaced as
- *    "There was an error while fetching the report data!" even though the
- *    reports themselves were read correctly.
- * 2. #raSpy change handler was writing to the wrong localStorage key
- *    (${prefix}_max_distance instead of ${prefix}_spy).
- * 3. renderUI() referenced an undefined variable `body` in the else branch;
- *    changed to `content`.
+ *    instead of assigning the raw Promise to troopData.
+ * 2. #raSpy change handler was writing to the wrong localStorage key.
+ * 3. renderUI() referenced an undefined variable `body`; changed to `content`.
  * 4. Removed stray empty console.log().
- * 5. Fixed a broken monotonic value in catsRequiredToBreak (row for target
- *    level 1: ...469, 534, 508, 691... -> 508 corrected to 608).
+ * 5. Fixed a broken monotonic value in catsRequiredToBreak.
  * 6. Fixed German translation typo "kattern" -> "kürzen".
- * 7. Trigger-Screen von der Berichte-Übersicht (screen=report&mode=attack)
- *    auf den Versammlungsplatz (screen=place) umgestellt. Screen-Erkennung
- *    nutzt jetzt game_data.screen statt twSDK.checkValidLocation(), da
- *    diese intern nur window.location.href liest - in der mobilen App wird
- *    der Screen dort nicht immer korrekt widergespiegelt (gleicher Bug wie
- *    bei "Clear Barbarian Walls" gefunden und dort schon gefixt).
- * 8. getReportUrls() (las #report_list aus dem Live-DOM) ersetzt durch
- *    fetchReportListPages(): lädt die Berichte-Liste jetzt per AJAX über
- *    alle Seiten, unabhängig vom aktuell angezeigten Screen - Voraussetzung
- *    dafür, dass das Script vom Versammlungsplatz aus laufen kann, wo die
- *    Berichte-Liste gar nicht im DOM vorhanden ist.
- * 9. getUiContainerSelector() ergänzt (Vorbild: "Clear Barbarian Walls"):
- *    #mobileContent/#contentContainer-Auswahl ist jetzt gegen ein
- *    undefiniertes mobiledevice abgesichert (vorher ungeschützter
- *    ReferenceError möglich) und an einer Stelle zusammengefasst statt
- *    doppelt inline geprüft.
- * 10. fetchTroopsForCurrentGroup(): Aufruf von tt(...) (undefinierte
- *     globale Funktion) im Catch-Zweig auf twSDK.tt(...) korrigiert.
- * 11. Kernbug gefunden und behoben: `scriptInfo` ist eine bereits fertig
- *     zusammengesetzte Zeichenkette (`const scriptInfo = twSDK.scriptInfo();`),
- *     wurde aber an 15 Stellen im ganzen Script fälschlich als Funktion
- *     aufgerufen (`${scriptInfo()}`), was einen TypeError wirft. Da dieser
- *     Aufruf u.a. im catch-Zweig von fetchReportListPages() VOR dem Setzen
- *     von debugInfo stand, brach genau dort die gesamte Fehlerbehandlung
- *     lautlos ab - dadurch erschien zwar die generische Toast-Meldung
- *     ("Fehler beim Laden der Berichte"), aber nie der Debug-Textblock im
- *     Panel. Alle 15 Vorkommen auf `${scriptInfo}` (ohne Aufruf) korrigiert.
- * 12. twSDK.startProgressBar()/updateProgressBar() (Teil der extern
- *     nachgeladenen, hier nicht patchbaren twSDK-Bibliothek) werden jetzt in
- *     getReports() per try/catch abgesichert - ein Fehler dort (z.B. weil die
- *     Fortschrittsanzeige von einem in der App nicht vorhandenen Element
- *     ausgeht) wurde bisher von twSDK.getAll() fälschlich als genereller
- *     Bericht-Fetch-Fehler behandelt und brach den gesamten Abruf ab.
- * 13. Der onError-Callback von twSDK.getAll() in getReports() rendert jetzt
- *     die Fehlerdetails zusätzlich sichtbar ins Panel (renderDebugInfo()),
- *     statt nur eine generische Toast-Meldung zu zeigen.
- * 14. Schlägt eine spätere Seite der Berichte-Liste in fetchReportListPages()
- *     fehl, obwohl schon Berichte auf früheren Seiten gefunden wurden, wird
- *     jetzt ein sichtbarer Warnhinweis samt Diagnosedaten ins Panel
- *     gerendert (vorher wurde dieser Fall stillschweigend übergangen).
- * 15. fetchReportListPages() nutzte für die erste Seite die selbst
- *     zusammengebaute URL (link_base_pure + 'report&mode=attack'). Live
- *     hat sich gezeigt, dass diese URL in der App keine Berichte-Liste
- *     liefert, sondern einen einzelnen Bericht - obwohl die manuelle
- *     App-Navigation zur gleichen Ansicht dort korrekt eine Liste zeigt.
- *     findReportListNavLink() sucht jetzt zuerst im aktuellen (App-)DOM
- *     nach einem echten Navigations-Link zu den Angriffsberichten (bzw.
- *     ersatzweise irgendeinem Berichte-Link) und nutzt nur, wenn keiner
- *     gefunden wird, die selbst zusammengebaute URL als Rückfallebene.
- *     Außerdem: eine "0 Report-Links auf Seite 1"-Diagnose wird jetzt
- *     wieder verworfen, sobald eine spätere Seite echte Treffer bringt,
- *     statt widersprüchlich neben der Erfolgsmeldung stehen zu bleiben.
- * 16. getReports(): "All perfect" wurde bisher auch dann gezeigt, wenn gar
- *     kein einziger Bericht auswertbar war (0 Befehle berechnet, weil
- *     reportData komplett leer war) - inhaltlich aber ein völlig anderer
- *     Fall als "alle Berichte ausgewertet, nichts mehr zu tun". Jeder
- *     Bericht wird jetzt explizit pro Ablehnungsgrund gezählt (fehlende
- *     Spähdaten / kein Barbarendorf / gewähltes Gebäude nicht erspäht /
- *     Parse-Fehler) statt nur stillschweigend per Exception übersprungen
- *     zu werden; bleiben am Ende 0 Berichte übrig, wird eine Diagnose samt
- *     Statistik und echtem Beispiel-HTML ins Panel gerendert statt
- *     "All perfect" zu zeigen. Nebenbei behoben: die Barbarendorf-Prüfung
- *     (villageAnchor) testete bisher nur auf Wahrheitswert eines
- *     jQuery-Objekts (immer "truthy", auch wenn leer) statt auf
- *     villageAnchor.length > 0.
- * 17. fetchTroopsForCurrentGroup() gibt jetzt zusätzlich zurück, welcher
- *     Parsing-Zweig (mobil/Desktop) für die "overview_villages&mode=combined"-
- *     Seite benutzt wurde. renderTroopDebugInfo() zeigt die tatsächlich
- *     ermittelten Truppenzahlen pro Dorf sichtbar im Panel an, sooft die
- *     Gruppe gewechselt oder das Script neu geladen wird - Grundlage, um zu
- *     prüfen, ob z.B. Katapulte korrekt als "catapult"-Schlüssel mit dem
- *     richtigen Wert ankommen (diese Funktion wurde bisher nie gegen echtes
- *     App-HTML verifiziert).
- * 18. Beim Testen der neuen Diagnose (Punkt 17) einen konkreten Bug
- *     gefunden: fetchTroopsForCurrentGroup() nutzte jQuery.parseHTML() für
- *     die "overview_villages&mode=combined"-Antwort - dabei landet
- *     #combined_table oft als Top-Level-Element im Ergebnis-Array selbst,
- *     wodurch der zusammengesetzte Selektor "#combined_table tr.nowrap"
- *     nichts findet (exakt der gleiche Fehler, der schon bei
- *     fetchReportListPages()/#report_list gefunden und behoben wurde).
- *     Dadurch war homeTroops bisher praktisch immer leer, unabhängig
- *     davon, wie viele Truppen tatsächlich vorhanden waren. Auf DOMParser
- *     umgestellt, wie an der anderen Stelle auch.
- * 19. recordSample() (Diagnose bei "keine auswertbaren Berichte") zeigte
- *     bisher blind die ersten 2000 Zeichen des Berichts-HTML - bei Seiten
- *     mit langem Menü-/Formular-"Chrome" vor dem eigentlichen Inhalt lag
- *     der relevante Bereich (wo #attack_spy_building_data stehen müsste)
- *     komplett außerhalb des Ausschnitts, wodurch nicht erkennbar war, ob
- *     die Kennung wirklich fehlt. Sucht jetzt gezielt nach den gesuchten
- *     Kennungen im gesamten HTML und zeigt einen Ausschnitt um die
- *     Fundstelle (oder einen expliziten "kommt nirgends vor"-Hinweis).
- * 20. Kritischer Bug live bestätigt: findReportListNavLink() nahm bisher den
- *     ERSTEN im DOM gefundenen Berichte-Link, unabhängig davon, ob er zu
- *     einem benutzerdefinierten Berichte-Ordner (z.B. "Hochladen", "Terra",
- *     "Archiv" - group_id ungleich 0) oder zur allgemeinen Liste gehörte.
- *     Live hat sich bestätigt, dass dadurch ein eigener Ordner ("Hochladen")
- *     statt der Angriffsberichte-Liste gescannt wurde (dieser konkrete
- *     Ordner hatte laut Nutzer keine eigene Lösch-Regel - die genaue
- *     Ursache für die zuvor beobachteten gelöschten Berichte bleibt
- *     unklar, siehe Punkt 21). isGeneralReportListLink() schließt jetzt
- *     jeden Link mit group_id ungleich 0 explizit aus; wird gar kein
- *     allgemeiner Link gefunden, wird auf die selbst zusammengebaute
- *     (garantiert ordner-freie) URL zurückgefallen statt auf einen
- *     Ordner-Link. Zusätzlich zeigt das Panel jetzt IMMER an, welche
- *     Berichte-Liste tatsächlich verwendet wurde (auch bei Erfolg), damit
- *     so etwas beim nächsten Mal sofort auffällt.
- * 21. Kernursache für "keine Spähdaten gefunden" gefunden: .report-link
- *     lieferte teils href="#" (die eigentliche Navigation läuft über
- *     onclick/JavaScript statt über einen echten Link). jQuery.get('#')
- *     lädt dabei einfach die AKTUELL GELADENE Seite erneut (der Browser
- *     löst "#" relativ zur aktuellen URL auf) - das erklärt, warum als
- *     "Beispiel-Bericht" wiederholt die allgemeine Berichte-Listen-Seite
- *     (samt Reiter-Konfiguration) statt echtem Berichtsinhalt auftauchte.
- *     isNavigableReportUrl() schließt "#", "javascript:"-Links, leere und
- *     undefinierte hrefs jetzt aus; extractReportRowLinks() zählt solche
- *     Zeilen separat und liefert eine Beispiel-Zeile zur Diagnose, statt
- *     sie stillschweigend als (nutzlose) Berichts-URL zu behandeln.
- * 22. WICHTIG - Datenverlust trotz Punkt 20 und 21 weiterhin live bestätigt:
- *     ein Bericht wurde erneut gelöscht, und zwar genau der eine von vielen
- *     Zeilen, der laut Diagnose einen "abrufbaren" (nicht href="#") Link
- *     hatte. Manuelles Öffnen desselben Berichte-Typs von Hand löscht ihn
- *     nachweislich NICHT - die Löschung wird also von irgendeinem
- *     jQuery.get()-Aufruf des Scripts selbst ausgelöst. Naheliegendste
- *     Erklärung: die als "abrufbar" erkannte href war zwar kein "#", aber
- *     möglicherweise trotzdem nicht der "Bericht ansehen"-Link, sondern ein
- *     anderer Link in derselben Zeile (z.B. ein GET-basierter Lösch-
- *     Schnellzugriff) mit derselben CSS-Klasse. isNavigableReportUrl()
- *     verlangt jetzt zusätzlich einen "view="-Parameter in der href - das
- *     einzige in diesem gesamten Debugging bisher zuverlässig bestätigte
- *     Merkmal einer echten Einzelbericht-URL. Außerdem: extractReportRowLinks()
- *     ignoriert jetzt via isReportDataRow() Kopfzeilen (<th>-Zellen statt
- *     <td>, z.B. die "select all"-Zeile, die ohne <thead> mit im tbody
- *     liegt) vollständig - weder Zählung noch Beispiel-Zeile - damit die
- *     Diagnose beim nächsten Mal eine echte Berichts-Zeile zeigt statt der
- *     Kopfzeile. HINWEIS: Dies ist eine verschärfte Sicherheitsmaßnahme,
- *     KEINE bestätigte endgültige Behebung der Ursache - weiterhin
- *     vorsichtig testen und insbesondere prüfen, ob jetzt wirklich 0
- *     Berichte durch das Script verschwinden.
- * 23. WICHTIG - trotz Punkt 22 (view=-Pflicht) live erneut bestätigt: Berichte
- *     verschwanden weiterhin, und zwar diesmal der GESAMTE manuelle Ordner,
- *     in den der Nutzer sie zur Beobachtung verschoben hatte - unabhängig
- *     davon, welche der gefundenen Berichte das Script überhaupt abgerufen
- *     hat. Das deutet darauf hin, dass die Ursache eventuell nicht (nur) am
- *     Abruf einzelner Berichte liegt, sondern schon am Abruf der Berichte-
- *     LISTE selbst liegen könnte. Um das zu isolieren, gibt es jetzt einen
- *     Diagnose-Button ("Nur Berichte-Liste laden"): getReports(true) ruft
- *     ausschließlich fetchReportListPages() auf, zeigt die gefundenen
- *     Berichts-URLs an, ruft aber KEINEN einzigen Bericht per jQuery.get()
- *     ab - so lässt sich live testen, ob schon das reine Laden der Liste
- *     zum Verschwinden führt, oder erst der Abruf einzelner Berichte.
- *     Nebenbei behoben: isReportDataRow() hielt eine "Derzeit liegen keine
- *     Berichte vor"-Leerzustand-Zeile (eine einzelne <td colspan="...">
- *     ohne Link) fälschlich für eine echte Berichts-Zeile und zeigte sie
- *     als verwirrende "Beispiel-Zeile ohne Link" an.
- * 24. ENTSCHEIDENDER BEFUND - live mit dem Diagnose-Button aus Punkt 23
- *     bestätigt: der Bericht verschwand, OBWOHL twSDK.getAll() (und damit
- *     jeder Einzelbericht-Abruf) in diesem Modus GAR NICHT aufgerufen wird -
- *     es wurde ausschließlich die Berichte-LISTE per jQuery.get() geladen.
- *     Das beweist: der Abruf einzelner Berichte war nie die Ursache: schon
- *     das reine Laden der Angriffsberichte-Liste per AJAX genügt, um einen
- *     Bericht zu löschen. Damit sind sämtliche URL-Filter-Fixes aus den
- *     Punkten 20-23 zwar für sich genommen sinnvolle Verbesserungen, haben
- *     das eigentliche Problem aber nie adressiert. Neuer Diagnose-Button
- *     ("Unbeteiligte Seite laden"): fetchUnrelatedScreenDiagnose() ruft
- *     ausschließlich die Dorf-Übersicht (screen=overview) ab, die nichts mit
- *     Berichten zu tun hat - weder Berichte-Liste noch Einzelbericht wird
- *     dabei angefragt. Ziel: eingrenzen, ob JEDER jQuery.get()-Aufruf in
- *     dieser App-Umgebung Berichte löscht, oder ob es spezifisch am
- *     Berichte-Screen liegt. WICHTIG: die Ursache ist weiterhin nicht
- *     bekannt - das Script sollte bis auf Weiteres nur mit größter Vorsicht
- *     und nur für gezielte Diagnose verwendet werden, nicht für den
- *     eigentlichen produktiven Einsatz.
- * 25. Live bestätigt: der Abruf einer unbeteiligten Seite (Punkt 24) löscht
- *     KEINE Berichte - die Ursache liegt also spezifisch am Berichte-Screen,
- *     nicht an jedem beliebigen AJAX-Request. Kernänderung: JEDER Zugriff auf
- *     den Berichte-Screen (Liste UND Einzelberichte) läuft nicht mehr über
- *     jQuery.get()/twSDK.getAll() (also XHR/AJAX), sondern über die neue
- *     fetchUrlViaIframe() - eine echte Navigation über ein unsichtbares
- *     iframe, ohne "X-Requested-With"-Header, so wie es der Browser bei
- *     einem echten Tap auf einen Link auch täte. Das bildet exakt den
- *     Unterschied zum manuellen Öffnen nach, das nachweislich nie Berichte
- *     löscht. fetchReportListPages() und der komplette Einzelbericht-Abruf in
- *     getReports() (vorher twSDK.getAll(), jetzt eine eigene sequentielle
- *     Schleife über fetchUrlViaIframe()) wurden entsprechend umgestellt.
- *     WICHTIG: dies ist die naheliegendste Erklärung basierend auf allen
- *     bisherigen Beobachtungen, aber KEINE endgültig bestätigte Behebung -
- *     der Nutzer muss weiterhin vorsichtig testen und zurückmelden, ob
- *     danach noch Berichte verschwinden.
- * 26. Live bestätigt: das iframe aus Punkt 25 hatte kein sandbox-Attribut,
- *     wodurch der Browser alle <script>-Tags der geladenen Berichte-Seite
- *     ausführte - traf das ein Anti-Clickjacking-("Frame-Busting"-)Skript des
- *     Spiels selbst (Muster: "if (window.top !== window.self)
- *     window.top.location = ..."), zwang dieses den ECHTEN, sichtbaren
- *     Browser-Tab zur Navigation auf die Berichte-Seite - der Nutzer landete
- *     dort, ohne dass seine Schnellzugriffsleiste (Lesezeichen/Bookmarklets)
- *     dort sichtbar/nutzbar war. fetchUrlViaIframe() setzt jetzt
- *     iframe.sandbox = "allow-same-origin" (ohne "allow-scripts"): das
- *     deaktiviert jede Skriptausführung im iframe (auch das Busting-Skript),
- *     erlaubt aber weiterhin lesenden Zugriff auf iframe.contentDocument.
- *     Ändert nichts an der Datenverlust-These aus Punkt 25 - war ein
- *     zusätzlicher, unabhängiger Fehler derselben iframe-Umstellung.
- * 27. Live bestätigt (Nutzer hat ausdrücklich eine korrekt aktualisierte
- *     v1.14 getestet, kein Cache-Problem): die Weiterleitung aus Punkt 26
- *     bestand trotz sandbox-Fix weiterhin. Vermutete Ursache: die WebView
- *     der mobilen App synchronisiert die Property-Zuweisung
- *     "iframe.sandbox = '...'" (DOMTokenList) offenbar nicht zuverlässig auf
- *     das tatsächliche HTML-Attribut zurück. Umgestellt auf
- *     "iframe.setAttribute('sandbox', 'allow-same-origin')" - die
- *     grundlegendere, seit langem etablierte Methode, ein HTML-Attribut zu
- *     setzen. WICHTIG: auch dieser Fix gilt nicht als bestätigt, bis der
- *     Nutzer erneut live getestet hat - hilft er ebenfalls nicht, deutet
- *     das stark darauf hin, dass die App-WebView sandbox grundsätzlich
- *     nicht respektiert, und ein Rückbau auf den Berichte-Screen als
- *     Trigger (kein iframe, keine Navigation nötig) die einzige
- *     verbleibende robuste Option wäre.
+ * 7. Trigger-Screen von Berichte-Übersicht auf Versammlungsplatz umgestellt,
+ *    Screen-Erkennung nutzt game_data.screen statt twSDK.checkValidLocation().
+ * 8. getReportUrls() ersetzt durch fetchReportListPages() (AJAX über alle Seiten).
+ * 9. getUiContainerSelector() gegen undefiniertes mobiledevice abgesichert.
+ * 10. tt(...) im Catch-Zweig auf twSDK.tt(...) korrigiert.
+ * 11. scriptInfo an 15 Stellen fälschlich als Funktion aufgerufen - korrigiert.
+ * 12. twSDK.startProgressBar()/updateProgressBar() jetzt per try/catch abgesichert.
+ * 13. onError-Callback von twSDK.getAll() rendert Fehlerdetails jetzt sichtbar.
+ * 14. Fehlschlag einer späteren Berichte-Listen-Seite wird jetzt sichtbar gemeldet.
+ * 15. findReportListNavLink() sucht zuerst im App-DOM nach echtem Nav-Link.
+ * 16. "All perfect" wird nicht mehr fälschlich bei 0 auswertbaren Berichten gezeigt;
+ *     villageAnchor-Prüfung testet jetzt auf .length > 0.
+ * 17. fetchTroopsForCurrentGroup() gibt genutzten Parsing-Zweig zurück;
+ *     renderTroopDebugInfo() zeigt ermittelte Truppenzahlen im Panel.
+ * 18. fetchTroopsForCurrentGroup(): DOMParser statt jQuery.parseHTML()
+ *     (#combined_table landete sonst als Top-Level-Element).
+ * 19. recordSample() sucht jetzt gezielt nach Kennungen statt blind die
+ *     ersten 2000 Zeichen zu zeigen.
+ * 20. findReportListNavLink()/isGeneralReportListLink() schließen
+ *     Ordner-/Gruppen-Links (group_id != 0) explizit aus.
+ * 21. isNavigableReportUrl() schließt "#", "javascript:", leere/undefinierte
+ *     hrefs aus (Ursache für "Beispiel-Bericht" = Listen-Seite selbst).
+ * 22. isNavigableReportUrl() verlangt zusätzlich "view="-Parameter;
+ *     isReportDataRow() ignoriert Kopfzeilen.
+ * 23. Diagnose-Button "Nur Berichte-Liste laden" (getReports(true)) - lädt
+ *     nur die Liste, ruft keinen Einzelbericht ab; isReportDataRow()
+ *     ignoriert auch die "keine Berichte"-Leerzustand-Zeile.
+ * 24. Bestätigt: schon der reine Berichte-LISTEN-Abruf per AJAX löscht einen
+ *     Bericht. Diagnose-Button "Unbeteiligte Seite laden" hinzugefügt.
+ * 25. Bestätigt: unbeteiligte Seite löscht nichts - Ursache liegt spezifisch
+ *     am Berichte-Screen. Umstellung auf fetchUrlViaIframe() (echte
+ *     Navigation statt XHR) für Liste UND Einzelberichte.
+ * 26. iframe brauchte ein sandbox-Attribut, da ein Anti-Clickjacking-Skript
+ *     des Spiels sonst den sichtbaren Tab zur Navigation zwang.
+ * 27. iframe.sandbox (Property) wurde von der App-WebView nicht zuverlässig
+ *     aufs HTML-Attribut zurückgeschrieben - auf setAttribute() umgestellt.
  */
 
 // User Input
@@ -245,7 +77,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'barbFormer',
         name: `Barbarian Village Former`,
-        version: 'v1.15',
+        version: 'v1.16-test-fetch',
         author: 'secundum, SaveBank',
         authorUrl: '',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/barb-former.291645/',
@@ -309,7 +141,7 @@ var scriptConfig = {
     enableCountApi: false,
 };
 
-// Wie viele Seiten der Berichte-Liste maximal per AJAX geladen werden -
+// Wie viele Seiten der Berichte-Liste maximal geladen werden -
 // praktisch unbegrenzt (siehe "Clear Barbarian Walls", MAX_FA_PAGES_TO_FETCH).
 const MAX_REPORT_PAGES_TO_FETCH = 9999;
 
@@ -317,11 +149,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     // Initialize Library
     await twSDK.init(scriptConfig);
     const scriptInfo = twSDK.scriptInfo();
-    // twSDK.checkValidLocation('screen') liest intern nur window.location.href
-    // (siehe twSDK.getParameterByName) - in der mobilen App wird der Screen
-    // dort nicht zuverlässig widergespiegelt. game_data.screen wird vom Spiel
-    // selbst gesetzt und ist auch in der App zuverlässig (gleicher Fix wie
-    // bei "Clear Barbarian Walls").
     const gameScreen = game_data.screen || twSDK.getParameterByName('screen');
     const isValidScreen = scriptConfig.allowedScreens.includes(gameScreen);
     let troopData = [];
@@ -380,10 +207,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
             localStorage.setItem(`${scriptConfig.scriptData.prefix}_chosen_group`, e.target.value);
 
-            // FIX: properly await the async fetch instead of assigning the Promise
-            // object itself to troopData (this previously caused
-            // "troopData is not iterable" errors during calculation whenever
-            // a group other than the initially loaded one was selected).
             fetchTroopsForCurrentGroup(parseInt(e.target.value)).then(function(result) {
                 troopData = result.homeTroops;
                 renderTroopDebugInfo(result.homeTroops, result.mobileCheck);
@@ -409,9 +232,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 jQuery('#raSpy').val('1');
                 e.target.value = 1;
             }
-            // FIX: this was writing to the "_max_distance" key instead of "_spy",
-            // silently corrupting the stored max distance value every time the
-            // spy count was changed.
             localStorage.setItem(`${scriptConfig.scriptData.prefix}_spy`, e.target.value);
         });
         localStorage.setItem(`${scriptConfig.scriptData.prefix}_max_distance`, localStorage.getItem(`${scriptConfig.scriptData.prefix}_max_distance`) ?? '10')
@@ -466,33 +286,16 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         });
         jQuery('#calculateLaunchTimes').on('click', function(e) {
             e.preventDefault();
-
-            // Start all the calculations
-            // TODO Rename functions
             getReports();
-
         });
         jQuery('#exportBBCodeBtn').on('click', function(e) {
             e.preventDefault();
             twSDK.copyToClipboard($('#barbCoordsList').val());
         })
-        // Diagnose-Modus (siehe Changelog Punkt 23): ruft NUR die
-        // Berichte-Liste ab und zeigt, welche Berichts-URLs gefunden wurden -
-        // ruft aber KEINEN einzigen Bericht selbst ab (kein jQuery.get() auf
-        // eine view=-URL). Damit lässt sich isolieren, ob schon das Laden der
-        // Liste allein zum beobachteten Verschwinden von Berichten führt,
-        // oder ob es am Abruf der einzelnen Berichte liegt.
         jQuery('#raListOnlyDiagnose').on('click', function(e) {
             e.preventDefault();
             getReports(true);
         });
-        // Diagnose-Modus (siehe Changelog Punkt 24): live bestätigt, dass
-        // schon der reine Berichte-LISTEN-Abruf (ohne jeden Einzelbericht-
-        // Fetch) einen Bericht gelöscht hat. Um einzugrenzen, ob JEDER
-        // jQuery.get()-Aufruf in dieser App-Umgebung Berichte löscht, oder ob
-        // es spezifisch am Berichte-Screen liegt, ruft dieser Button eine
-        // völlig unbeteiligte Spielseite ab (Dorf-Übersicht), die nichts mit
-        // Berichten zu tun hat - keine Berichte-Liste, kein Einzelbericht.
         jQuery('#raUnrelatedScreenDiagnose').on('click', function(e) {
             e.preventDefault();
             fetchUnrelatedScreenDiagnose();
@@ -500,11 +303,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
     }
 
-    // Diagnose-Modus (siehe Changelog Punkt 24): ruft eine völlig unbeteiligte
-    // Spielseite ab (Dorf-Übersicht statt Berichte), um zu prüfen, ob JEDER
-    // AJAX-Request in dieser App-Umgebung Berichte löscht, oder ob es
-    // spezifisch am Berichte-Screen liegt. Fasst absichtlich weder
-    // #report_list noch irgendeinen einzelnen Bericht an.
     async function fetchUnrelatedScreenDiagnose() {
         renderDebugInfo('');
         const testUrl = `${game_data.link_base_pure}overview`;
@@ -565,10 +363,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return buildingFilter;
     }
 
-    // Helper: rohes/unbekanntes HTML sicher als sichtbaren Text ins Panel
-    // rendern (für die Inline-Debug-Ausgabe unten) - alert()/confirm() sind
-    // in der App-WebView nachweislich unsichtbar (siehe "Clear Barbarian
-    // Walls"), Diagnosen müssen daher direkt im Panel erscheinen.
     function escapeHtml(text) {
         return String(text)
             .replace(/&/g, '&amp;')
@@ -586,10 +380,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         );
     }
 
-    // Zeigt die tatsächlich von fetchTroopsForCurrentGroup() ermittelten
-    // Truppenzahlen pro Dorf an (inkl. verwendetem Parsing-Zweig) - die
-    // Struktur der "overview_villages&mode=combined"-Seite in der App wurde
-    // in diesem Debugging-Bogen noch nie gegen echtes HTML verifiziert.
     function renderTroopDebugInfo(homeTroops, mobileCheck) {
         const lines = homeTroops.map((v) => `${v.coord}: ${JSON.stringify(v)}`);
         renderDebugInfo(
@@ -599,11 +389,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         );
     }
 
-    // Helper: In der mobilen App/Ansicht gibt es kein #contentContainer, dafür
-    // #mobileContent (gleiche Unterscheidung wie im gehosteten Script
-    // "Clear Barbarian Walls", das dieses Muster von hier übernommen hatte).
-    // typeof-Prüfung, damit ein nicht existierendes mobiledevice keinen
-    // ReferenceError wirft.
     function getUiContainerSelector() {
         return typeof mobiledevice !== 'undefined' && mobiledevice
             ? '#mobileContent'
@@ -721,36 +506,23 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         if (jQuery('.ra-single-village-snipe').length < 1) {
             jQuery(getUiContainerSelector()).prepend(content);
         } else {
-            // FIX: `body` was undefined here; the intended variable is `content`.
             jQuery('.ra-single-village-snipe-data').html(content);
         }
     }
 
     // Render: Build user interface
-    // listOnly: Diagnose-Modus (siehe Changelog Punkt 23) - ruft NUR die
-    // Berichte-Liste ab und zeigt, welche Berichts-URLs gefunden wurden,
-    // ruft aber KEINEN einzelnen Bericht ab (kein jQuery.get() auf eine
-    // view=-URL). Damit lässt sich isolieren, ob schon der Liste-Fetch
-    // allein zum beobachteten Verschwinden von Berichten führt.
     async function getReports(listOnly) {
 
         const buildingType = localStorage.getItem(`${scriptConfig.scriptData.prefix}_chosen_building`);
         var reportData = [];
         renderDebugInfo('');
         const { reportUrls, debugInfo, startUrl } = await fetchReportListPages(MAX_REPORT_PAGES_TO_FETCH);
-        // Immer sichtbar machen, welche Berichte-Liste tatsächlich verwendet
-        // wurde - live bestätigt, dass ein versehentlich gewählter
-        // Ordner-/Gruppen-Link (z.B. ein eigener Berichte-Ordner statt der
-        // allgemeinen Liste) sonst unbemerkt geblieben wäre.
         const sourceNote = `Quelle der Berichte-Liste: ${startUrl}`;
         if (reportUrls.length === 0) {
             renderDebugInfo(`${sourceNote}\n\n${debugInfo}`);
             return;
         }
         if (listOnly) {
-            // Bewusst KEIN twSDK.getAll(reportUrls, ...) hier - genau das ist
-            // der Zweck dieses Diagnose-Modus: die einzelnen Berichte werden
-            // nicht angerührt, nur ihre URLs angezeigt.
             renderDebugInfo(
                 `${sourceNote}\n\n` +
                     `Diagnose-Modus: ${reportUrls.length} Berichte-URL(s) gefunden, ` +
@@ -759,41 +531,19 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             );
             return;
         }
-        // Nicht alle Seiten der Berichte-Liste konnten geladen werden, es wurden
-        // aber schon Berichte gefunden - Hinweis anzeigen statt stillschweigend
-        // nur mit den bisher gefundenen Berichten weiterzumachen. baseNote
-        // (Quelle + ggf. Warnung) wird unten jedem weiteren renderDebugInfo()-
-        // Aufruf vorangestellt, statt von diesen einfach überschrieben zu werden.
         const baseNote =
             sourceNote +
             (debugInfo
                 ? `\n\nHinweis zur Berichte-Liste (${reportUrls.length} Berichte gefunden):\n\n${debugInfo}`
                 : '');
         renderDebugInfo(baseNote);
-        // twSDK.startProgressBar()/updateProgressBar() sind Teil der extern
-        // nachgeladenen twSDK-Bibliothek. Scheitert die Fortschrittsanzeige in
-        // der App (z.B. weil sie von einem dort nicht vorhandenen Element
-        // ausgeht), darf das nicht den gesamten Bericht-Abruf abbrechen -
-        // twSDK.getAll() würde einen dort geworfenen Fehler sonst faelschlich
-        // als generellen Fetch-Fehler behandeln.
         try {
             twSDK.startProgressBar(reportUrls.length);
         } catch (e) {
             console.warn(`${scriptInfo} startProgressBar fehlgeschlagen:`, e);
         }
-        // Zählt, aus welchem Grund Berichte aussortiert werden, statt sie nur
-        // stillschweigend über eine geworfene Exception zu überspringen -
-        // Grundlage für die Diagnose weiter unten, falls am Ende 0 Berichte
-        // übrig bleiben ("All perfect" wäre dann irreführend, siehe dort).
         const stats = { noSpyData: 0, notBarbarian: 0, wrongBuilding: 0, parseError: 0 };
         let sampleReportHtml = '';
-        // Sucht im Beispiel-HTML gezielt nach den Kennungen, auf die die
-        // Ablehnungslogik prüft, statt blind die ersten 2000 Zeichen zu
-        // zeigen - bei Berichts-Seiten mit langem "Chrome"/Vorspann (Menüs,
-        // versteckte Formularfelder, Lade-Overlay) landete der eigentliche
-        // Berichtsinhalt bisher komplett außerhalb des abgeschnittenen
-        // Bereichs, wodurch nicht erkennbar war, ob die gesuchte Kennung
-        // wirklich fehlt oder nur weiter hinten im HTML steht.
         function recordSample(reason, htmlDoc) {
             if (sampleReportHtml) {
                 return;
@@ -824,14 +574,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             sampleReportHtml = `Grund: ${reason}\n\n${excerptNote}\n${excerpt}`;
         }
 
-        // FIX (siehe Changelog Punkt 25): twSDK.getAll() ruft intern
-        // vermutlich jQuery.get()/XHR für jede Berichts-URL auf - genau die
-        // Art von Request, die sich für die Berichte-LISTE bereits als
-        // datenzerstörend bestätigt hat. Da nie isoliert getestet wurde, ob
-        // der Abruf einzelner Berichte für sich genommen sicher ist, wird
-        // hier bewusst NICHT mehr twSDK.getAll() verwendet, sondern jeder
-        // Bericht einzeln, nacheinander, über fetchUrlViaIframe() (echte
-        // Navigation statt XHR) geladen.
+        // TEST (v1.16-test-fetch): fetchUrlViaAjax() statt fetchUrlViaIframe(),
+        // siehe Kommentar am Dateianfang. Bei erneuten Problemen einfach
+        // wieder auf fetchUrlViaIframe() umstellen (Funktion bleibt erhalten).
         let fetchAborted = false;
         let fetchAbortError = null;
         for (let index = 0; index < reportUrls.length; index++) {
@@ -843,7 +588,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
             let data;
             try {
-                data = await fetchUrlViaIframe(reportUrls[index]);
+                data = await fetchUrlViaAjax(reportUrls[index]);
             } catch (fetchErr) {
                 fetchAborted = true;
                 fetchAbortError = fetchErr;
@@ -864,9 +609,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 for (let j = 0; j < report.length; j++) {
                     spyResults[report[j].id] = report[j];
                 }
-                // FIX: villageAnchor ist ein jQuery-Objekt und damit immer
-                // "truthy", auch wenn leer - die Barbarendorf-Prüfung muss auf
-                // .length testen, sonst greift sie nie.
                 const villageAnchor = jQuery(htmlDoc).find('#attack_info_def > tbody > tr > td > span[data-player=0]');
                 if (villageAnchor.length === 0) {
                     stats.notBarbarian++;
@@ -913,9 +655,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             i++;
         });
         if (reportData.length === 0) {
-            // Nicht mit "All perfect" verwechseln: hier wurde KEIN einziger
-            // Bericht erfolgreich ausgewertet, statt dass ausgewertete
-            // Berichte einfach nichts mehr zu tun übrig ließen.
             renderDebugInfo(
                 `${baseNote}\n\n` +
                     `Keine auswertbaren Berichte gefunden (von ${reportUrls.length} geladenen Berichten):\n` +
@@ -936,12 +675,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
     // returns necessary amount of axes
     function axesReq(wallLevel) {
-        // calculation: 30 axes * <wall level>
-        // +10 bonus axes
         return 30 * wallLevel + 10;
     }
 
-    // Function to calculate all possible combinations of player villages and barbarian villages
     function calculateAllCombinations(playerVillages, barbarianVillages, minLevel, maxDistance) {
         const combinations = [];
 
@@ -950,7 +686,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 const distance = twSDK.calculateDistance(playerVillage.coord, barbarianVillage.coord);
                 const wallPossible = barbarianVillage.wall > 0 && playerVillage.ram >= ramsMin[barbarianVillage.wall] && playerVillage.axe >= axesReq(barbarianVillage.wall);
                 const catPossible = barbarianVillage.building > minLevel && playerVillage.catapult >= catsMin[barbarianVillage.building];
-                // Check if the distance is within the maximum allowed distance and any reduction is possible
                 if (distance <= maxDistance && (wallPossible || catPossible)) {
                     combinations.push({
                         playerVillage,
@@ -961,73 +696,56 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             }
         }
 
-        // Sort combinations by distance in ascending order
         combinations.sort((a,b)=>a.distance - b.distance);
 
         return combinations;
     }
 
     const ramsRequired = [0, 2, 4, 7, 10, 14, 19, 24, 30, 38, 46, 55, 65, 77, 91, 106, 124, 144, 166, 191, 220];
-    /* to break a wall at [i] level to 0.*/
     const ramsMin = [0, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 6, 6];
-    /*to break a wall at [i] level by 1 level*/
-    const catsRequiredToBreak = [/*[0,30] = from 30 to 0*/
-    /*From:[0,1,2, 3, 4, 5, 6, 7, 8, 9,10,11,12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,  29,  30]*/
-    /*To:*/
-    /* 0*/
-    [0, 2, 6, 10, 15, 21, 28, 36, 45, 56, 68, 82, 98, 115, 136, 159, 185, 215, 248, 286, 328, 376, 430, 490, 558, 634, 720, 815, 922, 1041, 1175], /* 1*/
-    [0, 0, 2, 6, 11, 17, 23, 31, 39, 49, 61, 74, 89, 106, 126, 148, 173, 202, 234, 270, 312, 358, 410, 469, 534, 608, 691, 784, 888, 1005, 1135], /* 2*/
-    [0, 0, 0, 2, 7, 12, 18, 25, 33, 43, 54, 66, 81, 97, 116, 137, 161, 189, 220, 255, 295, 340, 390, 447, 511, 583, 663, 754, 855, 968, 1095], /* 3*/
-    [0, 0, 0, 0, 3, 7, 13, 20, 27, 36, 47, 59, 72, 88, 106, 126, 149, 176, 206, 240, 278, 321, 370, 425, 487, 557, 635, 723, 821, 932, 1055], /* 4*/
-    [0, 0, 0, 0, 0, 3, 8, 14, 21, 30, 40, 51, 64, 79, 96, 115, 137, 163, 192, 224, 261, 303, 350, 403, 463, 531, 607, 692, 788, 895, 1015], /* 5*/
-    [0, 0, 0, 0, 0, 0, 3, 9, 15, 23, 32, 43, 55, 69, 86, 104, 126, 150, 177, 209, 244, 285, 330, 382, 440, 505, 579, 661, 754, 859, 976], /* 6*/
-    [0, 0, 0, 0, 0, 0, 0, 3, 9, 17, 25, 35, 47, 60, 76, 93, 114, 137, 163, 193, 227, 266, 310, 360, 416, 479, 550, 631, 721, 822, 936], /* 7*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 3, 10, 18, 28, 38, 51, 66, 82, 102, 124, 149, 178, 211, 248, 290, 338, 392, 453, 522, 600, 687, 786, 896], /* 8*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 11, 20, 30, 42, 56, 72, 90, 111, 135, 162, 194, 230, 270, 316, 368, 427, 494, 569, 654, 749, 856], /* 9*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 12, 22, 33, 46, 61, 78, 98, 121, 147, 177, 211, 250, 294, 345, 401, 466, 538, 620, 713, 816], /*10*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 13, 23, 36, 50, 66, 85, 107, 132, 160, 193, 230, 273, 321, 376, 438, 508, 587, 676, 777], /*11*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 14, 26, 39, 54, 72, 92, 116, 143, 175, 210, 251, 297, 350, 409, 477, 553, 640, 737], /*12*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 16, 28, 42, 59, 78, 101, 127, 156, 190, 229, 273, 324, 381, 446, 520, 603, 697], /*13*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 17, 30, 46, 64, 85, 110, 138, 170, 207, 250, 298, 353, 415, 486, 567, 657], /*14*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 18, 33, 50, 70, 93, 120, 150, 186, 226, 272, 325, 385, 453, 530, 617], /*15*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 20, 36, 54, 76, 101, 130, 164, 202, 246, 297, 354, 419, 493, 578], /*16*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 22, 39, 59, 83, 110, 142, 178, 220, 268, 323, 386, 457, 538], /*17*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 24, 43, 65, 90, 120, 155, 195, 240, 292, 352, 420, 498], /*18*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 26, 46, 70, 98, 131, 169, 212, 262, 319, 384, 458], /*19*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 28, 50, 77, 107, 143, 184, 231, 285, 347, 418], /*20*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 30, 55, 84, 117, 156, 200, 252, 311, 379], /*21*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 33, 60, 91, 127, 170, 218, 274, 339], /*22*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 36, 65, 99, 139, 185, 238, 299], /*23*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 39, 71, 108, 151, 201, 259], /*24*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 43, 77, 118, 165, 219], /*25*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 47, 84, 128, 180], /*26*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 51, 92, 140], /*27*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 55, 100], /*28*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 60], /*29*/
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20], /*30*/
+    const catsRequiredToBreak = [
+    [0, 2, 6, 10, 15, 21, 28, 36, 45, 56, 68, 82, 98, 115, 136, 159, 185, 215, 248, 286, 328, 376, 430, 490, 558, 634, 720, 815, 922, 1041, 1175],
+    [0, 0, 2, 6, 11, 17, 23, 31, 39, 49, 61, 74, 89, 106, 126, 148, 173, 202, 234, 270, 312, 358, 410, 469, 534, 608, 691, 784, 888, 1005, 1135],
+    [0, 0, 0, 2, 7, 12, 18, 25, 33, 43, 54, 66, 81, 97, 116, 137, 161, 189, 220, 255, 295, 340, 390, 447, 511, 583, 663, 754, 855, 968, 1095],
+    [0, 0, 0, 0, 3, 7, 13, 20, 27, 36, 47, 59, 72, 88, 106, 126, 149, 176, 206, 240, 278, 321, 370, 425, 487, 557, 635, 723, 821, 932, 1055],
+    [0, 0, 0, 0, 0, 3, 8, 14, 21, 30, 40, 51, 64, 79, 96, 115, 137, 163, 192, 224, 261, 303, 350, 403, 463, 531, 607, 692, 788, 895, 1015],
+    [0, 0, 0, 0, 0, 0, 3, 9, 15, 23, 32, 43, 55, 69, 86, 104, 126, 150, 177, 209, 244, 285, 330, 382, 440, 505, 579, 661, 754, 859, 976],
+    [0, 0, 0, 0, 0, 0, 0, 3, 9, 17, 25, 35, 47, 60, 76, 93, 114, 137, 163, 193, 227, 266, 310, 360, 416, 479, 550, 631, 721, 822, 936],
+    [0, 0, 0, 0, 0, 0, 0, 0, 3, 10, 18, 28, 38, 51, 66, 82, 102, 124, 149, 178, 211, 248, 290, 338, 392, 453, 522, 600, 687, 786, 896],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 11, 20, 30, 42, 56, 72, 90, 111, 135, 162, 194, 230, 270, 316, 368, 427, 494, 569, 654, 749, 856],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 12, 22, 33, 46, 61, 78, 98, 121, 147, 177, 211, 250, 294, 345, 401, 466, 538, 620, 713, 816],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 13, 23, 36, 50, 66, 85, 107, 132, 160, 193, 230, 273, 321, 376, 438, 508, 587, 676, 777],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 14, 26, 39, 54, 72, 92, 116, 143, 175, 210, 251, 297, 350, 409, 477, 553, 640, 737],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 16, 28, 42, 59, 78, 101, 127, 156, 190, 229, 273, 324, 381, 446, 520, 603, 697],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 17, 30, 46, 64, 85, 110, 138, 170, 207, 250, 298, 353, 415, 486, 567, 657],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 18, 33, 50, 70, 93, 120, 150, 186, 226, 272, 325, 385, 453, 530, 617],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 20, 36, 54, 76, 101, 130, 164, 202, 246, 297, 354, 419, 493, 578],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 22, 39, 59, 83, 110, 142, 178, 220, 268, 323, 386, 457, 538],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 24, 43, 65, 90, 120, 155, 195, 240, 292, 352, 420, 498],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 26, 46, 70, 98, 131, 169, 212, 262, 319, 384, 458],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 28, 50, 77, 107, 143, 184, 231, 285, 347, 418],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 30, 55, 84, 117, 156, 200, 252, 311, 379],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 33, 60, 91, 127, 170, 218, 274, 339],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 36, 65, 99, 139, 185, 238, 299],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 39, 71, 108, 151, 201, 259],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 43, 77, 118, 165, 219],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 47, 84, 128, 180],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 51, 92, 140],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 55, 100],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 60],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]];
     const catsMin = [0, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 7, 8, 8, 9, 10, 10, 11, 12, 13, 15, 16, 17, 19, 20];
-    /*to break a building at level [i] by 1*/
 
-    // returns the max possible level reduction towards minLevel within maxStep
     function requiredCatas(maxCata, currentLevel, minLevel, maxStep) {
         if (currentLevel <= minLevel || catsMin[currentLevel] > maxCata) {
             return 0;
-            // No catapults needed if already at or below the minLevel or not enough of them
         }
 
-        // Check if the maximum amount of building levels that need to be destroyed is smaller than maxStep and reduce maxStep accordingly if needed
         let maxDestroyed = (currentLevel - minLevel) < maxStep ? (currentLevel - minLevel) : maxStep;
 
-        // Iterate top down through the cata steps until we find  the biggest cata step we can do with the amount of catas we have and within the maxStep
         for (let i = maxDestroyed; i > 0; i--) {
-
-            // Gets the required catas to destroy "i" building levels
             const catasRequired = catsRequiredToBreak[currentLevel - i][currentLevel];
-
-            // if we have enough catas in the village to destroy "i" building levels we return the amount of destroyed levels
-            // otherwise we run the loop again decreasing the amount of destroyed building levels until we have enough catas
-            // we should have enough catas for "i == 1" since we checked at the start
             if (maxCata >= catasRequired) {
                 return i;
             }
@@ -1036,36 +754,26 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return 0;
     }
 
-    // Function to find troop combinations for a specific attack with consideration of dLastAttack
     function findTroopCombination(playerVillage, barbarianVillage, distance, minLevel, maxStep, spyAmount) {
         let combinations = [];
         let maxReduction = 0;
         let catapultsRequired = 0;
 
-        // Get the required rams to reduce wall to 0
         const ramsReq = ramsRequired[barbarianVillage.wall];
-        // Calculate the required axes for rams
         const axesRequired = Math.ceil(axesReq(barbarianVillage.wall));
 
-        // If there is a wall and we either dont have enough axes or rams to reduce it to 0 we quit
-        // We also quit if there are not enough spies
         if ((barbarianVillage.wall > 0 && (playerVillage.ram < ramsReq || playerVillage.axe < axesRequired)) || playerVillage.spy < spyAmount) {
             return combinations;
         }
 
-        // Now if there is a wall we know that we can destroy it and so we do
-        // Doing it this way and not sending any catapults in the ram attack might be a waste of a spy but it makes the code nicer to look at imo
         if (barbarianVillage.wall > 0) {
-            // we set the wall to 0 and subtract used axes and rams and spies
             playerVillage.axe -= axesRequired;
             playerVillage.ram -= ramsReq;
             barbarianVillage.wall = 0;
             playerVillage.spy -= spyAmount;
 
-            // TODO What does this do?
             barbarianVillage.dLastAttack = distance;
 
-            // We add the Wall bash attack to our attack list
             combinations.push({
                 barbarianVillage,
                 playerVillage,
@@ -1077,29 +785,20 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             });
         }
 
-        // Now that the wall is 0 we can start destroying the building while considering maxStep
-        // Run the loop while the building is above minLevel and the playerVillage has enough spies
         while (barbarianVillage.building > minLevel && playerVillage.spy >= spyAmount) {
-            // Check how many building levels we can destroy in this attack 
             maxReduction = requiredCatas(playerVillage.catapult, barbarianVillage.building, minLevel, maxStep);
-            // Check how many catapults we need to destroy those building levels
             catapultsRequired = catsRequiredToBreak[barbarianVillage.building - maxReduction][barbarianVillage.building];
 
-            // If we can't destroy a building level we quit
             if (maxReduction == 0) {
                 break;
             }
 
-            // If we can destroy at least one building level we subtract used catapults and spies and we subtract the destroyed building level
             playerVillage.catapult -= catapultsRequired;
             barbarianVillage.building -= maxReduction;
             playerVillage.spy -= spyAmount;
 
-            // Update dLastAttack for the barbarian village
-            // TODO What does this do?
             barbarianVillage.dLastAttack = distance;
 
-            // Add the attack to our attack list
             combinations.push({
                 barbarianVillage,
                 playerVillage,
@@ -1111,11 +810,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             });
         }
 
-        // Return all the attacks
         return combinations;
     }
 
-    // Function to find troop combinations for all attacks with consideration of dLastAttack
     function findTroopCombinations(playerVillages, barbarianVillages, minLevel, maxDistance, maxStep, spyAmount) {
         let result = [];
 
@@ -1132,22 +829,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return result;
     }
 
-    // Helper: Do farming calculations
     function doCalculations(farmingData) {
 
-        // TODO Combine calculations
         console.log('Starting calculating Commands...');
 
-        // maxDistance for attacks
         const maxDistance = localStorage.getItem(`${scriptConfig.scriptData.prefix}_max_distance`);
-
-        // minimum building level
         const minLevel = localStorage.getItem(`${scriptConfig.scriptData.prefix}_min_level`);
-
-        // max amount of building levels to destroy
         const maxStep = localStorage.getItem(`${scriptConfig.scriptData.prefix}_max_step`);
-
-        // amount of spys in a attack
         const spyAmount = localStorage.getItem(`${scriptConfig.scriptData.prefix}_spy`);
 
         if (DEBUG) {
@@ -1170,14 +858,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
     async function fetchTroopsForCurrentGroup(groupId) {
         const mobileCheck = $('#mobileHeader').length > 0;
         const troopsForGroup = await jQuery.get(game_data.link_base_pure + `overview_villages&mode=combined&group=${groupId}&page=-1`).then(async(response)=>{
-            // DOMParser statt jQuery.parseHTML(): liefert ein echtes Document,
-            // in dem #combined_table ein Nachfahre von <body> ist. Mit
-            // jQuery.parseHTML() landet #combined_table dagegen oft als
-            // Top-Level-Element im Ergebnis-Array selbst, wodurch der
-            // zusammengesetzte Selektor "#combined_table tr.nowrap" nichts
-            // findet (die eigene Scope-Wurzel zählt bei querySelectorAll
-            // nicht als Vorfahre ihrer selbst) - exakt der gleiche Fehler, der
-            // schon bei fetchReportListPages() gefunden und behoben wurde.
             const htmlDoc = new DOMParser().parseFromString(response, 'text/html');
             const homeTroops = [];
 
@@ -1206,7 +886,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 const combinedTableHeader = [];
 
-                // Collect possible buildings and troop types
                 jQuery(combinedTableHead).each(function() {
                     const thImage = jQuery(this).find('img').attr('src');
                     if (thImage) {
@@ -1218,7 +897,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     }
                 });
 
-                // Collect possible troop types
                 combinedTableRows.each(function() {
                     let rowTroops = {};
 
@@ -1251,38 +929,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
         );
 
-        // mobileCheck wird mit zurückgegeben, damit der Aufrufer die
-        // tatsächlich ermittelten Truppenzahlen (inkl. welcher Parsing-Zweig
-        // benutzt wurde) sichtbar ins Panel rendern kann - die Struktur der
-        // "overview_villages&mode=combined"-Seite in der App wurde in diesem
-        // Debugging-Bogen noch nie verifiziert.
         return { homeTroops: troopsForGroup ?? [], mobileCheck };
     }
 
-    // Helper: einzelne Berichte-Listen-Seite nach Report-Links durchsuchen
-    // (gleicher Selektor wie zuvor, jetzt auf per AJAX geladenes HTML statt
-    // auf das Live-DOM angewendet - Voraussetzung dafür, dass das Script vom
-    // Versammlungsplatz aus laufen kann, wo #report_list gar nicht existiert).
-    // Ein href wie "#" oder "javascript:..." ist kein echter, per GET
-    // abrufbarer Link, sondern ein reiner JS-/Modal-Auslöser (die eigentliche
-    // Navigation passiert dann über onclick). Ein solcher Link würde beim
-    // Abruf per jQuery.get() einfach die AKTUELL GELADENE Seite erneut
-    // zurückliefern (der Browser löst "#" relativ zur aktuellen URL auf) -
-    // das erklärt, warum als "Beispiel-Bericht" wiederholt die allgemeine
-    // Berichte-Listen-Seite (samt Reiter-Konfiguration) statt echtem
-    // Berichtsinhalt auftauchte.
-    // WICHTIG (Sicherheitsmaßnahme nach bestätigtem Datenverlust): eine href
-    // wird nur akzeptiert, wenn sie zusätzlich einen view=-Parameter enthält.
-    // "#"/"javascript:" allein auszuschließen reichte nicht - ein Bericht
-    // wurde live trotzdem gelöscht, obwohl manuelles Öffnen desselben
-    // Berichts-Typs nichts löscht. Das deutet darauf hin, dass die als
-    // "abrufbar" erkannte URL evtl. gar nicht der Anzeige-Link war, sondern
-    // zufällig ein anderer Link in derselben Zeile (z.B. ein GET-basierter
-    // Schnellzugriff wie "Bericht löschen"), der über dieselbe CSS-Klasse
-    // gefunden wurde. Jede echte "Bericht ansehen"-URL in diesem gesamten
-    // Debugging-Bogen hatte einen view=-Parameter (z.B.
-    // "screen=report&mode=all&view=172713555") - das ist die verlässlichste
-    // bekannte Kennung. Ohne view= wird die URL NICHT abgerufen.
     function isNavigableReportUrl(href) {
         return (
             typeof href !== 'undefined' &&
@@ -1293,14 +942,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         );
     }
 
-    // Eine echte Berichts-Zeile hat <td>-Zellen; die Tabellen-Kopfzeile (falls
-    // sie mangels <thead> mit im tbody steht, wie live beobachtet) hat
-    // stattdessen <th>-Zellen und keinen Bericht-Inhalt - sie darf nicht als
-    // "Beispiel-Zeile" für die Diagnose herhalten, sonst bekommen wir nie eine
-    // echte Berichts-Zeile zu sehen. Ebenfalls live beobachtet: eine "Derzeit
-    // liegen keine Berichte vor"-Leerzustand-Zeile mit genau einer <td
-    // colspan="..."> - auch keine echte Berichts-Zeile, sonst wird sie
-    // fälschlich als "Zeile ohne Link" gezählt/gezeigt.
     function isReportDataRow(row) {
         const cells = jQuery(row).find('td');
         if (cells.length === 0 || jQuery(row).find('th').length > 0) {
@@ -1321,7 +962,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             .each(function () {
                 try {
                     if (!isReportDataRow(this)) {
-                        // Kopfzeile o.ä. - weder zählen noch als Beispiel verwenden.
                         return;
                     }
                     const reportUrl = jQuery(this).find('.report-link').attr('href');
@@ -1334,20 +974,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         }
                     }
                 } catch (e) {
-                    // einzelne kaputte Zeile überspringen, nicht den ganzen Abruf abbrechen
                     console.warn(`${scriptInfo} Report-Zeile übersprungen (unerwartete Struktur):`, e);
                 }
             });
         return { links, nonNavigableCount, sampleRowHtml };
     }
 
-    // Helper: Link zur nächsten Berichte-Listen-Seite finden. Es wird nicht
-    // von einem festen Parameternamen/Schrittweite ausgegangen (die genaue
-    // Paginierungs-Struktur der Berichte-Liste ist nicht mit Sicherheit
-    // bekannt) - stattdessen wird unter allen Links, die "mode=attack"
-    // enthalten aber kein einzelner Berichts-Link sind (kein "view="-Parameter),
-    // derjenige mit dem kleinsten numerischen Query-Parameter-Wert gesucht,
-    // der größer ist als der entsprechende Wert der aktuellen Seite.
     function findNextReportPageUrl(htmlDoc, currentPageUrl) {
         let currentParams;
         try {
@@ -1392,29 +1024,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return bestUrl;
     }
 
-    // Lädt die Berichte-Liste (Angriffsberichte) seitenweise per AJAX, egal
-    // von welchem Screen aus das Script läuft - Voraussetzung dafür, dass es
-    // vom Versammlungsplatz statt von der Berichte-Übersicht aus gestartet
-    // werden kann. Folgt der jeweils "nächsten Seite" Schritt für Schritt
-    // (statt alle Seiten-URLs im Voraus zu berechnen), da unklar ist, ob die
-    // Paginierung über einen linearen Seitenindex oder einen Zeilen-Offset
-    // läuft.
-    // Sucht im aktuell angezeigten (App-)DOM nach einem echten Navigations-
-    // Link zu den Angriffsberichten (z.B. im Spiel-Hauptmenü) - dieser Link
-    // ist garantiert korrekt, da es der gleiche ist, den man beim manuellen
-    // Antippen in der App-Navigation auch benutzt. Die selbst zusammen-
-    // gebaute URL (link_base_pure + 'report&mode=attack') hat sich live als
-    // nicht zuverlässig herausgestellt: sie lieferte statt der Berichte-
-    // Liste einen einzelnen Bericht zurück, obwohl die manuelle App-
-    // Navigation zur gleichen Ansicht dort eine echte Liste zeigt.
-    // Ordner-/Gruppen-Links (z.B. eigene Berichte-Ordner wie "Hochladen",
-    // "Archiv", "Terra" usw., die der Nutzer selbst angelegt hat) haben einen
-    // group_id-Parameter ungleich 0. Solche Links dürfen NIE als
-    // Berichte-Listen-Quelle verwendet werden: sie zeigen nur eine
-    // benutzerdefinierte Teilmenge, und manche Ordner haben sogar eigene
-    // "nach dem Lesen automatisch löschen"-Regeln - live bestätigt, dass ein
-    // versehentlich gewählter Ordner-Link dadurch echte Berichte permanent
-    // gelöscht hat.
     function isGeneralReportListLink(href) {
         return href.indexOf('group_id=') === -1 || href.indexOf('group_id=0') !== -1;
     }
@@ -1430,16 +1039,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 isGeneralReportListLink(href)
             ) {
                 navHref = href;
-                return false; // .each() abbrechen, ersten Treffer nehmen
+                return false;
             }
         });
         if (navHref) {
             return navHref;
         }
-        // Kein Link speziell für "Angriffsberichte" gefunden - notfalls
-        // irgendeinen allgemeinen (nicht Ordner-/Gruppen-gebundenen)
-        // Berichte-Navigations-Link nehmen (z.B. "Alle Berichte"). Ordner-
-        // Links werden hier bewusst NIE verwendet, siehe isGeneralReportListLink().
         jQuery('a[href*="screen=report"]').each(function () {
             const href = jQuery(this).attr('href');
             if (href && href.indexOf('view=') === -1 && isGeneralReportListLink(href)) {
@@ -1450,32 +1055,49 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         return navHref;
     }
 
-    // Live bestätigt (siehe Changelog Punkt 24): ein per jQuery.get() (also
-    // per XHR/AJAX) abgerufener Berichte-Request löscht Berichte, obwohl
-    // derselbe Screen manuell per echter Navigation geöffnet nachweislich
-    // NICHTS löscht. Diese Funktion lädt eine URL stattdessen über ein
-    // unsichtbares iframe - eine echte Navigation (kein XHR, kein
-    // "X-Requested-With"-Header), so wie es der Browser bei einem echten Tap
-    // auf einen Link auch täte. Ersetzt jQuery.get() an JEDER Stelle, die mit
-    // dem Berichte-Screen zu tun hat (Liste UND Einzelberichte).
+    // TEST-Variante (v1.16-test-fetch), siehe Kommentar am Dateianfang:
+    // fetch() statt jQuery.get()/jQuery.ajax(). Der Unterschied zu
+    // jQuery.get() ist der Header "X-Requested-With: XMLHttpRequest", den
+    // jQuery bei jedem AJAX-Request automatisch mitsendet und den fetch()
+    // NICHT setzt - die Hypothese ist, dass genau dieser Header (und nicht
+    // AJAX an sich) der Auslöser für das beobachtete Löschen von Berichten
+    // war. Im Unterschied zu fetchUrlViaIframe() (siehe unten) findet dabei
+    // KEINE sichtbare Navigation statt, also auch keine Weiterleitung, die
+    // die mobile Schnellleiste verdeckt.
+    // credentials: 'same-origin' sorgt dafür, dass die Session-Cookies
+    // mitgesendet werden (sonst würde der Server vermutlich einen
+    // Login-/Fehler-Screen statt der eigentlichen Seite liefern).
+    function fetchUrlViaAjax(url, timeoutMs) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs || 20000);
+
+        return fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            redirect: 'follow',
+            signal: controller.signal,
+        })
+            .then((response) => {
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status} beim Laden von ${url}`);
+                }
+                return response.text();
+            })
+            .catch((error) => {
+                clearTimeout(timeoutId);
+                throw error;
+            });
+    }
+
+    // Fallback aus v1.15 (Punkte 25-27): echte Navigation über ein
+    // unsichtbares iframe statt XHR. Bleibt im Code, falls fetchUrlViaAjax()
+    // sich live doch als unzureichend herausstellt und wieder zurück auf
+    // die iframe-Variante gewechselt werden muss.
     function fetchUrlViaIframe(url, timeoutMs) {
         return new Promise((resolve, reject) => {
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
-            // FIX (siehe Changelog Punkt 26): ohne sandbox führt der Browser
-            // alle <script>-Tags der geladenen Seite aus - trifft das ein
-            // Anti-Clickjacking-("Frame-Busting"-)Skript des Spiels selbst
-            // (z.B. "if (window.top !== window.self) window.top.location =
-            // ..."), zwingt es die ECHTE äußere Seite zur Navigation. "allow-
-            // same-origin" (ohne "allow-scripts") deaktiviert jede
-            // Skriptausführung im iframe, erlaubt aber weiterhin lesenden
-            // Zugriff auf iframe.contentDocument.
-            // FIX (siehe Changelog Punkt 27): live bestätigt, dass die
-            // Weiterleitung trotz obigem Fix weiterhin auftrat - die
-            // Property-Zuweisung (iframe.sandbox = '...') scheint von der
-            // WebView der mobilen App nicht zuverlässig auf das tatsächliche
-            // HTML-Attribut zurückgeschrieben zu werden. setAttribute() ist
-            // die grundlegendere, seit langem etablierte Methode.
             iframe.setAttribute('sandbox', 'allow-same-origin');
             let settled = false;
 
@@ -1524,7 +1146,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         while (currentUrl && pageCount < maxReportPagesToFetch) {
             let html;
             try {
-                html = await fetchUrlViaIframe(currentUrl);
+                // TEST (v1.16-test-fetch): fetchUrlViaAjax() statt fetchUrlViaIframe()
+                html = await fetchUrlViaAjax(currentUrl);
             } catch (error) {
                 UI.ErrorMessage(twSDK.tt('Error fetching report list page!'));
                 console.error(`${scriptInfo} Error:`, error);
@@ -1534,13 +1157,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 break;
             }
 
-            // DOMParser statt jQuery.parseHTML(): liefert ein echtes Document,
-            // in dem #report_list ein Nachfahre von <body> ist. Mit
-            // jQuery.parseHTML() landet #report_list dagegen oft als
-            // Top-Level-Element im Ergebnis-Array selbst, wodurch der
-            // zusammengesetzte Selektor "#report_list tbody tr" nichts findet
-            // (die eigene Scope-Wurzel zählt bei querySelectorAll nicht als
-            // Vorfahre ihrer selbst).
             const parser = new DOMParser();
             const htmlDoc = parser.parseFromString(html, 'text/html');
             const { links: rowLinks, nonNavigableCount, sampleRowHtml } = extractReportRowLinks(htmlDoc);
@@ -1552,8 +1168,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             pageCount++;
 
             if (rowLinks.length > 0) {
-                // Diese Seite hatte Treffer - eine evtl. vorherige "0 Treffer"-
-                // Diagnose ist damit überholt und darf nicht mehr angezeigt werden.
                 debugInfo = '';
             } else if (pageCount === 1) {
                 const rawSample = typeof html === 'string' ? html : '';
