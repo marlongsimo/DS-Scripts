@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anabole Schnell – DS-Scripts</title>
+  <meta name="description" content="Markiert mehrfache Angriffe in der Angriffsübersicht und liefert schnelle Umbenennen-Buttons für eingehende Angriffe mit vordefinierten Tags.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Scripts</a> / Anabole Schnell</p>
+
+        <div class="script-detail">
+          <div class="tag-row" style="margin-bottom:0.8rem;">
+            <span class="badge">v1.0.0</span>
+            <span class="badge">Angriffsübersicht</span>
+            <span class="badge">Umbenennen</span>
+          </div>
+          <h2>💪 Anabole Schnell</h2>
+          <p>
+            Läuft in der <strong>Angriffsübersicht</strong>
+            (eingehende Angriffe) und in der Befehlsübersicht. Erkennt
+            mehrfache Angriffe aus demselben Herkunftsdorf und markiert die
+            betroffenen Zeilen farblich mit Gruppen-Badges (A 1/3, A 2/3, ...),
+            damit Stapelangriffe auf einen Blick erkennbar sind. Zusätzlich
+            erscheint neben jedem eingehenden Angriff/Befehl eine Reihe
+            kleiner Farbbuttons, die per Klick automatisch die
+            Dorf-Umbenennen-Funktion öffnen und ein vordefiniertes Tag
+            (z.B. <code>[Tot]</code>, <code>[Snipe]</code>,
+            <code>[Fake]</code>) einträgt – inklusive eines Reset-Buttons, der
+            alle bekannten Tags wieder entfernt. Ein Klick ersetzt damit das
+            manuelle Öffnen des Umbenennen-Dialogs, Eintippen und Speichern.
+            Läuft dauerhaft im Hintergrund (per <code>MutationObserver</code>
+            und Intervall-Fallback), sodass auch nachträglich geladene
+            Zeilen automatisch Buttons bekommen.
+          </p>
+
+          <div class="script-meta">
+            <div>
+              <span class="label">Version</span>
+              <span class="value">v1.0.0</span>
+            </div>
+            <div>
+              <span class="label">Voraussetzung</span>
+              <span class="value">Angriffsübersicht (eingehende Angriffe) bzw. Befehlsübersicht geöffnet</span>
+            </div>
+            <div>
+              <span class="label">Vordefinierte Tags</span>
+              <span class="value">Tot, Umgeleitet, Umleiten, Zurueckerobern(t), Gesnipt, Snipe, Snipe Cancel, Verkackt, Fake, Evtl. Full, Verstärken, Abziehen, Beobachten, ✓</span>
+            </div>
+            <div>
+              <span class="label">Aktualisierung</span>
+              <span class="value">Läuft dauerhaft im Hintergrund (MutationObserver + Intervall), erkennt neu geladene Zeilen automatisch</span>
+            </div>
+          </div>
+
+          <h3>Installation (Desktop)</h3>
+          <div class="install-box">
+            <p style="margin-bottom:0.8rem;">
+              Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach im
+              Spiel die Angriffsübersicht (eingehende Angriffe) und klicke auf
+              das Lesezeichen, um das Script zu starten.
+            </p>
+            <a class="bookmarklet"
+               href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/anaboleSchnell.js');"
+               onclick="return false;"
+               title="In die Lesezeichenleiste ziehen">
+              💪 Anabole Schnell starten
+            </a>
+          </div>
+
+          <h3>Installation (Handy: iPhone/Android)</h3>
+          <p>
+            Auf dem Handy lässt sich das Bookmarklet nicht per Drag &amp; Drop
+            in die Lesezeichen-/Favoritenleiste ziehen. Stattdessen legst du
+            zuerst ein ganz normales Lesezeichen an und ersetzt dessen Adresse
+            danach durch den folgenden Code:
+          </p>
+          <pre><code id="console-snippet">javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/anaboleSchnell.js');</code></pre>
+          <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
+
+          <p style="margin-top:1rem;"><strong>iPhone (Safari):</strong></p>
+          <ol style="margin:0 0 1rem 1.2rem; padding:0;">
+            <li>Diese Seite (oder eine beliebige andere) über das Teilen-Symbol als Lesezeichen speichern.</li>
+            <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
+            <li>Das Adressfeld leeren und den oben kopierten Code einfügen. Als Namen z.B. „Anabole Schnell“ eintragen und speichern.</li>
+            <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben – es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
+            <li>Im Spiel die Angriffsübersicht (eingehende Angriffe) öffnen, dort einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
+          </ol>
+
+          <p><strong>Android (Chrome):</strong></p>
+          <ol style="margin:0 0 0 1.2rem; padding:0;">
+            <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
+            <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben kopierten Code ersetzen, Namen anpassen und speichern.</li>
+            <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
+            <li>Im Spiel die Angriffsübersicht (eingehende Angriffe) öffnen und dort das Lesezeichen aus der Leiste antippen.</li>
+          </ol>
+
+          <h3 style="margin-top:1.6rem;">Quellcode</h3>
+          <p>
+            <a href="https://github.com/marlongsimo/DS-Scripts/blob/main/scripts/anaboleSchnell.js" target="_blank" rel="noopener">
+              scripts/anaboleSchnell.js auf GitHub ansehen ↗
+            </a>
+          </p>
+
+          <div class="note warn" style="margin-top:1.4rem;">
+            Nutzung auf eigene Verantwortung. Das Script sendet nichts
+            automatisch ab – es öffnet lediglich die im Spiel vorhandene
+            Umbenennen-Funktion und trägt den Tag-Text ein, das Speichern
+            übernimmt dabei denselben Dialog wie bei manueller Bedienung.
+            Bitte vorab die Regeln deines Servers zu Skripten/Bookmarklets
+            prüfen.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+    document.getElementById('copy-snippet').addEventListener('click', function () {
+      var text = document.getElementById('console-snippet').textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copy-snippet');
+        var original = btn.textContent;
+        btn.textContent = '✅ Kopiert!';
+        setTimeout(function () { btn.textContent = original; }, 1800);
+      });
+    });
+  </script>
+</body>
+</html>

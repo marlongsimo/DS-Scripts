@@ -1,0 +1,579 @@
+/*
+ * 💪 Anabole Schnell (Bookmarklet-Version)
+ * Markiert mehrfache Angriffe in der Angriffsübersicht und liefert schnelle
+ * Umbenennen-Buttons für eingehende Angriffe. Wird per Bookmarklet als
+ * <script> von https://marlongsimo.github.io/DS-Scripts/scripts/anaboleSchnell.js
+ * nachgeladen, siehe scripts/anabole-schnell.html für die Installation.
+ */
+
+(function () {
+    'use strict';
+
+    // Verhindert Doppel-Ausführung, falls das Bookmarklet zweimal geklickt wird
+    if (window.__tpSchnellLoaded) {
+        console.log('[Anabole Schnell] läuft bereits.');
+        return;
+    }
+    window.__tpSchnellLoaded = true;
+
+    if (window.top !== window.self) return;
+
+    const APP = { name: '💪 Anabole Schnell', prefix: 'tpSchnell', version: '1.0.0', styleId: 'tpSchnellStyles' };
+
+    // ---------------------------------------------------------------------
+    // Konfiguration (bewusst simpel gehalten, kein Einstellungs-Panel)
+    // ---------------------------------------------------------------------
+    const CONFIG = {
+        tamanhoLetraPx: 8,
+        tamanhoBotaoPx: 18,
+        paddingHorizontalBotaoPx: 3,
+        timeoutEdicaoMs: 1200,
+        intervaloEsperaInputMs: 40,
+        intervaloFallbackMs: 2500,
+    };
+
+    const CORES = {
+        red: { top: '#e20606', bottom: '#ff0000' },
+        green: { top: '#31c908', bottom: '#228c05' },
+        blue: { top: '#0d83dd', bottom: '#0860a3' },
+        yellow: { top: '#ffd91c', bottom: '#e8c30d' },
+        orange: { top: '#ef8b10', bottom: '#d3790a' },
+        lblue: { top: '#22e5db', bottom: '#0cd3c9' },
+        lime: { top: '#ffd400', bottom: '#ffd400' },
+        white: { top: '#ffffff', bottom: '#dbdbdb' },
+        black: { top: '#000000', bottom: '#000000' },
+        gray: { top: '#adb6c6', bottom: '#828891' },
+        dorange: { top: '#9232a8', bottom: '#9232a8' },
+        dark: { top: '#40434e', bottom: '#40434e' },
+        pink: { top: '#ffc0cb', bottom: '#ffc0cb' },
+        brown: { top: '#892929', bottom: '#892929' },
+        dblue: { top: '#00007f', bottom: '#00007f' },
+        dgreen: { top: '#004c00', bottom: '#004c00' },
+        lgreen: { top: '#93cf82', bottom: '#93cf82' },
+    };
+
+    // Tags fürs Umbenennen. modo "substituir" ersetzt vorhandene Haupt-Tags,
+    // modo "acrescentar" hängt einen Zusatz an (z.B. " | Beobachten").
+    const COMANDOS = [
+        { tag: '[Tot]', label: 'T', corBotao: 'green', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Umgeleitet]', label: 'U!', corBotao: 'orange', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Umleiten]', label: 'U', corBotao: 'dorange', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Zurueckerobern]', label: 'Z', corBotao: 'gray', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Zurueckerobert]', label: 'Z!', corBotao: 'white', corTexto: 'black', modo: 'substituir' },
+        { tag: '[Gesnipt]', label: 'G!', corBotao: 'lblue', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Snipe]', label: 'S', corBotao: 'blue', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Verkackt]', label: 'VK', corBotao: 'dgreen', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Snipe Cancel]', label: 'SC', corBotao: 'red', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Fake]', label: 'F', corBotao: 'pink', corTexto: 'black', modo: 'substituir' },
+        { tag: '[Evtl. Full]', aliases: ['[Evtl Full]', '[Evtl. full]'], label: 'EF', corBotao: 'dblue', corTexto: 'white', modo: 'substituir' },
+        { tag: '[Verstärken]', aliases: ['[Verstaerken]'], label: 'VS', corBotao: 'black', corTexto: 'white', modo: 'substituir' },
+        { tag: ' | Abziehen', label: 'A!', corBotao: 'dgreen', corTexto: 'white', modo: 'acrescentar' },
+        { tag: ' | Beobachten', label: 'B!', corBotao: 'yellow', corTexto: 'black', modo: 'acrescentar' },
+        { tag: ' | ✓', label: '✓', corBotao: 'lgreen', corTexto: 'black', modo: 'acrescentar' },
+    ];
+
+    const SELETORES = {
+        linhasAtaques: '#incomings_table tr',
+        linhasComandos: '#commands_incomings .command-row, #commands_incomings tr, #commands_outgoings .command-row, #commands_outgoings tr, .command-row',
+        quickedit: '.quickedit-content',
+        etiquetaNome: '.quickedit-label',
+        iconeRenomear: '.rename-icon',
+        inputNome: 'input[type="text"]',
+        areaEdicao: '.quickedit-edit',
+        botoesGuardar: 'input[type="button"], input[type="submit"], button[type="submit"]',
+    };
+
+    let execucaoAgendada = false;
+
+    // =======================================================================
+    // Boot
+    // =======================================================================
+    function boot() {
+        if (!document.body) {
+            setTimeout(boot, 100);
+            return;
+        }
+
+        addStyles();
+        runRenameButtons();
+        runDuplicateMarker();
+
+        const observer = new MutationObserver(agendarExecucao);
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        setInterval(runRenameButtons, CONFIG.intervaloFallbackMs);
+        log('Skript geladen: ' + location.href);
+    }
+
+    function agendarExecucao() {
+        if (execucaoAgendada) return;
+        execucaoAgendada = true;
+        requestAnimationFrame(function () {
+            execucaoAgendada = false;
+            runRenameButtons();
+        });
+    }
+
+    function log(message) {
+        if (window.console && typeof console.log === 'function') console.log('[' + APP.name + ']', message);
+    }
+
+    // =======================================================================
+    // Teil 1: Mehrfache Angriffe in der Angriffsübersicht markieren
+    // =======================================================================
+    function runDuplicateMarker() {
+        const screen = String((window.game_data || {}).screen || '');
+        const mode = getCurrentMode();
+        if (screen !== 'overview_villages' || mode !== 'incomings') return;
+
+        const table = document.querySelector('#incomings_table');
+        if (!table || document.getElementById('tpSchnellDupPanel')) return;
+
+        const rows = Array.from(table.querySelectorAll('tr.row_a, tr.row_b'));
+        if (!rows.length) return;
+
+        const sourceIndex = getSourceColumnIndex(table);
+
+        const panel = document.createElement('div');
+        panel.id = 'tpSchnellDupPanel';
+        panel.className = 'tpSchnell-dup-panel';
+        panel.innerHTML =
+            '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren">';
+
+        const filters = document.querySelector('.overview_filters');
+        if (filters) filters.before(panel);
+        else table.before(panel);
+
+        document.getElementById('tpSchnellMarkDup').addEventListener('click', function () {
+            markDuplicates(rows, sourceIndex);
+        });
+
+        // Direkt beim Laden einmal automatisch markieren
+        markDuplicates(rows, sourceIndex);
+    }
+
+    function getCurrentMode() {
+        if (window.game_data && window.game_data.mode) return String(window.game_data.mode);
+        return new URLSearchParams(window.location.search).get('mode') || '';
+    }
+
+    function getSourceColumnIndex(table) {
+        const headerRow = table.querySelector('tr:first-child');
+        if (!headerRow) return 2;
+
+        const cells = Array.from(headerRow.querySelectorAll('th,td'));
+        const words = ['origem', 'source', 'herkomst', 'herkunft'];
+
+        for (let i = 0; i < cells.length; i += 1) {
+            const text = clean(cells[i].textContent);
+            if (words.some(function (w) { return text.includes(w); })) return i;
+        }
+
+        return 2;
+    }
+
+    function markDuplicates(rows, sourceIndex) {
+        // Vorherige Markierungen entfernen
+        rows.forEach(function (row) {
+            row.style.boxShadow = '';
+            row.querySelectorAll('.tpSchnell-dup-badge').forEach(function (b) { b.remove(); });
+
+            const marked = row.querySelectorAll('.tpSchnell-dup-origin');
+            marked.forEach(function (el) {
+                el.classList.remove('tpSchnell-dup-origin');
+                el.removeAttribute('title');
+                el.style.background = '';
+                el.style.color = '';
+                el.style.borderColor = '';
+            });
+        });
+
+        const counts = {};
+        const order = [];
+
+        rows.forEach(function (row) {
+            const coords = getRowCoords(row, sourceIndex);
+            if (!coords) return;
+            if (!counts[coords]) order.push(coords);
+            counts[coords] = (counts[coords] || 0) + 1;
+        });
+
+        const groups = {};
+        order.filter(function (c) { return counts[c] > 1; }).forEach(function (coords, index) {
+            groups[coords] = {
+                label: duplicateGroupLabel(index),
+                color: duplicateGroupColor(index),
+                count: counts[coords],
+                position: 0,
+            };
+        });
+
+        rows.forEach(function (row) {
+            const coords = getRowCoords(row, sourceIndex);
+            const group = groups[coords];
+            if (!group) return;
+
+            group.position += 1;
+
+            const cells = row.querySelectorAll('td,th');
+            const cell = cells[sourceIndex];
+            if (!cell) return;
+            const link = cell.querySelector('a');
+            const target = link || cell;
+
+            const title = group.label + ': ' + group.count + ' Angriffe von ' + coords;
+
+            row.style.boxShadow = 'inset 5px 0 0 ' + group.color;
+            target.classList.add('tpSchnell-dup-origin');
+            target.title = title;
+            target.style.background = group.color;
+            target.style.borderColor = group.color;
+            target.style.color = '#fff';
+
+            const badge = document.createElement('span');
+            badge.className = 'tpSchnell-dup-badge';
+            badge.textContent = group.label + ' ' + group.position + '/' + group.count;
+            badge.title = title;
+            badge.style.background = group.color;
+
+            if (target === cell) cell.appendChild(badge);
+            else target.insertAdjacentElement('afterend', badge);
+        });
+    }
+
+    function duplicateGroupLabel(index) {
+        let number = index + 1;
+        let label = '';
+        while (number > 0) {
+            number -= 1;
+            label = String.fromCharCode(65 + (number % 26)) + label;
+            number = Math.floor(number / 26);
+        }
+        return label || 'A';
+    }
+
+    function duplicateGroupColor(index) {
+        const colors = [
+            '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#008080',
+            '#f032e6', '#808000', '#9a6324', '#000075', '#800000', '#469990',
+        ];
+        return colors[index % colors.length];
+    }
+
+    function getRowCoords(row, sourceIndex) {
+        const cells = row.querySelectorAll('td,th');
+        const cell = sourceIndex >= 0 ? cells[sourceIndex] : null;
+        const text = cell ? cell.textContent : row.textContent;
+        const match = String(text || '').match(/\b\d{1,3}\|\d{1,3}\b/);
+        return match ? match[0] : null;
+    }
+
+    function clean(value) {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim();
+    }
+
+    // =======================================================================
+    // Teil 2: Schnelle Umbenennen-Buttons für eingehende Angriffe/Befehle
+    // =======================================================================
+    function runRenameButtons() {
+        const linhas = obterLinhasValidas();
+        linhas.forEach(function (linha) {
+            if (isComandoProprio(linha)) {
+                removerBotoes(linha);
+                return;
+            }
+            inserirBotoes(linha);
+        });
+    }
+
+    function obterLinhasValidas() {
+        const linhas = Array.from(document.querySelectorAll(SELETORES.linhasAtaques))
+            .concat(Array.from(document.querySelectorAll(SELETORES.linhasComandos)));
+
+        return Array.from(new Set(linhas)).filter(function (linha) {
+            return linha.querySelector(SELETORES.etiquetaNome) && linha.querySelector(SELETORES.iconeRenomear);
+        });
+    }
+
+    function isComandoProprio(linha) {
+        const tabela = linha.closest('table');
+        if (!tabela) return false;
+        const cabecalhos = Array.from(tabela.querySelectorAll('th')).map(function (th) { return clean(th.textContent); }).join(' ');
+        return /\b(os seus comandos|seus comandos|your commands|own commands|eigene befehle|ihre befehle)\b/.test(cabecalhos);
+    }
+
+    function inserirBotoes(linha) {
+        const containerDestino = obterContainerBotoes(linha);
+        if (!containerDestino || linha.querySelector('.tpSchnell-botoes')) return;
+
+        const container = document.createElement('span');
+        container.className = 'tpSchnell-botoes';
+
+        COMANDOS.forEach(function (comando) {
+            const botao = criarBotao(comando.label, comando.tag.trim(), comando.corBotao, comando.corTexto);
+            botao.addEventListener('click', function (evento) {
+                evento.preventDefault();
+                evento.stopPropagation();
+                editarNomeLinha(linha, function (valorAtual) { return construirNome(valorAtual, comando); });
+            });
+            container.appendChild(botao);
+        });
+
+        const reset = criarBotao('RS', 'Etiketten zurücksetzen', 'dark', 'white');
+        reset.classList.add('tpSchnell-reset');
+        reset.addEventListener('click', function (evento) {
+            evento.preventDefault();
+            evento.stopPropagation();
+            editarNomeLinha(linha, function (valorAtual) { return limparEtiquetas(valorAtual); });
+        });
+        container.appendChild(reset);
+
+        containerDestino.appendChild(container);
+    }
+
+    function obterContainerBotoes(linha) {
+        const quickedit = linha.querySelector(SELETORES.quickedit);
+        if (quickedit) return quickedit;
+        const label = linha.querySelector(SELETORES.etiquetaNome);
+        return (label && (label.closest('td') || label.parentElement)) || null;
+    }
+
+    function removerBotoes(linha) {
+        linha.querySelectorAll('.tpSchnell-botoes').forEach(function (el) { el.remove(); });
+    }
+
+    function criarBotao(label, titulo, corBotao, corTexto) {
+        const botao = document.createElement('button');
+        const background = obterCor(corBotao, 'brown');
+        const texto = obterCor(corTexto, 'white');
+
+        botao.type = 'button';
+        botao.className = 'btn tpSchnell-botao';
+        if (isCorEscura(corBotao)) {
+            botao.classList.add('tpSchnell-botao-escuro');
+        }
+        botao.title = titulo;
+        botao.textContent = label;
+        botao.style.setProperty('font-size', CONFIG.tamanhoLetraPx + 'px', 'important');
+        botao.style.color = texto.top;
+        botao.style.background = 'linear-gradient(to bottom, ' + background.top + ' 35%, ' + background.bottom + ' 100%)';
+
+        return botao;
+    }
+
+    function isCorEscura(nomeCor) {
+        return ['black', 'dark'].includes(String(nomeCor || '').toLowerCase());
+    }
+
+    function obterCor(nome, fallback) {
+        return CORES[String(nome || '').toLowerCase()] || CORES[fallback] || CORES.white;
+    }
+
+    async function editarNomeLinha(linha, transformarNome) {
+        if (linha.dataset.tpSchnellEditando === '1') return;
+        linha.dataset.tpSchnellEditando = '1';
+
+        try {
+            const icone = linha.querySelector(SELETORES.iconeRenomear);
+            if (!icone) return;
+
+            icone.click();
+
+            const input = await esperarPor(function () {
+                return linha.querySelector(SELETORES.inputNome);
+            }, CONFIG.timeoutEdicaoMs, CONFIG.intervaloEsperaInputMs);
+
+            if (!input) return;
+
+            const novoNome = transformarNome(input.value);
+            const botaoGuardar = obterBotaoGuardar(linha, input);
+
+            if (novoNome !== input.value) {
+                input.value = novoNome;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            if (botaoGuardar) {
+                botaoGuardar.click();
+            } else if (input.form && typeof input.form.requestSubmit === 'function') {
+                input.form.requestSubmit();
+            }
+
+            setTimeout(function () { removerBotoes(linha); inserirBotoes(linha); }, 400);
+            setTimeout(function () { removerBotoes(linha); inserirBotoes(linha); }, 1200);
+        } finally {
+            setTimeout(function () { delete linha.dataset.tpSchnellEditando; }, 500);
+        }
+    }
+
+    function obterBotaoGuardar(linha, input) {
+        const areaEdicao = input.closest(SELETORES.areaEdicao);
+        if (areaEdicao) {
+            const botao = areaEdicao.querySelector(SELETORES.botoesGuardar);
+            if (botao) return botao;
+        }
+        const fallback = linha.querySelector(SELETORES.areaEdicao + ' ' + SELETORES.botoesGuardar);
+        return fallback || null;
+    }
+
+    function esperarPor(obterValor, timeoutMs, intervaloMs) {
+        const inicio = Date.now();
+        return new Promise(function (resolve) {
+            (function tick() {
+                const valor = obterValor();
+                if (valor) { resolve(valor); return; }
+                if (Date.now() - inicio >= timeoutMs) { resolve(null); return; }
+                setTimeout(tick, intervaloMs);
+            })();
+        });
+    }
+
+    function construirNome(valorAtual, comando) {
+        const atual = normalizarEspacos(valorAtual);
+
+        if (comando.modo === 'acrescentar') {
+            if (comandoExisteNoNome(atual, comando)) return atual;
+            return atual + comando.tag;
+        }
+
+        const sufixosAtivos = COMANDOS
+            .filter(function (item) { return item.modo === 'acrescentar' && comandoExisteNoNome(atual, item); })
+            .map(function (item) { return item.tag; })
+            .join('');
+
+        const base = removerTags(atual, function () { return true; });
+        return normalizarEspacos(base + ' ' + comando.tag + sufixosAtivos);
+    }
+
+    function limparEtiquetas(valorAtual) {
+        return removerTags(valorAtual, function () { return true; });
+    }
+
+    function comandoExisteNoNome(nome, comando) {
+        return obterTagsComAliases(comando).some(function (tag) { return nome.includes(tag); });
+    }
+
+    function removerTags(nome, filtroComando) {
+        let resultado = normalizarEspacos(nome);
+        COMANDOS.filter(filtroComando).forEach(function (comando) {
+            obterTagsComAliases(comando).forEach(function (tag) {
+                resultado = resultado.replace(new RegExp(escapeRegExp(tag), 'g'), '');
+            });
+        });
+        return normalizarEspacos(resultado);
+    }
+
+    function obterTagsComAliases(comando) {
+        return [comando.tag].concat(comando.aliases || []).filter(Boolean);
+    }
+
+    function normalizarEspacos(valor) {
+        return String(valor || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function escapeRegExp(valor) {
+        return String(valor).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // =======================================================================
+    // Styles
+    // =======================================================================
+    function addStyles() {
+        if (document.getElementById(APP.styleId)) return;
+
+        const style = document.createElement('style');
+        style.id = APP.styleId;
+        style.textContent = `
+            .tpSchnell-dup-panel {
+                padding: 4px 0;
+            }
+
+            .tpSchnell-dup-badge {
+                display: inline-block;
+                margin-left: 4px;
+                padding: 0 4px;
+                border-radius: 3px;
+                font-size: 10px;
+                font-weight: bold;
+                color: #fff;
+                line-height: 14px;
+                vertical-align: middle;
+            }
+
+            .tpSchnell-botoes {
+                float: right;
+                display: inline-flex;
+                flex-wrap: wrap;
+                gap: 1px;
+                align-items: center;
+                justify-content: flex-end;
+                margin-left: 4px;
+                max-width: 100%;
+                vertical-align: middle;
+            }
+
+            .tpSchnell-botao {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex: 0 0 ${CONFIG.tamanhoBotaoPx}px;
+                width: ${CONFIG.tamanhoBotaoPx}px;
+                min-width: ${CONFIG.tamanhoBotaoPx}px;
+                max-width: ${CONFIG.tamanhoBotaoPx}px;
+                height: ${CONFIG.tamanhoBotaoPx}px;
+                padding: 0 ${CONFIG.paddingHorizontalBotaoPx}px !important;
+                border: 1px solid rgba(0, 0, 0, 0.45) !important;
+                border-radius: 3px;
+                line-height: 1 !important;
+                font-weight: 600;
+                text-align: center !important;
+                text-indent: 0 !important;
+                white-space: nowrap !important;
+                cursor: pointer;
+                box-sizing: border-box;
+                box-shadow:
+                    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+                    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+                    0 1px 1px rgba(0, 0, 0, 0.22);
+                text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+                transition: filter 100ms ease, transform 100ms ease, box-shadow 100ms ease;
+                vertical-align: middle;
+            }
+
+            .tpSchnell-botao:hover {
+                filter: brightness(1.12) saturate(1.08);
+                transform: translateY(-1px);
+            }
+
+            .tpSchnell-botao:active {
+                filter: brightness(0.96);
+                transform: translateY(0);
+            }
+
+            .tpSchnell-botao-escuro {
+                border-color: rgba(255, 255, 255, 0.95) !important;
+                box-shadow:
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+                    0 0 0 1px rgba(0, 0, 0, 0.5),
+                    0 1px 1px rgba(0, 0, 0, 0.22);
+            }
+
+            .tpSchnell-reset {
+                margin-left: 3px !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot, { once: true });
+    } else {
+        boot();
+    }
+})();
