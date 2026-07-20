@@ -67,11 +67,11 @@
         { kategorie: 'haupt', tag: '[Unbekannt]', label: '?', corBotao: 'gray', corTexto: 'white' },
 
         // --- Angriffstag: {Tag} ---------------------------------------
-        { kategorie: 'angriff', tag: '{Snipe}', label: 'S', corBotao: 'blue', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Snipe}', label: 'Sn', corBotao: 'blue', corTexto: 'white' },
         { kategorie: 'angriff', tag: '{Snipecancel}', label: 'SC', corBotao: 'red', corTexto: 'white' },
-        { kategorie: 'angriff', tag: '{Dodge}', label: 'D', corBotao: 'lblue', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Dodge}', label: 'Do', corBotao: 'lblue', corTexto: 'white' },
         { kategorie: 'angriff', tag: '{Fakeschutz}', label: 'FS', corBotao: 'orange', corTexto: 'white' },
-        { kategorie: 'angriff', tag: '{Deffen}', label: 'DF', corBotao: 'green', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Deffen}', label: 'Df', corBotao: 'green', corTexto: 'white' },
         { kategorie: 'angriff', tag: '{Readel}', label: 'RA', corBotao: 'dorange', corTexto: 'white' },
 
         // --- Standtag: (Tag) --------------------------------------------
@@ -338,7 +338,7 @@
         });
 
         const reset = criarBotao('RS', 'Etiketten zurücksetzen', 'dark', 'white');
-        reset.classList.add('tpSchnell-reset');
+        reset.classList.add('tpSchnell-reset', 'tpSchnell-grupo-start');
         reset.addEventListener('click', function (evento) {
             evento.preventDefault();
             evento.stopPropagation();
