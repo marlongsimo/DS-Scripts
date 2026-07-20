@@ -52,24 +52,32 @@
         lgreen: { top: '#93cf82', bottom: '#93cf82' },
     };
 
-    // Tags fürs Umbenennen. modo "substituir" ersetzt vorhandene Haupt-Tags,
-    // modo "acrescentar" hängt einen Zusatz an (z.B. " | Beobachten").
+    // Tags fürs Umbenennen, aufgeteilt in 3 Kategorien. Innerhalb einer
+    // Kategorie ersetzt ein neuer Tag den alten. Tags aus verschiedenen
+    // Kategorien werden hintereinander angehängt (immer in der Reihenfolge
+    // Haupt -> Angriff -> Stand), unabhängig von der Klick-Reihenfolge.
+    // Jede Kategorie hat ihre eigene Klammerform, damit sie sich sauber
+    // auseinanderhalten lassen: Haupt = [Tag], Angriff = {Tag}, Stand = (Tag)
+    const KATEGORIE_ORDER = ['haupt', 'angriff', 'stand'];
+
     const COMANDOS = [
-        { tag: '[Tot]', label: 'T', corBotao: 'green', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Umgeleitet]', label: 'U!', corBotao: 'orange', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Umleiten]', label: 'U', corBotao: 'dorange', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Zurueckerobern]', label: 'Z', corBotao: 'gray', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Zurueckerobert]', label: 'Z!', corBotao: 'white', corTexto: 'black', modo: 'substituir' },
-        { tag: '[Gesnipt]', label: 'G!', corBotao: 'lblue', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Snipe]', label: 'S', corBotao: 'blue', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Verkackt]', label: 'VK', corBotao: 'dgreen', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Snipe Cancel]', label: 'SC', corBotao: 'red', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Fake]', label: 'F', corBotao: 'pink', corTexto: 'black', modo: 'substituir' },
-        { tag: '[Evtl. Full]', aliases: ['[Evtl Full]', '[Evtl. full]'], label: 'EF', corBotao: 'dblue', corTexto: 'white', modo: 'substituir' },
-        { tag: '[Verstärken]', aliases: ['[Verstaerken]'], label: 'VS', corBotao: 'black', corTexto: 'white', modo: 'substituir' },
-        { tag: ' | Abziehen', label: 'A!', corBotao: 'dgreen', corTexto: 'white', modo: 'acrescentar' },
-        { tag: ' | Beobachten', label: 'B!', corBotao: 'yellow', corTexto: 'black', modo: 'acrescentar' },
-        { tag: ' | ✓', label: '✓', corBotao: 'lgreen', corTexto: 'black', modo: 'acrescentar' },
+        // --- Haupttag: [Tag] -----------------------------------------
+        { kategorie: 'haupt', tag: '[Fake]', label: '🤡', corBotao: 'pink', corTexto: 'black' },
+        { kategorie: 'haupt', tag: '[Evtl. Off]', aliases: ['[Evtl Off]', '[Evtl. off]'], label: 'Off', corBotao: 'dblue', corTexto: 'white' },
+        { kategorie: 'haupt', tag: '[Unbekannt]', label: '?', corBotao: 'gray', corTexto: 'white' },
+
+        // --- Angriffstag: {Tag} ---------------------------------------
+        { kategorie: 'angriff', tag: '{Snipe}', label: 'S', corBotao: 'blue', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Snipecancel}', label: 'SC', corBotao: 'red', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Dodge}', label: 'D', corBotao: 'lblue', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Fakeschutz}', label: 'FS', corBotao: 'orange', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Deffen}', label: 'DF', corBotao: 'green', corTexto: 'white' },
+        { kategorie: 'angriff', tag: '{Readel}', label: 'RA', corBotao: 'dorange', corTexto: 'white' },
+
+        // --- Standtag: (Tag) --------------------------------------------
+        { kategorie: 'stand', tag: '(✓)', label: '✓', corBotao: 'lgreen', corTexto: 'black' },
+        { kategorie: 'stand', tag: '(Verkackt)', label: 'VK', corBotao: 'dgreen', corTexto: 'white' },
+        { kategorie: 'stand', tag: '(x)', label: 'X', corBotao: 'dark', corTexto: 'white' },
     ];
 
     const SELETORES = {
@@ -313,8 +321,14 @@
         const container = document.createElement('span');
         container.className = 'tpSchnell-botoes';
 
+        let ultimaKategoria = null;
         COMANDOS.forEach(function (comando) {
             const botao = criarBotao(comando.label, comando.tag.trim(), comando.corBotao, comando.corTexto);
+            if (ultimaKategoria !== null && ultimaKategoria !== comando.kategorie) {
+                botao.classList.add('tpSchnell-grupo-start');
+            }
+            ultimaKategoria = comando.kategorie;
+
             botao.addEventListener('click', function (evento) {
                 evento.preventDefault();
                 evento.stopPropagation();
@@ -436,18 +450,35 @@
     function construirNome(valorAtual, comando) {
         const atual = normalizarEspacos(valorAtual);
 
-        if (comando.modo === 'acrescentar') {
-            if (comandoExisteNoNome(atual, comando)) return atual;
-            return atual + comando.tag;
-        }
+        // Welcher Tag ist pro Kategorie aktuell aktiv (falls vorhanden)?
+        const ativos = obterTagsAtivosPorCategoria(atual);
 
-        const sufixosAtivos = COMANDOS
-            .filter(function (item) { return item.modo === 'acrescentar' && comandoExisteNoNome(atual, item); })
-            .map(function (item) { return item.tag; })
-            .join('');
+        // Der neu geklickte Tag ersetzt den ggf. aktiven Tag seiner eigenen Kategorie.
+        ativos[comando.kategorie] = comando;
 
-        const base = removerTags(atual, function () { return true; });
-        return normalizarEspacos(base + ' ' + comando.tag + sufixosAtivos);
+        return montarNomeComCategorias(atual, ativos);
+    }
+
+    function obterTagsAtivosPorCategoria(nome) {
+        const ativos = {};
+        KATEGORIE_ORDER.forEach(function (kategoria) {
+            const encontrado = COMANDOS.find(function (item) {
+                return item.kategorie === kategoria && comandoExisteNoNome(nome, item);
+            });
+            if (encontrado) ativos[kategoria] = encontrado;
+        });
+        return ativos;
+    }
+
+    function montarNomeComCategorias(nomeOriginal, ativos) {
+        const base = removerTags(nomeOriginal, function () { return true; });
+        let resultado = base;
+
+        KATEGORIE_ORDER.forEach(function (kategoria) {
+            if (ativos[kategoria]) resultado = normalizarEspacos(resultado + ' ' + ativos[kategoria].tag);
+        });
+
+        return normalizarEspacos(resultado);
     }
 
     function limparEtiquetas(valorAtual) {
@@ -566,6 +597,10 @@
 
             .tpSchnell-reset {
                 margin-left: 3px !important;
+            }
+
+            .tpSchnell-grupo-start {
+                margin-left: 5px !important;
             }
         `;
         document.head.appendChild(style);

@@ -48,13 +48,23 @@
             erscheint neben jedem eingehenden Angriff/Befehl eine Reihe
             kleiner Farbbuttons, die per Klick automatisch die
             Dorf-Umbenennen-Funktion öffnen und ein vordefiniertes Tag
-            (z.B. <code>[Tot]</code>, <code>[Snipe]</code>,
-            <code>[Fake]</code>) einträgt – inklusive eines Reset-Buttons, der
-            alle bekannten Tags wieder entfernt. Ein Klick ersetzt damit das
-            manuelle Öffnen des Umbenennen-Dialogs, Eintippen und Speichern.
-            Läuft dauerhaft im Hintergrund (per <code>MutationObserver</code>
-            und Intervall-Fallback), sodass auch nachträglich geladene
-            Zeilen automatisch Buttons bekommen.
+            einträgt – inklusive eines Reset-Buttons, der alle bekannten Tags
+            wieder entfernt. Ein Klick ersetzt damit das manuelle Öffnen des
+            Umbenennen-Dialogs, Eintippen und Speichern. Läuft dauerhaft im
+            Hintergrund (per <code>MutationObserver</code> und
+            Intervall-Fallback), sodass auch nachträglich geladene Zeilen
+            automatisch Buttons bekommen.
+          </p>
+          <p>
+            Die Tags sind in drei unabhängige Kategorien aufgeteilt, jede mit
+            eigener Klammerform: <strong>Haupt</strong> <code>[Tag]</code>
+            (Fake, Evtl. Off, Unbekannt), <strong>Angriff</strong>
+            <code>{Tag}</code> (Snipe, Snipecancel, Dodge, Fakeschutz, Deffen,
+            Readel) und <strong>Stand</strong> <code>(Tag)</code> (✓,
+            Verkackt, x). Innerhalb einer Kategorie ersetzt ein neu geklickter
+            Tag den bisher aktiven; Tags aus verschiedenen Kategorien werden
+            dagegen kombiniert und immer in der Reihenfolge Haupt → Angriff →
+            Stand angehängt, unabhängig von der Klick-Reihenfolge.
           </p>
 
           <div class="script-meta">
@@ -67,8 +77,16 @@
               <span class="value">Angriffsübersicht (eingehende Angriffe) bzw. Befehlsübersicht geöffnet</span>
             </div>
             <div>
-              <span class="label">Vordefinierte Tags</span>
-              <span class="value">Tot, Umgeleitet, Umleiten, Zurueckerobern(t), Gesnipt, Snipe, Snipe Cancel, Verkackt, Fake, Evtl. Full, Verstärken, Abziehen, Beobachten, ✓</span>
+              <span class="label">Haupt-Tags [Tag]</span>
+              <span class="value">Fake, Evtl. Off, Unbekannt</span>
+            </div>
+            <div>
+              <span class="label">Angriffs-Tags {Tag}</span>
+              <span class="value">Snipe, Snipecancel, Dodge, Fakeschutz, Deffen, Readel</span>
+            </div>
+            <div>
+              <span class="label">Stand-Tags (Tag)</span>
+              <span class="value">✓, Verkackt, x</span>
             </div>
             <div>
               <span class="label">Aktualisierung</span>
