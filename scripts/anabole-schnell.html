@@ -86,16 +86,20 @@
           </p>
           <p>
             Optional lässt sich außerdem eine <strong>Forge-API</strong>
-            anbinden (Button „🔑 Forge API“): nach Eintragen von
-            API-Endpunkt (URL) und Key fragt das Script pro Herkunftskoordinate
-            eine Angriffs-Vorhersage ab (Größenschätzung, Begründung, Anzahl
-            Duplikate) und zeigt sie über ein zusätzliches (orange
-            hervorgehobenes) Info-Symbol an – abgeglichen über die
-            Ankunftszeit der Zeile. Ohne konfigurierten Endpunkt/Key bleibt
-            diese Abfrage komplett inaktiv. <strong>Wichtig:</strong> URL und
-            Key werden nur lokal im Browser gespeichert, aber bei jeder
-            Abfrage im Klartext an die von dir eingetragene URL gesendet –
-            nutze hier nur einen Dienst, dem du vertraust.
+            anbinden (Button „🔑 Forge API“): der API-Endpunkt ist bereits mit
+            <code>twforge.net</code> vorbelegt (inkl. der aktuellen
+            Welt-Kennung), du musst also nur noch deinen eigenen API-Key
+            eintragen – der Endpunkt lässt sich bei Bedarf aber auch ändern.
+            Sobald ein Key hinterlegt ist, fragt das Script pro
+            Herkunftskoordinate eine Angriffs-Vorhersage ab (Größenschätzung,
+            Begründung, Anzahl Duplikate) und zeigt sie über ein zusätzliches
+            (orange hervorgehobenes) Info-Symbol an – abgeglichen über die
+            Ankunftszeit der Zeile. Ohne hinterlegten Key bleibt diese Abfrage
+            komplett inaktiv. <strong>Wichtig:</strong> Endpunkt und Key
+            werden nur lokal im Browser gespeichert, aber bei jeder Abfrage im
+            Klartext an den eingetragenen Endpunkt gesendet – bei einem
+            geänderten, selbst eingetragenen Endpunkt nur einen Dienst
+            nutzen, dem du vertraust.
           </p>
 
           <div class="script-meta">
@@ -129,7 +133,7 @@
             </div>
             <div>
               <span class="label">Forge-API (optional)</span>
-              <span class="value">Eigener API-Endpunkt + Key über „🔑 Forge API“ hinterlegbar, liefert Angriffs-Vorhersage pro Herkunftsdorf; ohne Konfiguration inaktiv</span>
+              <span class="value">Endpunkt vorbelegt mit twforge.net (inkl. Welt), nur eigener Key nötig über „🔑 Forge API“; liefert Angriffs-Vorhersage pro Herkunftsdorf; ohne Key inaktiv</span>
             </div>
           </div>
 
