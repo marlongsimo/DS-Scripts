@@ -66,6 +66,19 @@
             dagegen kombiniert und immer in der Reihenfolge Haupt → Angriff →
             Stand angehängt, unabhängig von der Klick-Reihenfolge.
           </p>
+          <p>
+            Zusätzlich gibt es eine kleine <strong>Dorf-Infos-Datenbank</strong>
+            (im Browser gespeichert, kompatibel zum Speicherformat des
+            früheren „Angriffe umbenennen“-Skripts): über eine schwebende
+            Werkzeugleiste unten rechts („📥 Dörfer“) lassen sich beliebig
+            viele Koordinaten zusammen mit einem Infotext importieren (z.B.
+            „Vollbauer“, „Feind XY“). Taucht eine hinterlegte Koordinate in
+            der Angriffsübersicht als Herkunftsdorf auf, erscheint davor ein
+            kleines <strong>i</strong>-Symbol; per Hover (Desktop) oder Tippen
+            (mobil) zeigt es den gespeicherten Infotext als Overlay an. Über
+            „🗑️ DB“ lässt sich die komplette Datenbank (nach Bestätigung)
+            wieder löschen.
+          </p>
 
           <div class="script-meta">
             <div>
@@ -91,6 +104,10 @@
             <div>
               <span class="label">Aktualisierung</span>
               <span class="value">Läuft dauerhaft im Hintergrund (MutationObserver + Intervall), erkennt neu geladene Zeilen automatisch</span>
+            </div>
+            <div>
+              <span class="label">Dorf-Infos-Datenbank</span>
+              <span class="value">Import per Koordinatenliste + Infotext über die Werkzeugleiste unten rechts, Anzeige als i-Symbol mit Tooltip, komplett löschbar</span>
             </div>
           </div>
 
