@@ -93,6 +93,18 @@
 
     let execucaoAgendada = false;
 
+    // Storage-Key identisch zum alten "Angriffe umbenennen"-Skript, damit
+    // bereits gespeicherte Dorfinfos automatisch übernommen werden.
+    const DORF_STORAGE_KEY = 'Dorfinfos';
+    let dorfInfosCache = null;
+
+    let cachedIncomingsSourceIndex = null;
+
+    // Tooltip-State für die Dorfinfo-Overlays
+    let tooltipEl = null;
+    let tooltipPinned = false;
+    let tooltipAlvo = null;
+
     // =======================================================================
     // Boot
     // =======================================================================
@@ -103,8 +115,13 @@
         }
 
         addStyles();
+        criarFloatingToolbar();
         runRenameButtons();
         runDuplicateMarker();
+
+        document.addEventListener('click', fecharTooltipSeForaDoAlvo, true);
+        window.addEventListener('scroll', function () { if (!tooltipPinned) esconderTooltip(); }, true);
+        window.addEventListener('resize', esconderTooltip);
 
         const observer = new MutationObserver(agendarExecucao);
         observer.observe(document.body, { childList: true, subtree: true });
@@ -163,6 +180,230 @@
     function getCurrentMode() {
         if (window.game_data && window.game_data.mode) return String(window.game_data.mode);
         return new URLSearchParams(window.location.search).get('mode') || '';
+    }
+
+    // =======================================================================
+    // Teil 1b: Dorf-Infos (Import, Löschen, Anzeige als Info-Icon + Overlay)
+    // =======================================================================
+    function obterDorfInfos() {
+        if (dorfInfosCache) return dorfInfosCache;
+        try {
+            const raw = localStorage.getItem(DORF_STORAGE_KEY);
+            dorfInfosCache = raw ? JSON.parse(raw) : {};
+        } catch (erro) {
+            dorfInfosCache = {};
+        }
+        return dorfInfosCache;
+    }
+
+    function salvarDorfInfos(dados) {
+        dorfInfosCache = dados;
+        try {
+            localStorage.setItem(DORF_STORAGE_KEY, JSON.stringify(dados));
+        } catch (erro) {
+            log('Konnte Dorfinfos nicht speichern: ' + erro);
+        }
+    }
+
+    function apagarDorfInfos() {
+        dorfInfosCache = {};
+        try {
+            localStorage.removeItem(DORF_STORAGE_KEY);
+        } catch (erro) {
+            // ignorieren
+        }
+    }
+
+    // Liest Info sowohl im neuen Format (String) als auch im alten Format
+    // des früheren Skripts ({ Info: "...", Coords: "..." }).
+    function obterInfoParaCoords(coords) {
+        if (!coords) return null;
+        const entrada = obterDorfInfos()[coords];
+        if (!entrada) return null;
+        if (typeof entrada === 'string') return entrada;
+        if (typeof entrada === 'object' && entrada.Info) return String(entrada.Info);
+        return null;
+    }
+
+    function getIncomingsSourceIndex(table) {
+        if (cachedIncomingsSourceIndex === null) {
+            cachedIncomingsSourceIndex = getSourceColumnIndex(table);
+        }
+        return cachedIncomingsSourceIndex;
+    }
+
+    function getCoordsFromRow(linha) {
+        const tabela = linha.closest('table');
+        if (tabela && tabela.id === 'incomings_table') {
+            const coords = getRowCoords(linha, getIncomingsSourceIndex(tabela));
+            if (coords) return coords;
+        }
+        const match = String(linha.textContent || '').match(/\b\d{1,3}\|\d{1,3}\b/);
+        return match ? match[0] : null;
+    }
+
+    // --- Floating-Toolbar mit Import/Löschen-Buttons ------------------------
+    function criarFloatingToolbar() {
+        if (document.getElementById('tpSchnellToolbar')) return;
+
+        const bar = document.createElement('div');
+        bar.id = 'tpSchnellToolbar';
+        bar.className = 'tpSchnell-toolbar';
+        bar.innerHTML =
+            '<button type="button" class="tpSchnell-toolbar-btn" id="tpSchnellImportBtn">📥 Dörfer</button>' +
+            '<button type="button" class="tpSchnell-toolbar-btn" id="tpSchnellDeleteBtn">🗑️ DB</button>';
+        document.body.appendChild(bar);
+
+        document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
+        document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
+    }
+
+    function apagarDorfInfosComConfirmacao() {
+        if (!window.confirm('Wirklich ALLE gespeicherten Dorfinfos löschen?')) return;
+        apagarDorfInfos();
+        atualizarTudoAgora();
+        window.alert('Dorfinfos-Datenbank gelöscht.');
+    }
+
+    function abrirModalDorfImport() {
+        if (document.getElementById('tpSchnellImportBackdrop')) return;
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'tpSchnellImportBackdrop';
+        backdrop.className = 'tpSchnell-modal-backdrop';
+        backdrop.innerHTML =
+            '<div class="tpSchnell-modal-box">' +
+            '<h3>Dörfer-Infos importieren</h3>' +
+            '<p>Koordinaten (beliebig viele, z.B. aus Notizen/Liste kopiert):</p>' +
+            '<textarea id="tpSchnellImportCoords" rows="4" placeholder="123|456 789|123 ..."></textarea>' +
+            '<p>Infotext (wird bei Treffer im Overlay angezeigt):</p>' +
+            '<input type="text" id="tpSchnellImportInfo" placeholder="z.B. Vollbauer, Feind XY...">' +
+            '<div class="tpSchnell-modal-actions">' +
+            '<button type="button" class="btn" id="tpSchnellImportCancel">Abbrechen</button>' +
+            '<button type="button" class="btn" id="tpSchnellImportSave">Importieren</button>' +
+            '</div>' +
+            '<div id="tpSchnellImportResult"></div>' +
+            '</div>';
+
+        document.body.appendChild(backdrop);
+
+        backdrop.addEventListener('click', function (evento) {
+            if (evento.target === backdrop) fecharModalDorfImport();
+        });
+        document.getElementById('tpSchnellImportCancel').addEventListener('click', fecharModalDorfImport);
+        document.getElementById('tpSchnellImportSave').addEventListener('click', salvarImportDorf);
+    }
+
+    function fecharModalDorfImport() {
+        const backdrop = document.getElementById('tpSchnellImportBackdrop');
+        if (backdrop) backdrop.remove();
+    }
+
+    function salvarImportDorf() {
+        const coordsInput = document.getElementById('tpSchnellImportCoords');
+        const infoInput = document.getElementById('tpSchnellImportInfo');
+        const resultado = document.getElementById('tpSchnellImportResult');
+
+        const texto = normalizarEspacos(infoInput.value);
+        const unicos = Array.from(new Set(coordsInput.value.match(/\b\d{1,3}\|\d{1,3}\b/g) || []));
+
+        if (!texto) {
+            resultado.textContent = 'Bitte einen Infotext eingeben.';
+            return;
+        }
+        if (!unicos.length) {
+            resultado.textContent = 'Keine Koordinaten gefunden.';
+            return;
+        }
+
+        const dados = obterDorfInfos();
+        unicos.forEach(function (coord) { dados[coord] = texto; });
+        salvarDorfInfos(dados);
+
+        resultado.textContent = unicos.length + ' Dorf/Dörfer gespeichert.';
+        atualizarTudoAgora();
+        setTimeout(fecharModalDorfImport, 900);
+    }
+
+    // --- Info-Icon + Tooltip-Overlay (auch mobil per Tap) -------------------
+    function criarInfoIcon(infoText) {
+        const icone = document.createElement('span');
+        icone.className = 'tpSchnell-info-icon';
+        icone.textContent = 'i';
+        icone.tabIndex = 0;
+        icone.setAttribute('role', 'button');
+        icone.setAttribute('aria-label', 'Dorfinfo: ' + infoText);
+
+        icone.addEventListener('mouseenter', function () {
+            if (!(tooltipPinned && tooltipAlvo === icone)) mostrarTooltip(icone, infoText);
+        });
+        icone.addEventListener('mouseleave', function () {
+            if (!tooltipPinned) esconderTooltip();
+        });
+        icone.addEventListener('click', function (evento) {
+            evento.preventDefault();
+            evento.stopPropagation();
+            if (tooltipPinned && tooltipAlvo === icone) {
+                esconderTooltip();
+                tooltipPinned = false;
+                tooltipAlvo = null;
+            } else {
+                mostrarTooltip(icone, infoText);
+                tooltipPinned = true;
+                tooltipAlvo = icone;
+            }
+        });
+
+        return icone;
+    }
+
+    function garantirTooltipEl() {
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.className = 'tpSchnell-tooltip';
+            tooltipEl.style.display = 'none';
+            document.body.appendChild(tooltipEl);
+        }
+        return tooltipEl;
+    }
+
+    function mostrarTooltip(alvo, texto) {
+        const el = garantirTooltipEl();
+        el.textContent = texto;
+        el.style.display = 'block';
+
+        const rectAlvo = alvo.getBoundingClientRect();
+        const margem = 6;
+
+        el.style.top = (rectAlvo.bottom + margem) + 'px';
+        el.style.left = rectAlvo.left + 'px';
+
+        const rectTooltip = el.getBoundingClientRect();
+        let left = rectAlvo.left;
+        let top = rectAlvo.bottom + margem;
+
+        const maxLeft = window.innerWidth - rectTooltip.width - 8;
+        if (left > maxLeft) left = Math.max(8, maxLeft);
+
+        if (top + rectTooltip.height > window.innerHeight) {
+            top = rectAlvo.top - rectTooltip.height - margem;
+        }
+
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+    }
+
+    function esconderTooltip() {
+        if (tooltipEl) tooltipEl.style.display = 'none';
+    }
+
+    function fecharTooltipSeForaDoAlvo(evento) {
+        if (!tooltipPinned) return;
+        if (tooltipAlvo && tooltipAlvo.contains(evento.target)) return;
+        if (tooltipEl && tooltipEl.contains(evento.target)) return;
+        esconderTooltip();
+        tooltipPinned = false;
+        tooltipAlvo = null;
     }
 
     function getSourceColumnIndex(table) {
@@ -298,6 +539,12 @@
         });
     }
 
+    function atualizarTudoAgora() {
+        const linhas = obterLinhasValidas();
+        linhas.forEach(function (linha) { removerBotoes(linha); });
+        runRenameButtons();
+    }
+
     function obterLinhasValidas() {
         const linhas = Array.from(document.querySelectorAll(SELETORES.linhasAtaques))
             .concat(Array.from(document.querySelectorAll(SELETORES.linhasComandos)));
@@ -320,6 +567,12 @@
 
         const container = document.createElement('span');
         container.className = 'tpSchnell-botoes';
+
+        const coordsLinha = getCoordsFromRow(linha);
+        const infoLinha = coordsLinha ? obterInfoParaCoords(coordsLinha) : null;
+        if (infoLinha) {
+            container.appendChild(criarInfoIcon(infoLinha));
+        }
 
         let ultimaKategoria = null;
         COMANDOS.forEach(function (comando) {
@@ -600,7 +853,128 @@
             }
 
             .tpSchnell-grupo-start {
-                margin-left: 5px !important;
+                margin-left: 9px !important;
+            }
+
+            .tpSchnell-toolbar {
+                position: fixed;
+                bottom: 12px;
+                right: 12px;
+                z-index: 999997;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .tpSchnell-toolbar-btn {
+                border: 1px solid rgba(255, 255, 255, 0.5);
+                border-radius: 5px;
+                background: rgba(30, 30, 30, 0.85);
+                color: #fff;
+                font-size: 12px;
+                padding: 6px 10px;
+                cursor: pointer;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+                white-space: nowrap;
+            }
+
+            .tpSchnell-toolbar-btn:hover {
+                background: rgba(55, 55, 55, 0.92);
+            }
+
+            .tpSchnell-modal-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.55);
+                z-index: 999998;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 16px;
+                box-sizing: border-box;
+            }
+
+            .tpSchnell-modal-box {
+                background: #f4e4bc;
+                border: 2px solid #7d510f;
+                border-radius: 4px;
+                padding: 14px 16px;
+                max-width: 420px;
+                width: 100%;
+                box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+                box-sizing: border-box;
+            }
+
+            .tpSchnell-modal-box h3 {
+                margin: 0 0 8px;
+                font-size: 14px;
+            }
+
+            .tpSchnell-modal-box p {
+                margin: 6px 0 4px;
+                font-size: 11px;
+            }
+
+            .tpSchnell-modal-box textarea,
+            .tpSchnell-modal-box input[type="text"] {
+                width: 100%;
+                box-sizing: border-box;
+                margin-bottom: 6px;
+                font-size: 12px;
+                font-family: inherit;
+            }
+
+            .tpSchnell-modal-actions {
+                display: flex;
+                gap: 8px;
+                justify-content: flex-end;
+                margin-top: 6px;
+            }
+
+            #tpSchnellImportResult {
+                margin-top: 8px;
+                font-size: 11px;
+                min-height: 14px;
+            }
+
+            .tpSchnell-info-icon {
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+                width: 14px;
+                height: 14px;
+                min-width: 14px;
+                border-radius: 50%;
+                border: 1px solid #1560a8;
+                background: #eaf4ff;
+                color: #1560a8;
+                font-size: 9px;
+                font-weight: 700;
+                font-style: italic;
+                margin-right: 4px;
+                cursor: pointer;
+                line-height: 1;
+                vertical-align: middle;
+                user-select: none;
+            }
+
+            .tpSchnell-info-icon:hover {
+                background: #d3e9ff;
+            }
+
+            .tpSchnell-tooltip {
+                position: fixed;
+                z-index: 999999;
+                background: rgba(20, 20, 20, 0.94);
+                color: #fff;
+                padding: 6px 9px;
+                border-radius: 5px;
+                font-size: 11px;
+                line-height: 1.35;
+                max-width: min(240px, calc(100vw - 16px));
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+                pointer-events: none;
+                word-wrap: break-word;
             }
         `;
         document.head.appendChild(style);
