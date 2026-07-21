@@ -225,13 +225,23 @@
     // Konfigurations-Dialog (Button "🔑 Forge API" im Panel).
     // ---------------------------------------------------------------------
     const FORGE_STORAGE_KEY = 'tpSchnellForgeConfig';
+    const FORGE_DEFAULT_URL_BASE = 'https://twforge.net/api/db-info/userscript?action=tribalwars';
+
+    function forgeBasisUrlMitWelt() {
+        const welt = (window.game_data && window.game_data.world) ? window.game_data.world : '';
+        return FORGE_DEFAULT_URL_BASE + (welt ? ('&world=' + encodeURIComponent(welt)) : '');
+    }
 
     function ladeForgeConfig() {
         try {
             const raw = localStorage.getItem(FORGE_STORAGE_KEY);
-            return raw ? JSON.parse(raw) : { apiUrl: '', apiKey: '' };
+            const config = raw ? JSON.parse(raw) : {};
+            return {
+                apiUrl: config.apiUrl || forgeBasisUrlMitWelt(),
+                apiKey: config.apiKey || '',
+            };
         } catch (erro) {
-            return { apiUrl: '', apiKey: '' };
+            return { apiUrl: forgeBasisUrlMitWelt(), apiKey: '' };
         }
     }
 
@@ -492,9 +502,9 @@
         backdrop.innerHTML =
             '<div class="tpSchnell-modal-box">' +
             '<h3>Forge API-Einstellungen</h3>' +
-            '<p>API-Endpunkt (URL):</p>' +
+            '<p>API-Endpunkt (vorbelegt mit twforge.net, bei Bedarf änderbar):</p>' +
             '<input type="text" id="tpSchnellForgeUrl" placeholder="https://...">' +
-            '<p>API-Key:</p>' +
+            '<p>Dein Forge API-Key:</p>' +
             '<input type="text" id="tpSchnellForgeKey" placeholder="Dein Key">' +
             '<div class="tpSchnell-modal-actions">' +
             '<button type="button" class="btn" id="tpSchnellForgeClear">Löschen</button>' +
@@ -514,12 +524,12 @@
         });
         document.getElementById('tpSchnellForgeCancel').addEventListener('click', fecharModalForgeConfig);
         document.getElementById('tpSchnellForgeClear').addEventListener('click', function () {
-            forgeConfigCache = { apiUrl: '', apiKey: '' };
+            forgeConfigCache = { apiUrl: forgeBasisUrlMitWelt(), apiKey: '' };
             speichereForgeConfig(forgeConfigCache);
             Object.keys(dbInfoCache).forEach(function (k) { delete dbInfoCache[k]; });
-            document.getElementById('tpSchnellForgeUrl').value = '';
+            document.getElementById('tpSchnellForgeUrl').value = forgeConfigCache.apiUrl;
             document.getElementById('tpSchnellForgeKey').value = '';
-            document.getElementById('tpSchnellForgeResult').textContent = 'Zurückgesetzt.';
+            document.getElementById('tpSchnellForgeResult').textContent = 'Zurückgesetzt (Standard-URL, Key gelöscht).';
             atualizarTudoAgora();
         });
         document.getElementById('tpSchnellForgeSave').addEventListener('click', function () {
