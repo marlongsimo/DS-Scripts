@@ -109,6 +109,14 @@
     let tooltipPinned = false;
     let tooltipAlvo = null;
 
+    // Zwischenspeicher für Vorhersage-/Truppenstärke-Ergebnisse pro Zeile,
+    // damit inserirBotoes() sie (auch nach einem Neuaufbau der Buttons) an
+    // der richtigen Stelle wieder einfügen kann - die Abfragen laufen
+    // asynchron und können vor ODER nach dem ersten inserirBotoes()-Lauf
+    // für eine Zeile fertig werden.
+    const vorhersaoPorLinha = new WeakMap();
+    const tropasPorLinha = new WeakMap();
+
     // =======================================================================
     // Teil 3: Forge DB-Test (X/Y abfragen + API-Key speichern) und
     // Debug-Konsole (Konsolenausgabe auch ohne F12/DevTools sichtbar machen)
@@ -173,14 +181,18 @@
         return h + ':' + partes[1] + ':' + partes[2];
     }
 
-    // --- Teil 4: Angriffsvorhersage für ALLE Zeilen -------------------------
-    // Öffnet immer ein Popup (auch mobil, kein window.alert). Zeilen werden
-    // nach Zieldorf gruppiert (aus der "Ziel"-Spalte, sonst game_data.village
-    // als Fallback für die Einzeldorf-Ansicht), damit jedes Zieldorf nur
-    // EINMAL abgefragt wird, auch wenn mehrere Zeilen dasselbe Ziel haben.
-    // Pro Zeile erscheint ein "i"-Symbol mit der Vorhersage als Tooltip
-    // (Einordnung, Grund, Duplikate), oder ein "?"-Symbol, wenn für die
-    // Herkunftskoordinate kein passender DB-Eintrag gefunden wurde.
+    // --- Teil 4: Angriffsvorhersage + Truppenstärke für ALLE Zeilen --------
+    // Öffnet immer ein Popup (auch mobil, kein window.alert). Läuft in zwei
+    // sequenziellen Phasen (Zieldörfer NACHEINANDER abfragen statt parallel,
+    // um "TypeError: Load failed" bei vielen Zieldörfern zu vermeiden):
+    // 1. Zieldörfer (aus der "Ziel"-Spalte, sonst game_data.village als
+    //    Fallback) für die Vorhersage - jedes nur EINMAL, auch wenn mehrere
+    //    Zeilen dasselbe Ziel haben. Ergebnis als "i"/"?"-Symbol.
+    // 2. ZUSÄTZLICH alle Angreiferdörfer (Herkunftsspalte) direkt abfragen,
+    //    um ggf. bekannte Truppenstärke zu ermitteln - als weiteres "i"-
+    //    Symbol links daneben, falls etwas gefunden wurde.
+    // Beide Icons erscheinen im selben Button-Container wie die Dorf-Info,
+    // links davon (Reihenfolge: Truppen-Icon, Vorhersage-Icon, Dorf-Info).
     function carregarVorhersaoIncomings() {
         abrirModalVorhersao();
         const resultado = document.getElementById('tpSchnellVorhersaoResult');
@@ -215,66 +227,107 @@
         const village = window.game_data && window.game_data.village;
         const coordsPadrao = (village && village.x && village.y) ? (village.x + '|' + village.y) : null;
 
-        const grupos = {};
+        const gruposAlvo = {};
+        const gruposOrigem = {};
         rows.forEach(function (row) {
             const alvoLinha = targetIndex >= 0 ? getRowCoords(row, targetIndex) : null;
             const alvo = alvoLinha || coordsPadrao;
-            if (!alvo) return;
-            if (!grupos[alvo]) grupos[alvo] = [];
-            grupos[alvo].push(row);
+            if (alvo) {
+                if (!gruposAlvo[alvo]) gruposAlvo[alvo] = [];
+                gruposAlvo[alvo].push(row);
+            }
+
+            const origem = getRowCoords(row, sourceIndex);
+            if (origem) {
+                if (!gruposOrigem[origem]) gruposOrigem[origem] = [];
+                gruposOrigem[origem].push(row);
+            }
         });
 
-        const alvos = Object.keys(grupos);
+        const alvos = Object.keys(gruposAlvo);
+        const origens = Object.keys(gruposOrigem);
         if (!alvos.length) {
             resultado.textContent = 'Kein Zieldorf ermittelbar (weder Ziel-Spalte noch game_data.village).';
             return;
         }
 
         resultado.textContent = 'Frage ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) ab...';
-        log('Vorhersage: ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) werden abgefragt.');
+        log('Vorhersage: ' + alvos.length + ' Zieldorf/Zieldörfer und ' + origens.length + ' Angreiferdörfer werden nacheinander abgefragt.');
 
-        let pendentes = alvos.length;
+        processarVorhersaoUndTruppenSequencial(alvos, gruposAlvo, origens, gruposOrigem, sourceIndex, key, resultado);
+    }
+
+    async function processarVorhersaoUndTruppenSequencial(alvos, gruposAlvo, origens, gruposOrigem, sourceIndex, key, resultado) {
         let totalZeilen = 0;
         let totalTreffer = 0;
         let algumErro = null;
 
-        alvos.forEach(function (alvo) {
+        for (let i = 0; i < alvos.length; i += 1) {
+            const alvo = alvos[i];
+            resultado.textContent = 'Frage Zieldorf ' + (i + 1) + '/' + alvos.length + ' ab (' + alvo + ')...';
+
             const partes = alvo.split('|');
             const formData = new FormData();
             formData.append('Key', key);
             formData.append('X', partes[0]);
             formData.append('Y', partes[1]);
 
-            fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
-                .then(function (resp) {
-                    log('Vorhersage-Antwort (' + alvo + ') → HTTP ' + resp.status);
-                    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
-                    return resp.text();
-                })
-                .then(function (text) {
-                    let data = null;
-                    try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort für ' + alvo + ' war kein gültiges JSON.'); }
-                    grupos[alvo].forEach(function (row) {
-                        totalZeilen += 1;
-                        if (aplicarVorhersaoNaLinha(row, sourceIndex, data.sos || [])) totalTreffer += 1;
-                    });
-                })
-                .catch(function (erro) {
-                    algumErro = erro;
-                    log('Fehler beim Laden der Vorhersage für ' + alvo + ': ' + erro);
-                    grupos[alvo].forEach(function (row) {
-                        totalZeilen += 1;
-                        aplicarVorhersaoNaLinha(row, sourceIndex, null);
-                    });
-                })
-                .then(function () {
-                    pendentes -= 1;
-                    if (pendentes === 0) {
-                        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet (' + alvos.length + ' Zieldorf/Zieldörfer abgefragt)' +
-                            (algumErro ? '. Fehler bei mind. einer Abfrage, siehe Debug-Konsole.' : '.');
-                    }
+            try {
+                const resp = await fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' });
+                log('Vorhersage-Antwort (' + alvo + ') → HTTP ' + resp.status);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                const text = await resp.text();
+                let data = null;
+                try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort für ' + alvo + ' war kein gültiges JSON.'); }
+                gruposAlvo[alvo].forEach(function (row) {
+                    totalZeilen += 1;
+                    if (aplicarVorhersaoNaLinha(row, sourceIndex, data.sos || [])) totalTreffer += 1;
                 });
-        });
+            } catch (erro) {
+                algumErro = erro;
+                log('Fehler beim Laden der Vorhersage für ' + alvo + ': ' + erro);
+                gruposAlvo[alvo].forEach(function (row) {
+                    totalZeilen += 1;
+                    aplicarVorhersaoNaLinha(row, sourceIndex, null);
+                });
+            }
+        }
+
+        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet (' + alvos.length + ' Zieldorf/Zieldörfer abgefragt). ' +
+            'Frage jetzt ' + origens.length + ' Angreiferdorf/Angreiferdörfer nach Truppenstärke ab...';
+
+        let treffTropas = 0;
+        for (let i = 0; i < origens.length; i += 1) {
+            const origem = origens[i];
+            resultado.textContent = 'Frage Angreiferdorf ' + (i + 1) + '/' + origens.length + ' ab (' + origem + ')...';
+
+            const partes = origem.split('|');
+            const formData = new FormData();
+            formData.append('Key', key);
+            formData.append('X', partes[0]);
+            formData.append('Y', partes[1]);
+
+            try {
+                const resp = await fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' });
+                log('Truppen-Antwort (' + origem + ') → HTTP ' + resp.status);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                const text = await resp.text();
+                let data = null;
+                try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort für ' + origem + ' war kein gültiges JSON.'); }
+                const forca = extrairForcaTropas(data);
+                if (forca) {
+                    treffTropas += 1;
+                    gruposOrigem[origem].forEach(function (row) { aplicarTropasNaLinha(row, forca); });
+                }
+            } catch (erro) {
+                algumErro = erro;
+                log('Fehler beim Abfragen der Truppenstärke für ' + origem + ': ' + erro);
+            }
+        }
+
+        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet, ' +
+            treffTropas + ' von ' + origens.length + ' Angreiferdörfern mit bekannter Truppenstärke' +
+            (algumErro ? '. Fehler bei mind. einer Abfrage, siehe Debug-Konsole.' : '.');
     }
 
     // Ermittelt den passenden sos-Eintrag primär über die Herkunfts-
@@ -305,27 +358,79 @@
         return linhas.join('\n');
     }
 
+    // Sucht in der Antwort einer direkten Dorf-Abfrage (Angreiferdorf) nach
+    // einem erkennbaren Truppenstärke-Feld. Das genaue Antwortformat dafür
+    // ist (im Unterschied zur "sos"-Liste bei Zieldorf-Abfragen) noch nicht
+    // bestätigt - deshalb werden mehrere plausible Feldnamen probiert.
+    function extrairForcaTropas(data) {
+        if (!data || typeof data !== 'object') return null;
+        const candidatos = ['troops', 'garrison', 'units', 'army', 'defense', 'defence'];
+
+        for (let i = 0; i < candidatos.length; i += 1) {
+            const valor = data[candidatos[i]];
+            if (valor && typeof valor === 'object') {
+                const partes = Object.keys(valor)
+                    .filter(function (k) { return valor[k]; })
+                    .map(function (k) { return k + ': ' + valor[k]; });
+                if (partes.length) return partes.join(', ');
+            }
+            if (typeof valor === 'string' && valor.trim()) return valor.trim();
+        }
+
+        return null;
+    }
+
     // sosArray === null bedeutet: Abfrage für das Zieldorf dieser Zeile ist
     // fehlgeschlagen (z.B. Netzwerkfehler) - dann wie "kein Treffer" behandeln.
     function aplicarVorhersaoNaLinha(row, sourceIndex, sosArray) {
-        row.querySelectorAll('.tpSchnell-vorhersao-icon').forEach(function (el) { el.remove(); });
-
-        const cells = row.querySelectorAll('td,th');
-        const cell = cells[sourceIndex];
-        if (!cell) return false;
-
         const coords = getRowCoords(row, sourceIndex);
         const horaChegada = obterHoraChegadaDaLinha(row);
         const match = (sosArray && coords) ? encontrarPrevisaoParaLinha(coords, horaChegada, sosArray) : null;
 
+        vorhersaoPorLinha.set(row, match);
+        atualizarIconeVorhersaoNaLinha(row);
+
+        return !!match;
+    }
+
+    function aplicarTropasNaLinha(row, forca) {
+        tropasPorLinha.set(row, forca);
+        atualizarIconeTropasNaLinha(row);
+    }
+
+    // Fügt das Vorhersage-Icon links neben dem Dorf-Info-Icon ein (bzw. an
+    // erster Stelle, falls noch keine anderen Icons im Container sind). Wird
+    // sowohl direkt nach der Abfrage als auch aus inserirBotoes() aufgerufen,
+    // da Container und Abfrage-Ergebnis in beliebiger Reihenfolge fertig
+    // werden können.
+    function atualizarIconeVorhersaoNaLinha(row) {
+        if (!vorhersaoPorLinha.has(row)) return;
+        const container = row.querySelector('.tpSchnell-botoes');
+        if (!container) return;
+
+        container.querySelectorAll('.tpSchnell-vorhersao-icon').forEach(function (el) { el.remove(); });
+
+        const match = vorhersaoPorLinha.get(row);
         const icone = match
             ? criarInfoIcon(formatarResumoVorhersao(match), { simbolo: 'i', ariaPrefixo: 'Vorhersage: ', classeExtra: 'tpSchnell-info-icon--vorhersao' })
             : criarInfoIcon('Keine Vorhersage-Daten für dieses Herkunftsdorf gefunden.', { simbolo: '?', ariaPrefixo: 'Vorhersage: ', classeExtra: 'tpSchnell-info-icon--vorhersao-vazio' });
 
         icone.classList.add('tpSchnell-vorhersao-icon');
-        cell.appendChild(icone);
+        container.insertBefore(icone, container.firstChild);
+    }
 
-        return !!match;
+    // Truppen-Icon erscheint links vom Vorhersage-Icon (nur bei bekannter
+    // Truppenstärke - kein "?"-Fallback wie bei der Vorhersage).
+    function atualizarIconeTropasNaLinha(row) {
+        if (!tropasPorLinha.has(row)) return;
+        const container = row.querySelector('.tpSchnell-botoes');
+        if (!container) return;
+
+        container.querySelectorAll('.tpSchnell-tropas-icon').forEach(function (el) { el.remove(); });
+
+        const icone = criarInfoIcon(tropasPorLinha.get(row), { simbolo: 'i', ariaPrefixo: 'Truppenstärke: ', classeExtra: 'tpSchnell-info-icon--tropas' });
+        icone.classList.add('tpSchnell-tropas-icon');
+        container.insertBefore(icone, container.firstChild);
     }
 
     function abrirModalVorhersao() {
@@ -1186,6 +1291,11 @@
         container.appendChild(reset);
 
         containerDestino.appendChild(container);
+
+        // Vorhersage-/Truppen-Icons nachtragen, falls die jeweilige Abfrage
+        // schon vor diesem (Neu-)Aufbau des Containers fertig war.
+        atualizarIconeVorhersaoNaLinha(linha);
+        atualizarIconeTropasNaLinha(linha);
     }
 
     function obterContainerBotoes(linha) {
@@ -1639,6 +1749,16 @@
 
             .tpSchnell-info-icon--vorhersao-vazio:hover {
                 background: #dde0e4;
+            }
+
+            .tpSchnell-info-icon--tropas {
+                border-color: #d3790a;
+                background: #ffedd6;
+                color: #a35400;
+            }
+
+            .tpSchnell-info-icon--tropas:hover {
+                background: #ffdfb3;
             }
 
             .tpSchnell-tooltip {
