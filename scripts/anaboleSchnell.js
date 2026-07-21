@@ -127,6 +127,7 @@
 
         setInterval(runRenameButtons, CONFIG.intervaloFallbackMs);
         log('Skript geladen: ' + location.href);
+        log('Forge-Config beim Start: apiUrl="' + forgeConfigCache.apiUrl + '", apiKey ' + (forgeConfigCache.apiKey ? 'gesetzt (Länge ' + forgeConfigCache.apiKey.length + ')' : 'NICHT gesetzt'));
     }
 
     function agendarExecucao() {
@@ -221,8 +222,10 @@
 
     // ---------------------------------------------------------------------
     // Forge-API-Konfiguration (Key + Endpunkt speichern/laden)
-    // Trage hier deinen EIGENEN, offiziellen API-Endpunkt ein bzw. über den
-    // Konfigurations-Dialog (Button "🔑 Forge API" im Panel).
+    // Standardmäßig auf twforge.net vorbelegt (inkl. automatischer Welt-
+    // Erkennung). Über den Button "🔑 Forge API" im Panel trägst du nur
+    // noch deinen persönlichen API-Key ein; die URL kann bei Bedarf dort
+    // ebenfalls angepasst werden.
     // ---------------------------------------------------------------------
     const FORGE_STORAGE_KEY = 'tpSchnellForgeConfig';
     const FORGE_DEFAULT_URL_BASE = 'https://twforge.net/api/db-info/userscript?action=tribalwars';
@@ -267,9 +270,12 @@
             return;
         }
         if (!forgeIstKonfiguriert()) {
+            log('Forge-Debug: nicht konfiguriert (Key fehlt?) – config=' + JSON.stringify(forgeConfigCache));
             callback(null);
             return;
         }
+
+        log('Forge-Debug: Anfrage an ' + forgeConfigCache.apiUrl + ' für ' + cacheKey);
 
         const formData = new FormData();
         formData.append('Key', forgeConfigCache.apiKey);
@@ -277,32 +283,20 @@
         formData.append('Y', y);
 
         fetch(forgeConfigCache.apiUrl, { method: 'POST', body: formData })
-            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (res) {
+                log('Forge-Debug: HTTP-Status ' + res.status + ' für ' + cacheKey);
+                return res.ok ? res.json() : null;
+            })
             .then(function (data) {
+                log('Forge-Debug: Antwort für ' + cacheKey + ': ' + JSON.stringify(data));
                 dbInfoCache[cacheKey] = data;
                 callback(data);
             })
             .catch(function (erro) {
-                log('Forge-API-Fehler: ' + erro);
+                log('Forge-API-Fehler für ' + cacheKey + ': ' + erro);
                 dbInfoCache[cacheKey] = null;
                 callback(null);
             });
-    }
-
-    function findePassendenAngriff(data, arrivalZeitText) {
-        if (!data || !Array.isArray(data.sos) || !arrivalZeitText) return null;
-        return data.sos.find(function (element) {
-            return timeConverterHHMMSS(element.arrival_time) === arrivalZeitText;
-        }) || null;
-    }
-
-    function timeConverterHHMMSS(unixTimestamp) {
-        if (!unixTimestamp) return '';
-        const datum = new Date(unixTimestamp * 1000);
-        const hh = String(datum.getHours()).padStart(2, '0');
-        const mm = String(datum.getMinutes()).padStart(2, '0');
-        const ss = String(datum.getSeconds()).padStart(2, '0');
-        return hh + ':' + mm + ':' + ss;
     }
 
     const PREDICTION_LABELS = {
@@ -312,23 +306,57 @@
         4: 'Großer Angriff',
     };
 
-    function baueErweitertenInfoText(eigenerText, angriffsEintrag) {
-        let text = eigenerText || '';
-        if (angriffsEintrag) {
-            const typLabel = PREDICTION_LABELS[angriffsEintrag.prediction] || 'Unbekannt';
-            const zusatz =
-                'Vorhersage: ' + typLabel + '\n' +
-                'Grund: ' + (angriffsEintrag.prediction_reason || '–') + '\n' +
-                'Duplikate: ' + (angriffsEintrag.duplicate_count ?? 0);
-            text = text ? (text + '\n\n' + zusatz) : zusatz;
+    // Baut eine allgemeine Zusammenfassung der Forge-Daten zu EINER Koordinate
+    // (Dorftyp, letzter Angriff, eingehende Angriffe insgesamt) – unabhängig
+    // davon, welche konkrete Zeile gerade angeschaut wird.
+    function baueDorfZusammenfassung(data) {
+        if (!data) return '';
+
+        const zeilen = [];
+
+        if (typeof data.type !== 'undefined') {
+            const typLabel = data.type == 0 ? 'Deff' : data.type == 1 ? 'Off' : 'Unbekannt';
+            zeilen.push('Dorftyp: ' + typLabel);
         }
-        return text;
+
+        if (data.attack_report && data.attack_report.fighttime) {
+            zeilen.push('Letzter Angriff: ' + timeConverterVoll(data.attack_report.fighttime));
+        }
+
+        if (data.defend_report && data.defend_report.fighttime) {
+            zeilen.push('Letzte Verteidigung: ' + timeConverterVoll(data.defend_report.fighttime));
+        }
+
+        if (Array.isArray(data.sos)) {
+            zeilen.push('Eingehende Angriffe: ' + data.sos.length);
+
+            if (data.sos.length) {
+                const zaehlung = {};
+                data.sos.forEach(function (element) {
+                    const label = PREDICTION_LABELS[element.prediction] || 'Unbekannt';
+                    zaehlung[label] = (zaehlung[label] || 0) + 1;
+                });
+                const uebersicht = Object.keys(zaehlung)
+                    .map(function (label) { return zaehlung[label] + 'x ' + label; })
+                    .join(', ');
+                zeilen.push('Davon: ' + uebersicht);
+            }
+        }
+
+        return zeilen.join('\n');
     }
 
-    function getArrivalTextFromRow(linha) {
-        const texto = String(linha.textContent || '');
-        const match = texto.match(/\b\d{2}:\d{2}:\d{2}\b/);
-        return match ? match[0] : null;
+    function timeConverterVoll(unixTimestamp) {
+        if (!unixTimestamp) return 'Keine Daten';
+        const datum = new Date(unixTimestamp * 1000);
+        const pad = function (n) { return String(n).padStart(2, '0'); };
+        return pad(datum.getDate()) + '.' + pad(datum.getMonth() + 1) + '.' + datum.getFullYear() +
+            ' ' + pad(datum.getHours()) + ':' + pad(datum.getMinutes()) + ':' + pad(datum.getSeconds());
+    }
+
+    function baueErweitertenInfoText(eigenerText, zusammenfassung) {
+        if (!zusammenfassung) return eigenerText || '';
+        return eigenerText ? (eigenerText + '\n\n' + zusammenfassung) : zusammenfassung;
     }
 
     // Liest Info sowohl im neuen Format (String) als auch im alten Format
@@ -841,27 +869,28 @@
             container.appendChild(infoIcon);
         }
 
-        // Forge-Vorhersage (prediction / Grund / Duplikate) asynchron nachladen
-        // und zusätzlich als eigenes Info-Icon anzeigen, sobald verfügbar.
+        // Forge-Zusammenfassung (Dorftyp, letzter Angriff, eingehende Angriffe)
+        // asynchron nachladen und als eigenes Info-Icon anzeigen, sobald verfügbar.
         if (coordsLinha && forgeIstKonfiguriert()) {
             const [x, y] = coordsLinha.split('|');
-            const arrivalText = getArrivalTextFromRow(linha);
 
             holeDbInfo(x, y, function (data) {
                 if (!linha.isConnected) return; // Zeile evtl. mittlerweile aus DOM entfernt/neu gerendert
 
-                const angriffsEintrag = findePassendenAngriff(data, arrivalText);
-                if (!angriffsEintrag) return;
+                const zusammenfassung = baueDorfZusammenfassung(data);
+                if (!zusammenfassung) {
+                    log('Forge-Debug: keine verwertbaren Daten für ' + coordsLinha);
+                    return;
+                }
 
-                const vollText = baueErweitertenInfoText('', angriffsEintrag);
                 const bestehendesIcon = container.querySelector('.tpSchnell-info-icon');
                 if (bestehendesIcon) {
-                    // eigenen Notiztext + Forge-Vorhersage kombinieren
-                    const kombiniert = baueErweitertenInfoText(infoLinha || '', angriffsEintrag);
+                    // eigenen Notiztext + Forge-Zusammenfassung kombinieren
+                    const kombiniert = baueErweitertenInfoText(infoLinha || '', zusammenfassung);
                     bestehendesIcon.setAttribute('aria-label', 'Dorfinfo: ' + kombiniert);
                     bestehendesIcon.dataset.tpSchnellText = kombiniert;
                 } else {
-                    const forgeIcon = criarInfoIcon(vollText);
+                    const forgeIcon = criarInfoIcon(zusammenfassung);
                     forgeIcon.classList.add('tpSchnell-forge-icon');
                     container.insertBefore(forgeIcon, container.firstChild);
                 }
