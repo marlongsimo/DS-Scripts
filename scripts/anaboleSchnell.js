@@ -18,10 +18,6 @@
 
     if (window.top !== window.self) return;
 
-    // Debug-Konsole so früh wie möglich installieren, damit auch Fehler
-    // vom Skriptstart selbst mitgeschnitten werden (wichtig ohne F12).
-    instalarDebugConsole();
-
     const APP = { name: '💪 Anabole Schnell', prefix: 'tpSchnell', version: '1.0.0', styleId: 'tpSchnellStyles' };
 
     // ---------------------------------------------------------------------
@@ -109,23 +105,21 @@
     let tooltipPinned = false;
     let tooltipAlvo = null;
 
-    // Zwischenspeicher für Vorhersage-/Truppenstärke-Ergebnisse pro Zeile,
-    // damit inserirBotoes() sie (auch nach einem Neuaufbau der Buttons) an
-    // der richtigen Stelle wieder einfügen kann - die Abfragen laufen
-    // asynchron und können vor ODER nach dem ersten inserirBotoes()-Lauf
-    // für eine Zeile fertig werden.
+    // Zwischenspeicher für Vorhersage-Ergebnisse pro Zeile, damit
+    // inserirBotoes() sie (auch nach einem Neuaufbau der Buttons) an der
+    // richtigen Stelle wieder einfügen kann - die Abfrage läuft asynchron
+    // und kann vor ODER nach dem ersten inserirBotoes()-Lauf für eine Zeile
+    // fertig werden.
     const vorhersaoPorLinha = new WeakMap();
-    const tropasPorLinha = new WeakMap();
 
     // =======================================================================
-    // Teil 3: Forge DB-Test (X/Y abfragen + API-Key speichern) und
-    // Debug-Konsole (Konsolenausgabe auch ohne F12/DevTools sichtbar machen)
+    // Teil 3: Forge-API-Key (für die automatische Angriffsvorhersage)
     // =======================================================================
 
-    // Verwendet bewusst dieselben localStorage-Keys wie das offizielle
-    // DB-Info-Skript ("dbkey"/"dbMode"), damit ein bereits gespeicherter
-    // Key automatisch übernommen wird und umgekehrt.
-    const DB_STORAGE_KEYS = { key: 'dbkey', mode: 'dbMode' };
+    // Verwendet bewusst denselben localStorage-Key wie das offizielle
+    // DB-Info-Skript ("dbkey"), damit ein bereits gespeicherter Key
+    // automatisch übernommen wird und umgekehrt.
+    const DB_STORAGE_KEYS = { key: 'dbkey' };
 
     function getDbKey() {
         try { return localStorage.getItem(DB_STORAGE_KEYS.key) || ''; }
@@ -135,11 +129,6 @@
     function setDbKey(valor) {
         try { localStorage.setItem(DB_STORAGE_KEYS.key, valor); }
         catch (erro) { log('Konnte API-Key nicht speichern: ' + erro); }
-    }
-
-    function getDbMode() {
-        try { return localStorage.getItem(DB_STORAGE_KEYS.mode) || 'USER'; }
-        catch (erro) { return 'USER'; }
     }
 
     function construirUrlForge() {
@@ -181,18 +170,13 @@
         return h + ':' + partes[1] + ':' + partes[2];
     }
 
-    // --- Teil 4: Angriffsvorhersage + Truppenstärke für ALLE Zeilen --------
-    // Öffnet immer ein Popup (auch mobil, kein window.alert). Läuft in zwei
-    // sequenziellen Phasen (Zieldörfer NACHEINANDER abfragen statt parallel,
-    // um "TypeError: Load failed" bei vielen Zieldörfern zu vermeiden):
-    // 1. Zieldörfer (aus der "Ziel"-Spalte, sonst game_data.village als
-    //    Fallback) für die Vorhersage - jedes nur EINMAL, auch wenn mehrere
-    //    Zeilen dasselbe Ziel haben. Ergebnis als "i"/"?"-Symbol.
-    // 2. ZUSÄTZLICH alle Angreiferdörfer (Herkunftsspalte) direkt abfragen,
-    //    um ggf. bekannte Truppenstärke zu ermitteln - als weiteres "i"-
-    //    Symbol links daneben, falls etwas gefunden wurde.
-    // Beide Icons erscheinen im selben Button-Container wie die Dorf-Info,
-    // links davon (Reihenfolge: Truppen-Icon, Vorhersage-Icon, Dorf-Info).
+    // --- Teil 4: Angriffsvorhersage für ALLE Zeilen -------------------------
+    // Öffnet immer ein Popup (auch mobil, kein window.alert). Zieldörfer
+    // (aus der "Ziel"-Spalte, sonst game_data.village als Fallback) werden
+    // NACHEINANDER abgefragt statt parallel, um "TypeError: Load failed" bei
+    // vielen Zieldörfern zu vermeiden - jedes Zieldorf nur EINMAL, auch wenn
+    // mehrere Zeilen dasselbe Ziel haben. Ergebnis als "i"/"?"-Symbol im
+    // selben Button-Container wie die Dorf-Info, direkt links davon.
     function carregarVorhersaoIncomings() {
         abrirModalVorhersao();
         const resultado = document.getElementById('tpSchnellVorhersaoResult');
@@ -206,7 +190,7 @@
 
         const key = getDbKey();
         if (!key) {
-            resultado.textContent = 'Bitte zuerst deinen API-Key im DB-Test-Popup eingeben und speichern.';
+            resultado.textContent = 'Bitte zuerst deinen API-Key im API-Key-Feld eingeben.';
             return;
         }
 
@@ -228,36 +212,27 @@
         const coordsPadrao = (village && village.x && village.y) ? (village.x + '|' + village.y) : null;
 
         const gruposAlvo = {};
-        const gruposOrigem = {};
         rows.forEach(function (row) {
             const alvoLinha = targetIndex >= 0 ? getRowCoords(row, targetIndex) : null;
             const alvo = alvoLinha || coordsPadrao;
-            if (alvo) {
-                if (!gruposAlvo[alvo]) gruposAlvo[alvo] = [];
-                gruposAlvo[alvo].push(row);
-            }
-
-            const origem = getRowCoords(row, sourceIndex);
-            if (origem) {
-                if (!gruposOrigem[origem]) gruposOrigem[origem] = [];
-                gruposOrigem[origem].push(row);
-            }
+            if (!alvo) return;
+            if (!gruposAlvo[alvo]) gruposAlvo[alvo] = [];
+            gruposAlvo[alvo].push(row);
         });
 
         const alvos = Object.keys(gruposAlvo);
-        const origens = Object.keys(gruposOrigem);
         if (!alvos.length) {
             resultado.textContent = 'Kein Zieldorf ermittelbar (weder Ziel-Spalte noch game_data.village).';
             return;
         }
 
         resultado.textContent = 'Frage ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) ab...';
-        log('Vorhersage: ' + alvos.length + ' Zieldorf/Zieldörfer und ' + origens.length + ' Angreiferdörfer werden nacheinander abgefragt.');
+        log('Vorhersage: ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) werden nacheinander abgefragt.');
 
-        processarVorhersaoUndTruppenSequencial(alvos, gruposAlvo, origens, gruposOrigem, sourceIndex, key, resultado);
+        processarVorhersaoSequencial(alvos, gruposAlvo, sourceIndex, key, resultado);
     }
 
-    async function processarVorhersaoUndTruppenSequencial(alvos, gruposAlvo, origens, gruposOrigem, sourceIndex, key, resultado) {
+    async function processarVorhersaoSequencial(alvos, gruposAlvo, sourceIndex, key, resultado) {
         let totalZeilen = 0;
         let totalTreffer = 0;
         let algumErro = null;
@@ -293,41 +268,8 @@
             }
         }
 
-        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet (' + alvos.length + ' Zieldorf/Zieldörfer abgefragt). ' +
-            'Frage jetzt ' + origens.length + ' Angreiferdorf/Angreiferdörfer nach Truppenstärke ab...';
-
-        let treffTropas = 0;
-        for (let i = 0; i < origens.length; i += 1) {
-            const origem = origens[i];
-            resultado.textContent = 'Frage Angreiferdorf ' + (i + 1) + '/' + origens.length + ' ab (' + origem + ')...';
-
-            const partes = origem.split('|');
-            const formData = new FormData();
-            formData.append('Key', key);
-            formData.append('X', partes[0]);
-            formData.append('Y', partes[1]);
-
-            try {
-                const resp = await fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' });
-                log('Truppen-Antwort (' + origem + ') → HTTP ' + resp.status);
-                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
-                const text = await resp.text();
-                let data = null;
-                try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort für ' + origem + ' war kein gültiges JSON.'); }
-                const forca = extrairForcaTropas(data);
-                if (forca) {
-                    treffTropas += 1;
-                    gruposOrigem[origem].forEach(function (row) { aplicarTropasNaLinha(row, forca); });
-                }
-            } catch (erro) {
-                algumErro = erro;
-                log('Fehler beim Abfragen der Truppenstärke für ' + origem + ': ' + erro);
-            }
-        }
-
-        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet, ' +
-            treffTropas + ' von ' + origens.length + ' Angreiferdörfern mit bekannter Truppenstärke' +
-            (algumErro ? '. Fehler bei mind. einer Abfrage, siehe Debug-Konsole.' : '.');
+        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet (' + alvos.length + ' Zieldorf/Zieldörfer abgefragt)' +
+            (algumErro ? '. Fehler bei mind. einer Abfrage.' : '.');
     }
 
     // Ermittelt den passenden sos-Eintrag primär über die Herkunfts-
@@ -358,28 +300,6 @@
         return linhas.join('\n');
     }
 
-    // Sucht in der Antwort einer direkten Dorf-Abfrage (Angreiferdorf) nach
-    // einem erkennbaren Truppenstärke-Feld. Das genaue Antwortformat dafür
-    // ist (im Unterschied zur "sos"-Liste bei Zieldorf-Abfragen) noch nicht
-    // bestätigt - deshalb werden mehrere plausible Feldnamen probiert.
-    function extrairForcaTropas(data) {
-        if (!data || typeof data !== 'object') return null;
-        const candidatos = ['troops', 'garrison', 'units', 'army', 'defense', 'defence'];
-
-        for (let i = 0; i < candidatos.length; i += 1) {
-            const valor = data[candidatos[i]];
-            if (valor && typeof valor === 'object') {
-                const partes = Object.keys(valor)
-                    .filter(function (k) { return valor[k]; })
-                    .map(function (k) { return k + ': ' + valor[k]; });
-                if (partes.length) return partes.join(', ');
-            }
-            if (typeof valor === 'string' && valor.trim()) return valor.trim();
-        }
-
-        return null;
-    }
-
     // sosArray === null bedeutet: Abfrage für das Zieldorf dieser Zeile ist
     // fehlgeschlagen (z.B. Netzwerkfehler) - dann wie "kein Treffer" behandeln.
     function aplicarVorhersaoNaLinha(row, sourceIndex, sosArray) {
@@ -393,13 +313,8 @@
         return !!match;
     }
 
-    function aplicarTropasNaLinha(row, forca) {
-        tropasPorLinha.set(row, forca);
-        atualizarIconeTropasNaLinha(row);
-    }
-
     // Fügt das Vorhersage-Icon links neben dem Dorf-Info-Icon ein (bzw. an
-    // erster Stelle, falls noch keine anderen Icons im Container sind). Wird
+    // erster Stelle, falls noch kein Dorf-Info-Icon im Container ist). Wird
     // sowohl direkt nach der Abfrage als auch aus inserirBotoes() aufgerufen,
     // da Container und Abfrage-Ergebnis in beliebiger Reihenfolge fertig
     // werden können.
@@ -416,20 +331,6 @@
             : criarInfoIcon('Keine Vorhersage-Daten für dieses Herkunftsdorf gefunden.', { simbolo: '?', ariaPrefixo: 'Vorhersage: ', classeExtra: 'tpSchnell-info-icon--vorhersao-vazio' });
 
         icone.classList.add('tpSchnell-vorhersao-icon');
-        container.insertBefore(icone, container.firstChild);
-    }
-
-    // Truppen-Icon erscheint links vom Vorhersage-Icon (nur bei bekannter
-    // Truppenstärke - kein "?"-Fallback wie bei der Vorhersage).
-    function atualizarIconeTropasNaLinha(row) {
-        if (!tropasPorLinha.has(row)) return;
-        const container = row.querySelector('.tpSchnell-botoes');
-        if (!container) return;
-
-        container.querySelectorAll('.tpSchnell-tropas-icon').forEach(function (el) { el.remove(); });
-
-        const icone = criarInfoIcon(tropasPorLinha.get(row), { simbolo: 'i', ariaPrefixo: 'Truppenstärke: ', classeExtra: 'tpSchnell-info-icon--tropas' });
-        icone.classList.add('tpSchnell-tropas-icon');
         container.insertBefore(icone, container.firstChild);
     }
 
@@ -459,191 +360,6 @@
     function fecharModalVorhersao() {
         const backdrop = document.getElementById('tpSchnellVorhersaoBackdrop');
         if (backdrop) backdrop.remove();
-    }
-
-    function testarConsultaForge(x, y, outEl) {
-        const key = getDbKey();
-        if (!key) {
-            outEl.textContent = 'Kein API-Key gespeichert. Bitte zuerst oben eingeben und speichern.';
-            return;
-        }
-
-        const world = (window.game_data && window.game_data.world) || '(unbekannt)';
-        const modo = getDbMode();
-        const url = construirUrlForge();
-
-        outEl.textContent = 'Frage Forge-Server ab (' + x + '|' + y + ', Modus: ' + modo + ')...';
-
-        // Ausführliches Logging der gesendeten Anfrage (Key maskiert), damit
-        // sich Abweichungen (z.B. falsche Welt/Modus) direkt in der
-        // Debug-Konsole nachvollziehen lassen.
-        log('Forge-Anfrage → URL: ' + url);
-        log('Forge-Anfrage → Welt: ' + world + ', Modus: ' + modo + ', X: ' + x + ', Y: ' + y + ', Key: ' + (key ? key.slice(0, 4) + '…' : '(leer)'));
-
-        const formData = new FormData();
-        formData.append('Key', key);
-        formData.append('X', x);
-        formData.append('Y', y);
-
-        fetch(url, { method: 'POST', body: formData, cache: 'no-store' })
-            .then(function (resp) {
-                log('Forge-Antwort → HTTP ' + resp.status);
-                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
-                return resp.text();
-            })
-            .then(function (text) {
-                let ausgabe = text;
-                try { ausgabe = JSON.stringify(JSON.parse(text), null, 2); } catch (erroParse) { /* Rohtext anzeigen */ }
-                outEl.textContent = ausgabe || '(leere Antwort)';
-                log('Forge-Test OK für ' + x + '|' + y);
-            })
-            .catch(function (erro) {
-                outEl.textContent = 'Fehler bei der Abfrage: ' + erro.message;
-                log('Forge-Test Fehler: ' + erro);
-            });
-    }
-
-    function abrirModalDbTest() {
-        if (document.getElementById('tpSchnellDbTestBackdrop')) return;
-
-        const keyGespeichert = !!getDbKey();
-
-        const backdrop = document.createElement('div');
-        backdrop.id = 'tpSchnellDbTestBackdrop';
-        backdrop.className = 'tpSchnell-modal-backdrop';
-        backdrop.innerHTML =
-            '<div class="tpSchnell-modal-box">' +
-            '<h3>🧪 Forge DB-Test</h3>' +
-            '<p>API-Key (wird nur lokal im Browser gespeichert):</p>' +
-            '<input type="text" id="tpSchnellDbKeyInput" placeholder="API-Key eingeben" value="' + (keyGespeichert ? '****************' : '') + '">' +
-            '<div class="tpSchnell-modal-actions">' +
-            '<button type="button" class="btn" id="tpSchnellDbKeySave">Key speichern</button>' +
-            '</div>' +
-            '<div id="tpSchnellDbKeyResult" style="font-size:11px; margin-top:2px;"></div>' +
-            '<hr class="tpSchnell-modal-trenner">' +
-            '<p>Testkoordinate:</p>' +
-            '<div style="display:flex; gap:6px;">' +
-            '<input type="text" id="tpSchnellDbTestX" placeholder="X, z.B. 500" style="width:50%">' +
-            '<input type="text" id="tpSchnellDbTestY" placeholder="Y, z.B. 500" style="width:50%">' +
-            '</div>' +
-            '<div class="tpSchnell-modal-actions">' +
-            '<button type="button" class="btn" id="tpSchnellDbTestCancel">Schließen</button>' +
-            '<button type="button" class="btn" id="tpSchnellDbTestRun">Abfragen</button>' +
-            '</div>' +
-            '<pre id="tpSchnellDbTestResult" class="tpSchnell-debug-pre"></pre>' +
-            '</div>';
-
-        document.body.appendChild(backdrop);
-
-        backdrop.addEventListener('click', function (evento) {
-            if (evento.target === backdrop) fecharModalDbTest();
-        });
-        document.getElementById('tpSchnellDbTestCancel').addEventListener('click', fecharModalDbTest);
-
-        document.getElementById('tpSchnellDbKeySave').addEventListener('click', function () {
-            const input = document.getElementById('tpSchnellDbKeyInput');
-            const resultado = document.getElementById('tpSchnellDbKeyResult');
-            if (!input.value || input.value === '****************') {
-                resultado.textContent = 'Kein neuer Key eingegeben.';
-                return;
-            }
-            setDbKey(input.value.trim());
-            input.value = '****************';
-            resultado.textContent = 'Key gespeichert.';
-            log('API-Key gespeichert.');
-        });
-
-        document.getElementById('tpSchnellDbTestRun').addEventListener('click', function () {
-            const x = document.getElementById('tpSchnellDbTestX').value.trim();
-            const y = document.getElementById('tpSchnellDbTestY').value.trim();
-            const outEl = document.getElementById('tpSchnellDbTestResult');
-            if (!/^\d{1,3}$/.test(x) || !/^\d{1,3}$/.test(y)) {
-                outEl.textContent = 'Bitte gültige X/Y Koordinaten eingeben (jeweils 1-3 Ziffern).';
-                return;
-            }
-            testarConsultaForge(x, y, outEl);
-        });
-    }
-
-    function fecharModalDbTest() {
-        const backdrop = document.getElementById('tpSchnellDbTestBackdrop');
-        if (backdrop) backdrop.remove();
-    }
-
-    // --- Debug-Konsole (fängt console.log/warn/error + Skriptfehler ab) ----
-    const debugState = { linhas: [], painelAberto: false, maxLinhas: 300 };
-
-    function instalarDebugConsole() {
-        if (window.__tpSchnellDebugInstalled) return;
-        window.__tpSchnellDebugInstalled = true;
-
-        ['log', 'warn', 'error', 'info'].forEach(function (metodo) {
-            const original = console[metodo];
-            console[metodo] = function () {
-                try {
-                    const partes = Array.prototype.slice.call(arguments).map(function (a) {
-                        if (typeof a === 'string') return a;
-                        try { return JSON.stringify(a); } catch (erroJson) { return String(a); }
-                    });
-                    registrarLinhaDebug(metodo, partes.join(' '));
-                } catch (erro) { /* Debug-Konsole darf normales Logging nie blockieren */ }
-                original.apply(console, arguments);
-            };
-        });
-
-        window.addEventListener('error', function (evento) {
-            registrarLinhaDebug('error', 'Fehler: ' + evento.message + ' (' + evento.filename + ':' + evento.lineno + ')');
-        });
-        window.addEventListener('unhandledrejection', function (evento) {
-            registrarLinhaDebug('error', 'Unhandled Promise: ' + evento.reason);
-        });
-    }
-
-    function registrarLinhaDebug(tipo, texto) {
-        const linha = '[' + new Date().toLocaleTimeString() + '] ' + tipo.toUpperCase() + ': ' + texto;
-        debugState.linhas.push(linha);
-        if (debugState.linhas.length > debugState.maxLinhas) debugState.linhas.shift();
-        if (debugState.painelAberto) renderizarDebugPainel();
-    }
-
-    function abrirDebugPainel() {
-        if (document.getElementById('tpSchnellDebugPanel')) return;
-        debugState.painelAberto = true;
-
-        const painel = document.createElement('div');
-        painel.id = 'tpSchnellDebugPanel';
-        painel.className = 'tpSchnell-debug-panel';
-        painel.innerHTML =
-            '<div class="tpSchnell-debug-header">' +
-            '<span>🐞 Debug-Konsole</span>' +
-            '<span>' +
-            '<button type="button" class="btn" id="tpSchnellDebugClear">Leeren</button> ' +
-            '<button type="button" class="btn" id="tpSchnellDebugClose">✕</button>' +
-            '</span>' +
-            '</div>' +
-            '<div id="tpSchnellDebugBody" class="tpSchnell-debug-body"></div>';
-
-        document.body.appendChild(painel);
-        document.getElementById('tpSchnellDebugClose').addEventListener('click', fecharDebugPainel);
-        document.getElementById('tpSchnellDebugClear').addEventListener('click', function () {
-            debugState.linhas = [];
-            renderizarDebugPainel();
-        });
-
-        renderizarDebugPainel();
-    }
-
-    function renderizarDebugPainel() {
-        const body = document.getElementById('tpSchnellDebugBody');
-        if (!body) return;
-        body.textContent = debugState.linhas.join('\n') || '(noch keine Einträge)';
-        body.scrollTop = body.scrollHeight;
-    }
-
-    function fecharDebugPainel() {
-        debugState.painelAberto = false;
-        const painel = document.getElementById('tpSchnellDebugPanel');
-        if (painel) painel.remove();
     }
 
     // =======================================================================
@@ -706,8 +422,7 @@
             '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
             '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
             '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen"> ' +
-            '<input type="button" class="btn" id="tpSchnellDbTestOpenPanel" value="🧪 DB-Test"> ' +
-            '<input type="button" class="btn" id="tpSchnellDebugOpenPanel" value="🐞 Debug">';
+            '<input type="password" class="btn" id="tpSchnellApiKeyInput" placeholder="API-Key" style="width:130px;">';
 
         const filters = document.querySelector('.overview_filters');
         if (filters) filters.before(panel);
@@ -718,10 +433,12 @@
         });
         document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
         document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
-        document.getElementById('tpSchnellDbTestOpenPanel').addEventListener('click', abrirModalDbTest);
-        document.getElementById('tpSchnellDebugOpenPanel').addEventListener('click', function () {
-            if (document.getElementById('tpSchnellDebugPanel')) fecharDebugPainel();
-            else abrirDebugPainel();
+
+        const apiKeyInput = document.getElementById('tpSchnellApiKeyInput');
+        apiKeyInput.value = getDbKey();
+        apiKeyInput.addEventListener('change', function () {
+            setDbKey(apiKeyInput.value.trim());
+            log('API-Key gespeichert.');
         });
 
         // Direkt beim Laden einmal automatisch markieren
@@ -1292,10 +1009,9 @@
 
         containerDestino.appendChild(container);
 
-        // Vorhersage-/Truppen-Icons nachtragen, falls die jeweilige Abfrage
-        // schon vor diesem (Neu-)Aufbau des Containers fertig war.
+        // Vorhersage-Icon nachtragen, falls die Abfrage schon vor diesem
+        // (Neu-)Aufbau des Containers fertig war.
         atualizarIconeVorhersaoNaLinha(linha);
-        atualizarIconeTropasNaLinha(linha);
     }
 
     function obterContainerBotoes(linha) {
@@ -1751,16 +1467,6 @@
                 background: #dde0e4;
             }
 
-            .tpSchnell-info-icon--tropas {
-                border-color: #d3790a;
-                background: #ffedd6;
-                color: #a35400;
-            }
-
-            .tpSchnell-info-icon--tropas:hover {
-                background: #ffdfb3;
-            }
-
             .tpSchnell-tooltip {
                 position: fixed;
                 z-index: 999999;
@@ -1777,12 +1483,8 @@
                 white-space: pre-line;
             }
 
-            .tpSchnell-debug-pre,
-            .tpSchnell-debug-body {
-                font-family: monospace;
-            }
-
             .tpSchnell-debug-pre {
+                font-family: monospace;
                 white-space: pre-wrap;
                 word-break: break-word;
                 max-height: 220px;
@@ -1792,47 +1494,6 @@
                 border-radius: 4px;
                 font-size: 11px;
                 margin-top: 6px;
-            }
-
-            .tpSchnell-debug-panel {
-                position: fixed;
-                left: 8px;
-                right: 8px;
-                bottom: 8px;
-                max-height: 42vh;
-                z-index: 999998;
-                background: rgba(20, 20, 20, 0.96);
-                color: #d7ffb3;
-                border-radius: 6px;
-                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
-            }
-
-            .tpSchnell-debug-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 6px 8px;
-                background: rgba(255, 255, 255, 0.08);
-                font-size: 12px;
-                font-weight: 700;
-                color: #fff;
-            }
-
-            .tpSchnell-debug-header .btn {
-                font-size: 10px !important;
-                padding: 2px 6px !important;
-            }
-
-            .tpSchnell-debug-body {
-                padding: 6px 8px;
-                font-size: 11px;
-                line-height: 1.4;
-                overflow-y: auto;
-                white-space: pre-wrap;
-                word-break: break-word;
             }
         `;
         document.head.appendChild(style);

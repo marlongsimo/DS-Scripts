@@ -94,70 +94,41 @@
             Gruppe per 🗑️-Button auf einen Schlag löschen.
           </p>
           <p>
-            Beim Öffnen der Angriffsübersicht wird außerdem <strong>automatisch</strong>
-            eine Angriffsvorhersage geladen (kein Button mehr nötig) und ein
-            Popup-Fenster angezeigt (funktioniert auch mobil), das den
-            Fortschritt anzeigt. Sie läuft für <strong>alle Zeilen</strong>
-            der Angriffsliste und in zwei Phasen, jeweils <strong>nacheinander</strong>
-            statt gleichzeitig abgefragt (um Verbindungsfehler bei vielen
-            Dörfern zu vermeiden):
+            In derselben Zeile wie „Wiederholte Angriffe markieren“,
+            „📥 Dörfer importieren“ und „🗑️ Dorfinfos löschen“ steht
+            außerdem ein <strong>API-Key-Feld</strong> (Passwort-Eingabe,
+            zeigt den Key also nicht im Klartext an): dort eingetragene
+            Keys werden im selben <code>localStorage</code>-Schlüssel wie
+            beim offiziellen DB-Info-Skript gespeichert, ein dort bereits
+            hinterlegter Key wird also automatisch übernommen und
+            umgekehrt.
           </p>
           <p>
-            <strong>Phase 1 – Vorhersage:</strong> als Zieldorf für die
-            Forge-Abfrage wird pro Zeile das Dorf aus der
-            <strong>„Ziel“-Spalte</strong> verwendet, falls vorhanden
-            (relevant in der gesammelten Übersicht über mehrere eigene
-            Dörfer, wo jede Zeile ein anderes Zieldorf haben kann) – nur
-            wenn keine Ziel-Spalte existiert (einfache Einzeldorf-Ansicht),
-            wird ersatzweise das aktuell geöffnete Dorf
-            (<code>game_data.village</code>) verwendet. Jedes Zieldorf wird
-            dabei nur <strong>einmal</strong> abgefragt (derselbe API-Key
-            wie bei „🧪 DB-Test“, sofern dort bereits hinterlegt), auch wenn
+            Sobald ein API-Key hinterlegt ist, wird beim Öffnen der
+            Angriffsübersicht <strong>automatisch</strong> eine
+            Angriffsvorhersage geladen und ein Popup-Fenster angezeigt
+            (funktioniert auch mobil), das den Fortschritt zeigt. Sie läuft
+            für <strong>alle Zeilen</strong> der Angriffsliste, Zieldörfer
+            werden dabei <strong>nacheinander</strong> statt gleichzeitig
+            abgefragt (um Verbindungsfehler bei vielen Dörfern zu
+            vermeiden). Als Zieldorf für die Forge-Abfrage wird pro Zeile
+            das Dorf aus der <strong>„Ziel“-Spalte</strong> verwendet, falls
+            vorhanden (relevant in der gesammelten Übersicht über mehrere
+            eigene Dörfer, wo jede Zeile ein anderes Zieldorf haben kann) –
+            nur wenn keine Ziel-Spalte existiert (einfache
+            Einzeldorf-Ansicht), wird ersatzweise das aktuell geöffnete
+            Dorf (<code>game_data.village</code>) verwendet. Jedes Zieldorf
+            wird dabei nur <strong>einmal</strong> abgefragt, auch wenn
             mehrere Zeilen dasselbe Ziel haben. Die Herkunftskoordinate
             jeder Zeile wird dann mit den zurückgelieferten Daten
             abgeglichen (Ankunftszeit nur als Tie-Breaker bei mehreren
             Einträgen derselben Koordinate). Bei Treffer erscheint ein
-            <strong>„i“-Symbol</strong> mit Einordnung, Grund und
-            Duplikat-Anzahl als Tooltip; ohne Treffer erscheint stattdessen
-            ein <strong>„?“-Symbol</strong>.
-          </p>
-          <p>
-            <strong>Phase 2 – Truppenstärke (experimentell):</strong>
-            zusätzlich wird jedes <strong>Angreiferdorf</strong> (Herkunft
-            der Zeile) direkt abgefragt. Ist darin eine bekannte
-            Truppenstärke enthalten, erscheint dafür ein weiteres,
-            eigenständiges <strong>„i“-Symbol</strong>. Das genaue
-            Antwortformat für diese Art Abfrage ist noch nicht final
-            bestätigt, daher werden mehrere plausible Datenfelder probiert –
-            falls das Symbol nicht wie erwartet erscheint, bitte eine
-            Beispielantwort für die Feinjustierung melden.
-          </p>
-          <p>
-            Beide Symbole erscheinen in derselben kleinen Buttonleiste wie
-            die Umbenennen-Buttons, direkt <strong>links neben dem
-            Dorf-Info-„i“</strong> (Reihenfolge: Truppenstärke, Vorhersage,
-            Dorf-Info). Das Popup zeigt am Ende eine kurze Zusammenfassung
-            beider Phasen. Diese Abfragen laufen also <strong>automatisch im
-            Hintergrund</strong>, sobald ein API-Key hinterlegt ist – anders
-            als die beiden folgenden Diagnose-Tools.
-          </p>
-          <p>
-            In derselben Zeile wie „Wiederholte Angriffe markieren“,
-            „📥 Dörfer importieren“ und „🗑️ Dorfinfos löschen“ stehen
-            außerdem zwei Diagnose-Tools: <strong>„🧪 DB-Test“</strong>
-            öffnet ein Fenster, in dem sich ein API-Key für den
-            Forge-DB-Info-Dienst hinterlegen lässt (derselbe
-            <code>localStorage</code>-Schlüssel wie beim offiziellen
-            DB-Info-Skript, ein dort bereits gespeicherter Key wird also
-            automatisch erkannt) und sich eine einzelne Koordinate testweise
-            abfragen lässt – die Rohantwort wird direkt angezeigt. Es findet
-            dabei <strong>keine automatische Abfrage</strong> im Hintergrund
-            statt, sondern nur auf ausdrücklichen Klick auf „Abfragen“.
-            <strong>„🐞 Debug“</strong> öffnet ein Konsolen-Overlay, das alle
-            <code>console.log</code>/<code>warn</code>/<code>error</code>-
-            Ausgaben sowie Skriptfehler mitschneidet und anzeigt – gedacht
-            für die Fehlersuche auf dem Handy, wo die normalen
-            Browser-Entwicklertools nicht zur Verfügung stehen.
+            <strong>„i“-Symbol</strong> (in derselben kleinen Buttonleiste
+            wie die Umbenennen-Buttons, direkt links neben dem
+            Dorf-Info-„i“) mit Einordnung, Grund und Duplikat-Anzahl als
+            Tooltip; ohne Treffer erscheint stattdessen ein
+            <strong>„?“-Symbol</strong>. Das Popup zeigt am Ende eine kurze
+            Zusammenfassung, wie viele Zeilen zugeordnet werden konnten.
           </p>
 
           <div class="script-meta">
@@ -187,15 +158,11 @@
             </div>
             <div>
               <span class="label">Angriffsvorhersage</span>
-              <span class="value">Läuft automatisch beim Öffnen der Angriffsübersicht (kein Button), fragt Zieldörfer nacheinander ab (Ziel-Spalte, sonst game_data.village); Treffer als „i“-Symbol mit Tooltip, sonst „?“, links neben dem Dorf-Info-Icon</span>
+              <span class="value">Läuft automatisch beim Öffnen der Angriffsübersicht, sobald ein API-Key hinterlegt ist; fragt Zieldörfer nacheinander ab (Ziel-Spalte, sonst game_data.village); Treffer als „i“-Symbol mit Tooltip, sonst „?“, links neben dem Dorf-Info-Icon</span>
             </div>
             <div>
-              <span class="label">Truppenstärke (experimentell)</span>
-              <span class="value">Fragt zusätzlich alle Angreiferdörfer direkt ab; bei bekannter Truppenstärke erscheint ein weiteres „i“-Symbol links davon</span>
-            </div>
-            <div>
-              <span class="label">Diagnose-Werkzeuge</span>
-              <span class="value">„🧪 DB-Test“ (manuelle Forge-API-Abfrage) und „🐞 Debug“ (Konsolen-Overlay) in derselben Zeile wie die Dorf-Infos-Buttons, beide nur auf Klick aktiv</span>
+              <span class="label">API-Key-Feld</span>
+              <span class="value">Passwort-Eingabefeld in derselben Zeile wie die Dorf-Infos-Buttons, derselbe localStorage-Schlüssel wie beim offiziellen DB-Info-Skript</span>
             </div>
             <div>
               <span class="label">Dorf-Infos-Datenbank</span>
@@ -261,12 +228,10 @@
             komplett lokal – es öffnet lediglich die im Spiel vorhandene
             Umbenennen-Funktion und trägt den Tag-Text ein, das Speichern
             übernimmt dabei denselben Dialog wie bei manueller Bedienung.
-            Einzige Ausnahme: „🧪 DB-Test“ sendet auf Klick den gespeicherten
-            API-Key zusammen mit Koordinaten an den externen Dienst
-            <code>twforge.net</code>. Die Angriffsvorhersage sendet denselben
-            Key <strong>automatisch</strong> beim Öffnen der Angriffsübersicht
-            – sowohl für die Zieldörfer (Phase 1) als auch für alle
-            Angreiferdörfer (Phase 2, Truppenstärke) – dort sollte nur ein
+            Einzige Ausnahme: die Angriffsvorhersage sendet den im API-Key-Feld
+            hinterlegten Key <strong>automatisch</strong> beim Öffnen der
+            Angriffsübersicht zusammen mit den Zieldorf-Koordinaten an den
+            externen Dienst <code>twforge.net</code> – dort sollte nur ein
             Key hinterlegt werden, dem vertraut wird. Bitte vorab die Regeln
             deines Servers zu Skripten/Bookmarklets prüfen.
           </div>
