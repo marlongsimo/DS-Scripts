@@ -93,6 +93,23 @@
             entfernte Koordinaten korrekt verschwinden) oder die komplette
             Gruppe per 🗑️-Button auf einen Schlag löschen.
           </p>
+          <p>
+            Unten links erscheint außerdem eine kleine Werkzeugleiste mit
+            zwei Diagnose-Tools: <strong>„🧪 DB-Test“</strong> öffnet ein
+            Fenster, in dem sich ein API-Key für den Forge-DB-Info-Dienst
+            hinterlegen lässt (derselbe <code>localStorage</code>-Schlüssel
+            wie beim offiziellen DB-Info-Skript, ein dort bereits
+            gespeicherter Key wird also automatisch erkannt) und sich eine
+            einzelne Koordinate testweise abfragen lässt – die Rohantwort
+            wird direkt angezeigt. Es findet dabei <strong>keine
+            automatische Abfrage</strong> im Hintergrund statt, sondern nur
+            auf ausdrücklichen Klick auf „Abfragen“.
+            <strong>„🐞 Debug“</strong> öffnet ein Konsolen-Overlay, das alle
+            <code>console.log</code>/<code>warn</code>/<code>error</code>-
+            Ausgaben sowie Skriptfehler mitschneidet und anzeigt – gedacht
+            für die Fehlersuche auf dem Handy, wo die normalen
+            Browser-Entwicklertools nicht zur Verfügung stehen.
+          </p>
 
           <div class="script-meta">
             <div>
@@ -118,6 +135,10 @@
             <div>
               <span class="label">Aktualisierung</span>
               <span class="value">Läuft dauerhaft im Hintergrund (MutationObserver + Intervall), erkennt neu geladene Zeilen automatisch</span>
+            </div>
+            <div>
+              <span class="label">Diagnose-Werkzeuge</span>
+              <span class="value">„🧪 DB-Test“ (manuelle Forge-API-Abfrage) und „🐞 Debug“ (Konsolen-Overlay) unten links, beide nur auf Klick aktiv</span>
             </div>
             <div>
               <span class="label">Dorf-Infos-Datenbank</span>
