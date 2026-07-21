@@ -105,13 +105,19 @@
           </p>
           <p>
             In derselben Zeile wie „Wiederholte Angriffe markieren“,
-            „📥 Dörfer importieren“ und „🗑️ Dorfinfos löschen“ steht
-            außerdem ein <strong>API-Key-Feld</strong> (Passwort-Eingabe,
-            zeigt den Key also nicht im Klartext an): dort eingetragene
-            Keys werden im selben <code>localStorage</code>-Schlüssel wie
-            beim offiziellen DB-Info-Skript gespeichert, ein dort bereits
-            hinterlegter Key wird also automatisch übernommen und
-            umgekehrt.
+            „📥 Dörfer importieren“ und „🗑️ Dorfinfos löschen“ stehen
+            außerdem <strong>„🧪 DB-Test“</strong> und ein
+            <strong>API-Key-Feld</strong> (Passwort-Eingabe, zeigt den Key
+            also nicht im Klartext an): dort eingetragene Keys werden im
+            selben <code>localStorage</code>-Schlüssel wie beim offiziellen
+            DB-Info-Skript gespeichert, ein dort bereits hinterlegter Key
+            wird also automatisch übernommen und umgekehrt. „🧪 DB-Test“
+            öffnet ein kleines Fenster, in dem sich eine einzelne
+            Koordinate testweise beim Forge-DB-Info-Dienst abfragen lässt
+            (nutzt den im API-Key-Feld hinterlegten Key) – die Rohantwort
+            wird direkt angezeigt. Es findet dabei <strong>keine
+            automatische Abfrage</strong> im Hintergrund statt, sondern
+            nur auf ausdrücklichen Klick auf „Abfragen“.
           </p>
           <p>
             Sobald ein API-Key hinterlegt ist, wird beim Öffnen der
@@ -173,6 +179,10 @@
             <div>
               <span class="label">API-Key-Feld</span>
               <span class="value">Passwort-Eingabefeld in derselben Zeile wie die Dorf-Infos-Buttons, derselbe localStorage-Schlüssel wie beim offiziellen DB-Info-Skript</span>
+            </div>
+            <div>
+              <span class="label">DB-Test</span>
+              <span class="value">„🧪 DB-Test“-Button in derselben Zeile, öffnet ein Fenster zur manuellen Testabfrage einer Koordinate (Rohantwort), nur auf Klick aktiv</span>
             </div>
             <div>
               <span class="label">Dorf-Infos-Datenbank</span>
@@ -241,7 +251,8 @@
             Einzige Ausnahme: die Angriffsvorhersage sendet den im API-Key-Feld
             hinterlegten Key <strong>automatisch</strong> beim Öffnen der
             Angriffsübersicht zusammen mit den Zieldorf-Koordinaten an den
-            externen Dienst <code>twforge.net</code> – dort sollte nur ein
+            externen Dienst <code>twforge.net</code>; „🧪 DB-Test“ sendet
+            denselben Key nur auf ausdrücklichen Klick – dort sollte nur ein
             Key hinterlegt werden, dem vertraut wird. Bitte vorab die Regeln
             deines Servers zu Skripten/Bookmarklets prüfen.
           </div>
