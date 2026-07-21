@@ -296,7 +296,13 @@
 
         const linhas = [texto];
         if (match.prediction_reason) linhas.push('Grund: ' + match.prediction_reason);
-        if (match.duplicate_count && match.duplicate_count > 1) linhas.push('Duplikate: ' + match.duplicate_count);
+        // duplicate_count aus der Forge-API zählt nur die ANDEREN Duplikate,
+        // nicht den Angriff selbst mit (0 = keine Duplikate, 1 = ein
+        // weiterer Angriff = insgesamt 2, usw.) - daher +1 für die
+        // angezeigte Gesamtzahl.
+        if (typeof match.duplicate_count === 'number' && match.duplicate_count >= 1) {
+            linhas.push('Duplikate: ' + (match.duplicate_count + 1));
+        }
         return linhas.join('\n');
     }
 
