@@ -362,6 +362,85 @@
         if (backdrop) backdrop.remove();
     }
 
+    // Manuelle Testabfrage einer einzelnen Koordinate gegen die Forge-API.
+    // Nutzt den bereits im API-Key-Feld hinterlegten Key (getDbKey()) -
+    // keine eigene Key-Eingabe mehr hier, um das nicht zu duplizieren.
+    function testarConsultaForge(x, y, outEl) {
+        const key = getDbKey();
+        if (!key) {
+            outEl.textContent = 'Kein API-Key hinterlegt. Bitte zuerst im API-Key-Feld eintragen.';
+            return;
+        }
+
+        outEl.textContent = 'Frage Forge-Server ab (' + x + '|' + y + ')...';
+
+        const formData = new FormData();
+        formData.append('Key', key);
+        formData.append('X', x);
+        formData.append('Y', y);
+
+        fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
+            .then(function (resp) {
+                log('DB-Test-Antwort (' + x + '|' + y + ') → HTTP ' + resp.status);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                return resp.text();
+            })
+            .then(function (text) {
+                let ausgabe = text;
+                try { ausgabe = JSON.stringify(JSON.parse(text), null, 2); } catch (erroParse) { /* Rohtext anzeigen */ }
+                outEl.textContent = ausgabe || '(leere Antwort)';
+            })
+            .catch(function (erro) {
+                outEl.textContent = 'Fehler bei der Abfrage: ' + erro.message;
+                log('DB-Test Fehler: ' + erro);
+            });
+    }
+
+    function abrirModalDbTest() {
+        if (document.getElementById('tpSchnellDbTestBackdrop')) return;
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'tpSchnellDbTestBackdrop';
+        backdrop.className = 'tpSchnell-modal-backdrop';
+        backdrop.innerHTML =
+            '<div class="tpSchnell-modal-box">' +
+            '<h3>🧪 Forge DB-Test</h3>' +
+            '<p>Testkoordinate (nutzt den API-Key aus dem Eingabefeld oben):</p>' +
+            '<div style="display:flex; gap:6px;">' +
+            '<input type="text" id="tpSchnellDbTestX" placeholder="X, z.B. 500" style="width:50%">' +
+            '<input type="text" id="tpSchnellDbTestY" placeholder="Y, z.B. 500" style="width:50%">' +
+            '</div>' +
+            '<div class="tpSchnell-modal-actions">' +
+            '<button type="button" class="btn" id="tpSchnellDbTestCancel">Schließen</button>' +
+            '<button type="button" class="btn" id="tpSchnellDbTestRun">Abfragen</button>' +
+            '</div>' +
+            '<pre id="tpSchnellDbTestResult" class="tpSchnell-debug-pre"></pre>' +
+            '</div>';
+
+        document.body.appendChild(backdrop);
+
+        backdrop.addEventListener('click', function (evento) {
+            if (evento.target === backdrop) fecharModalDbTest();
+        });
+        document.getElementById('tpSchnellDbTestCancel').addEventListener('click', fecharModalDbTest);
+
+        document.getElementById('tpSchnellDbTestRun').addEventListener('click', function () {
+            const x = document.getElementById('tpSchnellDbTestX').value.trim();
+            const y = document.getElementById('tpSchnellDbTestY').value.trim();
+            const outEl = document.getElementById('tpSchnellDbTestResult');
+            if (!/^\d{1,3}$/.test(x) || !/^\d{1,3}$/.test(y)) {
+                outEl.textContent = 'Bitte gültige X/Y Koordinaten eingeben (jeweils 1-3 Ziffern).';
+                return;
+            }
+            testarConsultaForge(x, y, outEl);
+        });
+    }
+
+    function fecharModalDbTest() {
+        const backdrop = document.getElementById('tpSchnellDbTestBackdrop');
+        if (backdrop) backdrop.remove();
+    }
+
     // =======================================================================
     // Boot
     // =======================================================================
@@ -424,6 +503,7 @@
             '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
             '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
             '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen"> ' +
+            '<input type="button" class="btn" id="tpSchnellDbTestOpenPanel" value="🧪 DB-Test"> ' +
             '<input type="password" class="btn" id="tpSchnellApiKeyInput" placeholder="API-Key" style="width:130px;">';
 
         const filters = document.querySelector('.overview_filters');
@@ -435,6 +515,7 @@
         });
         document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
         document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
+        document.getElementById('tpSchnellDbTestOpenPanel').addEventListener('click', abrirModalDbTest);
 
         const apiKeyInput = document.getElementById('tpSchnellApiKeyInput');
         apiKeyInput.value = getDbKey();
