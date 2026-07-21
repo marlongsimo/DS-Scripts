@@ -159,37 +159,60 @@
         return match ? match[0] : null;
     }
 
-    // --- Teil 4: Angriffsvorhersage direkt in die Incomings-Tabelle laden ---
-    // Fragt EINMAL das eigene Dorf ab (liefert alle sos-Einträge dafür) und
-    // gleicht jede Zeile in der Tabelle anhand Herkunftskoordinate + Ankunfts-
-    // uhrzeit mit den sos-Einträgen ab, statt pro Zeile einzeln anzufragen.
+    // --- Teil 4: Angriffsvorhersage (Testmodus: nur der 6. Eintrag) ---------
+    // Öffnet immer ein Popup (auch mobil, kein window.alert), fragt EINMAL
+    // das eigene Dorf ab (liefert alle sos-Einträge dafür) und gleicht damit
+    // testweise NUR den 6. Eintrag (Index 5) der Angriffsliste ab, statt
+    // die ganze Tabelle zu durchlaufen.
     function carregarVorhersaoIncomings() {
+        abrirModalVorhersao();
+        const resultado = document.getElementById('tpSchnellVorhersaoResult');
+
         const screen = String((window.game_data || {}).screen || '');
         const mode = getCurrentMode();
         if (screen !== 'overview_villages' || mode !== 'incomings') {
-            window.alert('Funktioniert nur auf der Seite "Eintreffende Angriffe" deines Dorfes.');
+            resultado.textContent = 'Funktioniert nur auf der Seite "Eintreffende Angriffe" deines Dorfes.';
             return;
         }
 
         const village = window.game_data && window.game_data.village;
         if (!village || !village.x || !village.y) {
-            window.alert('Eigene Dorfkoordinaten konnten nicht ermittelt werden (game_data.village fehlt).');
+            resultado.textContent = 'Eigene Dorfkoordinaten konnten nicht ermittelt werden (game_data.village fehlt).';
             log('Vorhersage: game_data.village nicht gefunden.');
             return;
         }
 
         const key = getDbKey();
         if (!key) {
-            window.alert('Bitte zuerst deinen API-Key im DB-Test-Popup eingeben und speichern.');
+            resultado.textContent = 'Bitte zuerst deinen API-Key im DB-Test-Popup eingeben und speichern.';
             return;
         }
+
+        const table = document.querySelector('#incomings_table');
+        if (!table) {
+            resultado.textContent = 'Angriffstabelle nicht gefunden.';
+            return;
+        }
+
+        const rows = Array.from(table.querySelectorAll('tr.row_a, tr.row_b'));
+        const linhaTeste = rows[5];
+        if (!linhaTeste) {
+            resultado.textContent = 'Kein 6. Eintrag in der Liste vorhanden (nur ' + rows.length + ' Zeile(n)).';
+            return;
+        }
+
+        const sourceIndex = getSourceColumnIndex(table);
+        const coordsTeste = getRowCoords(linhaTeste, sourceIndex);
+        const horaChegadaTeste = obterHoraChegadaDaLinha(linhaTeste);
+
+        resultado.textContent = 'Frage Server ab (Test: 6. Eintrag, ' + (coordsTeste || '?') + ', Ankunft ' + (horaChegadaTeste || '?') + ')...';
 
         const formData = new FormData();
         formData.append('Key', key);
         formData.append('X', village.x);
         formData.append('Y', village.y);
 
-        log('Vorhersage-Abfrage für eigenes Dorf ' + village.x + '|' + village.y + ' gestartet.');
+        log('Vorhersage-Testabfrage (6. Eintrag: ' + coordsTeste + ') für eigenes Dorf ' + village.x + '|' + village.y + ' gestartet.');
 
         fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
             .then(function (resp) {
@@ -200,58 +223,74 @@
             .then(function (text) {
                 let data = null;
                 try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort war kein gültiges JSON.'); }
-                aplicarVorhersaoNaTabela(data.sos || []);
+                aplicarVorhersaoNaLinhaDeTeste(linhaTeste, sourceIndex, coordsTeste, horaChegadaTeste, data.sos || [], resultado);
             })
             .catch(function (erro) {
                 log('Fehler beim Laden der Vorhersage: ' + erro);
-                window.alert('Fehler beim Laden der Vorhersage: ' + erro.message);
+                resultado.textContent = 'Fehler beim Laden der Vorhersage: ' + erro.message;
             });
     }
 
-    function aplicarVorhersaoNaTabela(sosArray) {
-        const table = document.querySelector('#incomings_table');
-        if (!table) return;
+    function aplicarVorhersaoNaLinhaDeTeste(linha, sourceIndex, coords, horaChegada, sosArray, resultado) {
+        linha.querySelectorAll('.tpSchnell-vorhersao-badge').forEach(function (b) { b.remove(); });
 
-        table.querySelectorAll('.tpSchnell-vorhersao-badge').forEach(function (b) { b.remove(); });
-
-        const sourceIndex = getSourceColumnIndex(table);
-        const rows = Array.from(table.querySelectorAll('tr.row_a, tr.row_b'));
-        let treffer = 0;
-
-        rows.forEach(function (row) {
-            const coords = getRowCoords(row, sourceIndex);
-            const horaChegada = obterHoraChegadaDaLinha(row);
-            if (!coords) return;
-
-            const match = sosArray.find(function (item) {
-                if (item.attacker_coords !== coords) return false;
-                if (!horaChegada) return true; // Fallback: nur nach Herkunft abgleichen
-                return timeConverterLocal(item.arrival_time) === horaChegada;
-            });
-
-            if (!match) return;
-            treffer += 1;
-
-            let texto = 'Unbekannt';
-            if (match.prediction === 1) texto = 'Kleiner Angriff';
-            else if (match.prediction === 2) texto = 'Mögliche Off';
-            else if (match.prediction === 3) texto = 'Mittlerer Angriff';
-            else if (match.prediction === 4) texto = 'Großer Angriff';
-
-            const badge = document.createElement('span');
-            badge.className = 'tpSchnell-vorhersao-badge';
-            badge.textContent = texto + (match.duplicate_count ? ' ×' + match.duplicate_count : '');
-            if (match.prediction_reason) badge.title = match.prediction_reason;
-
-            const cells = row.querySelectorAll('td,th');
-            const cell = cells[sourceIndex];
-            if (cell) cell.appendChild(badge);
+        const match = sosArray.find(function (item) {
+            if (item.attacker_coords !== coords) return false;
+            if (!horaChegada) return true; // Fallback: nur nach Herkunft abgleichen
+            return timeConverterLocal(item.arrival_time) === horaChegada;
         });
 
-        log('Vorhersage angewendet: ' + sosArray.length + ' DB-Einträge, ' + treffer + ' Zeile(n) zugeordnet.');
-        if (!treffer) {
-            window.alert('Keine passenden Vorhersage-Daten für die aktuell angezeigten Zeilen gefunden (' + sosArray.length + ' Einträge insgesamt in der DB).');
+        if (!match) {
+            resultado.textContent = 'Kein Treffer für ' + (coords || '?') + ' (Ankunft ' + (horaChegada || '?') + ') unter ' + sosArray.length + ' DB-Einträgen.';
+            log('Vorhersage-Test: kein Treffer für ' + coords);
+            return;
         }
+
+        let texto = 'Unbekannt';
+        if (match.prediction === 1) texto = 'Kleiner Angriff';
+        else if (match.prediction === 2) texto = 'Mögliche Off';
+        else if (match.prediction === 3) texto = 'Mittlerer Angriff';
+        else if (match.prediction === 4) texto = 'Großer Angriff';
+
+        const badge = document.createElement('span');
+        badge.className = 'tpSchnell-vorhersao-badge';
+        badge.textContent = texto + (match.duplicate_count ? ' ×' + match.duplicate_count : '');
+        if (match.prediction_reason) badge.title = match.prediction_reason;
+
+        const cells = linha.querySelectorAll('td,th');
+        const cell = cells[sourceIndex];
+        if (cell) cell.appendChild(badge);
+
+        resultado.textContent = 'Treffer für ' + coords + ' (' + texto + '):\n' + JSON.stringify(match, null, 2);
+        log('Vorhersage-Test: Treffer für ' + coords + ' → ' + texto);
+    }
+
+    function abrirModalVorhersao() {
+        if (document.getElementById('tpSchnellVorhersaoBackdrop')) return;
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'tpSchnellVorhersaoBackdrop';
+        backdrop.className = 'tpSchnell-modal-backdrop';
+        backdrop.innerHTML =
+            '<div class="tpSchnell-modal-box">' +
+            '<h3>🔮 Vorhersage (Test: 6. Eintrag)</h3>' +
+            '<div class="tpSchnell-modal-actions">' +
+            '<button type="button" class="btn" id="tpSchnellVorhersaoClose">Schließen</button>' +
+            '</div>' +
+            '<pre id="tpSchnellVorhersaoResult" class="tpSchnell-debug-pre">Lade...</pre>' +
+            '</div>';
+
+        document.body.appendChild(backdrop);
+
+        backdrop.addEventListener('click', function (evento) {
+            if (evento.target === backdrop) fecharModalVorhersao();
+        });
+        document.getElementById('tpSchnellVorhersaoClose').addEventListener('click', fecharModalVorhersao);
+    }
+
+    function fecharModalVorhersao() {
+        const backdrop = document.getElementById('tpSchnellVorhersaoBackdrop');
+        if (backdrop) backdrop.remove();
     }
 
     function testarConsultaForge(x, y, outEl) {
