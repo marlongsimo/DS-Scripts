@@ -160,10 +160,13 @@
     }
 
     // --- Teil 4: Angriffsvorhersage (Testmodus: nur der 6. Eintrag) ---------
-    // Öffnet immer ein Popup (auch mobil, kein window.alert), fragt EINMAL
-    // das eigene Dorf ab (liefert alle sos-Einträge dafür) und gleicht damit
-    // testweise NUR den 6. Eintrag (Index 5) der Angriffsliste ab, statt
-    // die ganze Tabelle zu durchlaufen.
+    // Öffnet immer ein Popup (auch mobil, kein window.alert) und gleicht
+    // testweise NUR den 6. Eintrag (Index 5) der Angriffsliste ab, statt die
+    // ganze Tabelle zu durchlaufen. Das Zieldorf für die Forge-Abfrage wird
+    // aus der "Ziel"-Spalte DIESER Zeile gelesen (in der gesammelten
+    // Übersicht über mehrere eigene Dörfer kann jede Zeile ein anderes
+    // Zieldorf haben) - fällt auf game_data.village zurück, falls es keine
+    // eigene Ziel-Spalte gibt (einzelne Dorf-Übersicht).
     function carregarVorhersaoIncomings() {
         abrirModalVorhersao();
         const resultado = document.getElementById('tpSchnellVorhersaoResult');
@@ -172,13 +175,6 @@
         const mode = getCurrentMode();
         if (screen !== 'overview_villages' || mode !== 'incomings') {
             resultado.textContent = 'Funktioniert nur auf der Seite "Eintreffende Angriffe" deines Dorfes.';
-            return;
-        }
-
-        const village = window.game_data && window.game_data.village;
-        if (!village || !village.x || !village.y) {
-            resultado.textContent = 'Eigene Dorfkoordinaten konnten nicht ermittelt werden (game_data.village fehlt).';
-            log('Vorhersage: game_data.village nicht gefunden.');
             return;
         }
 
@@ -202,17 +198,33 @@
         }
 
         const sourceIndex = getSourceColumnIndex(table);
-        const coordsTeste = getRowCoords(linhaTeste, sourceIndex);
+        const targetIndex = getTargetColumnIndex(table);
+        const coordsOrigem = getRowCoords(linhaTeste, sourceIndex);
         const horaChegadaTeste = obterHoraChegadaDaLinha(linhaTeste);
 
-        resultado.textContent = 'Frage Server ab (Test: 6. Eintrag, ' + (coordsTeste || '?') + ', Ankunft ' + (horaChegadaTeste || '?') + ')...';
+        let coordsAlvo = targetIndex >= 0 ? getRowCoords(linhaTeste, targetIndex) : null;
+        if (!coordsAlvo) {
+            const village = window.game_data && window.game_data.village;
+            coordsAlvo = (village && village.x && village.y) ? (village.x + '|' + village.y) : null;
+        }
+
+        if (!coordsAlvo) {
+            resultado.textContent = 'Zieldorf des 6. Eintrags konnte nicht ermittelt werden (weder Ziel-Spalte noch game_data.village).';
+            return;
+        }
+
+        const partesAlvo = coordsAlvo.split('|');
+        const alvoX = partesAlvo[0];
+        const alvoY = partesAlvo[1];
+
+        resultado.textContent = 'Frage Server ab (Test: 6. Eintrag, Ziel ' + coordsAlvo + ', Herkunft ' + (coordsOrigem || '?') + ', Ankunft ' + (horaChegadaTeste || '?') + ')...';
 
         const formData = new FormData();
         formData.append('Key', key);
-        formData.append('X', village.x);
-        formData.append('Y', village.y);
+        formData.append('X', alvoX);
+        formData.append('Y', alvoY);
 
-        log('Vorhersage-Testabfrage (6. Eintrag: ' + coordsTeste + ') für eigenes Dorf ' + village.x + '|' + village.y + ' gestartet.');
+        log('Vorhersage-Testabfrage (6. Eintrag: Ziel ' + coordsAlvo + ', Herkunft ' + coordsOrigem + ') gestartet.');
 
         fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
             .then(function (resp) {
@@ -223,7 +235,7 @@
             .then(function (text) {
                 let data = null;
                 try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort war kein gültiges JSON.'); }
-                aplicarVorhersaoNaLinhaDeTeste(linhaTeste, sourceIndex, coordsTeste, horaChegadaTeste, data.sos || [], resultado);
+                aplicarVorhersaoNaLinhaDeTeste(linhaTeste, sourceIndex, coordsOrigem, horaChegadaTeste, data.sos || [], resultado);
             })
             .catch(function (erro) {
                 log('Fehler beim Laden der Vorhersage: ' + erro);
@@ -923,6 +935,23 @@
         }
 
         return 2;
+    }
+
+    // Nur in der gesammelten Übersicht über mehrere eigene Dörfer vorhanden
+    // (Spalte "Ziel"); liefert -1, wenn es keine solche Spalte gibt.
+    function getTargetColumnIndex(table) {
+        const headerRow = table.querySelector('tr:first-child');
+        if (!headerRow) return -1;
+
+        const cells = Array.from(headerRow.querySelectorAll('th,td'));
+        const words = ['ziel', 'destino', 'target', 'alvo'];
+
+        for (let i = 0; i < cells.length; i += 1) {
+            const text = clean(cells[i].textContent);
+            if (words.some(function (w) { return text.includes(w); })) return i;
+        }
+
+        return -1;
     }
 
     function markDuplicates(rows, sourceIndex) {
