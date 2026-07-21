@@ -115,7 +115,6 @@
         }
 
         addStyles();
-        criarFloatingToolbar();
         runRenameButtons();
         runDuplicateMarker();
 
@@ -163,7 +162,9 @@
         panel.id = 'tpSchnellDupPanel';
         panel.className = 'tpSchnell-dup-panel';
         panel.innerHTML =
-            '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren">';
+            '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
+            '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
+            '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen">';
 
         const filters = document.querySelector('.overview_filters');
         if (filters) filters.before(panel);
@@ -172,6 +173,8 @@
         document.getElementById('tpSchnellMarkDup').addEventListener('click', function () {
             markDuplicates(rows, sourceIndex);
         });
+        document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
+        document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
 
         // Direkt beim Laden einmal automatisch markieren
         markDuplicates(rows, sourceIndex);
@@ -242,22 +245,7 @@
         return match ? match[0] : null;
     }
 
-    // --- Floating-Toolbar mit Import/Löschen-Buttons ------------------------
-    function criarFloatingToolbar() {
-        if (document.getElementById('tpSchnellToolbar')) return;
-
-        const bar = document.createElement('div');
-        bar.id = 'tpSchnellToolbar';
-        bar.className = 'tpSchnell-toolbar';
-        bar.innerHTML =
-            '<button type="button" class="tpSchnell-toolbar-btn" id="tpSchnellImportBtn">📥 Dörfer</button>' +
-            '<button type="button" class="tpSchnell-toolbar-btn" id="tpSchnellDeleteBtn">🗑️ DB</button>';
-        document.body.appendChild(bar);
-
-        document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
-        document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
-    }
-
+    // --- Import/Löschen-Logik (Buttons sitzen im Duplikate-Panel) -----------
     function apagarDorfInfosComConfirmacao() {
         if (!window.confirm('Wirklich ALLE gespeicherten Dorfinfos löschen?')) return;
         apagarDorfInfos();
@@ -604,7 +592,7 @@
 
     function obterContainerBotoes(linha) {
         const quickedit = linha.querySelector(SELETORES.quickedit);
-        if (quickedit) return quickedit;
+        if (quickedit) return quickedit.closest('td') || quickedit.parentElement || quickedit;
         const label = linha.querySelector(SELETORES.etiquetaNome);
         return (label && (label.closest('td') || label.parentElement)) || null;
     }
@@ -790,15 +778,13 @@
             }
 
             .tpSchnell-botoes {
-                float: right;
-                display: inline-flex;
+                display: flex;
                 flex-wrap: wrap;
-                gap: 1px;
+                gap: 2px;
                 align-items: center;
-                justify-content: flex-end;
-                margin-left: 4px;
-                max-width: 100%;
-                vertical-align: middle;
+                width: 100%;
+                margin: 3px 0 0 0;
+                clear: both;
             }
 
             .tpSchnell-botao {
@@ -854,32 +840,6 @@
 
             .tpSchnell-grupo-start {
                 margin-left: 9px !important;
-            }
-
-            .tpSchnell-toolbar {
-                position: fixed;
-                bottom: 12px;
-                right: 12px;
-                z-index: 999997;
-                display: flex;
-                flex-direction: column;
-                gap: 6px;
-            }
-
-            .tpSchnell-toolbar-btn {
-                border: 1px solid rgba(255, 255, 255, 0.5);
-                border-radius: 5px;
-                background: rgba(30, 30, 30, 0.85);
-                color: #fff;
-                font-size: 12px;
-                padding: 6px 10px;
-                cursor: pointer;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-                white-space: nowrap;
-            }
-
-            .tpSchnell-toolbar-btn:hover {
-                background: rgba(55, 55, 55, 0.92);
             }
 
             .tpSchnell-modal-backdrop {
