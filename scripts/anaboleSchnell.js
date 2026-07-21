@@ -271,6 +271,10 @@
             '<button type="button" class="btn" id="tpSchnellImportSave">Importieren</button>' +
             '</div>' +
             '<div id="tpSchnellImportResult"></div>' +
+            '<hr class="tpSchnell-modal-trenner">' +
+            '<h4>Vorhandene Einträge (<span id="tpSchnellExistCount">0</span>)</h4>' +
+            '<input type="text" id="tpSchnellExistSearch" placeholder="Suchen (Koordinate oder Text)...">' +
+            '<div id="tpSchnellExistList" class="tpSchnell-exist-list"></div>' +
             '</div>';
 
         document.body.appendChild(backdrop);
@@ -280,6 +284,93 @@
         });
         document.getElementById('tpSchnellImportCancel').addEventListener('click', fecharModalDorfImport);
         document.getElementById('tpSchnellImportSave').addEventListener('click', salvarImportDorf);
+        document.getElementById('tpSchnellExistSearch').addEventListener('input', function () {
+            renderizarListaExistente(this.value);
+        });
+
+        renderizarListaExistente('');
+    }
+
+    function renderizarListaExistente(filtro) {
+        const lista = document.getElementById('tpSchnellExistList');
+        const contagem = document.getElementById('tpSchnellExistCount');
+        if (!lista || !contagem) return;
+
+        const termo = clean(filtro || '');
+        const dados = obterDorfInfos();
+
+        const entradas = Object.keys(dados)
+            .map(function (coords) { return { coords: coords, valor: obterInfoParaCoords(coords) || '' }; })
+            .filter(function (entrada) {
+                if (!termo) return true;
+                return clean(entrada.coords).includes(termo) || clean(entrada.valor).includes(termo);
+            })
+            .sort(function (a, b) { return a.coords.localeCompare(b.coords, 'de', { numeric: true }); });
+
+        contagem.textContent = Object.keys(dados).length;
+        lista.innerHTML = '';
+
+        if (!entradas.length) {
+            const vazio = document.createElement('p');
+            vazio.className = 'tpSchnell-exist-empty';
+            vazio.textContent = termo ? 'Keine Treffer.' : 'Noch keine Einträge gespeichert.';
+            lista.appendChild(vazio);
+            return;
+        }
+
+        entradas.forEach(function (entrada) {
+            lista.appendChild(criarLinhaExistente(entrada.coords, entrada.valor));
+        });
+    }
+
+    function criarLinhaExistente(coords, valorAtual) {
+        const linha = document.createElement('div');
+        linha.className = 'tpSchnell-exist-row';
+
+        const labelCoords = document.createElement('span');
+        labelCoords.className = 'tpSchnell-exist-coords';
+        labelCoords.textContent = coords;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'tpSchnell-exist-input';
+        input.value = valorAtual;
+
+        function salvarEdicao() {
+            const dados = obterDorfInfos();
+            const novoValor = normalizarEspacos(input.value);
+            if (!novoValor) {
+                delete dados[coords];
+            } else {
+                dados[coords] = novoValor;
+            }
+            salvarDorfInfos(dados);
+            atualizarTudoAgora();
+        }
+
+        input.addEventListener('change', salvarEdicao);
+        input.addEventListener('keydown', function (evento) {
+            if (evento.key === 'Enter') input.blur();
+        });
+
+        const btnExcluir = document.createElement('button');
+        btnExcluir.type = 'button';
+        btnExcluir.className = 'btn tpSchnell-exist-delete';
+        btnExcluir.textContent = '🗑️';
+        btnExcluir.title = 'Eintrag löschen';
+        btnExcluir.addEventListener('click', function () {
+            const dados = obterDorfInfos();
+            delete dados[coords];
+            salvarDorfInfos(dados);
+            atualizarTudoAgora();
+            linha.remove();
+            document.getElementById('tpSchnellExistCount').textContent = Object.keys(obterDorfInfos()).length;
+        });
+
+        linha.appendChild(labelCoords);
+        linha.appendChild(input);
+        linha.appendChild(btnExcluir);
+        return linha;
     }
 
     function fecharModalDorfImport() {
@@ -309,8 +400,10 @@
         salvarDorfInfos(dados);
 
         resultado.textContent = unicos.length + ' Dorf/Dörfer gespeichert.';
+        coordsInput.value = '';
+        infoInput.value = '';
         atualizarTudoAgora();
-        setTimeout(fecharModalDorfImport, 900);
+        renderizarListaExistente(document.getElementById('tpSchnellExistSearch').value);
     }
 
     // --- Info-Icon + Tooltip-Overlay (auch mobil per Tap) -------------------
@@ -592,7 +685,7 @@
 
     function obterContainerBotoes(linha) {
         const quickedit = linha.querySelector(SELETORES.quickedit);
-        if (quickedit) return quickedit.closest('td') || quickedit.parentElement || quickedit;
+        if (quickedit) return quickedit;
         const label = linha.querySelector(SELETORES.etiquetaNome);
         return (label && (label.closest('td') || label.parentElement)) || null;
     }
@@ -763,6 +856,17 @@
         style.textContent = `
             .tpSchnell-dup-panel {
                 padding: 4px 0;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .tpSchnell-dup-panel .btn {
+                display: inline-block !important;
+                width: auto !important;
+                flex: 0 0 auto;
+                margin: 0 !important;
             }
 
             .tpSchnell-dup-badge {
@@ -778,13 +882,15 @@
             }
 
             .tpSchnell-botoes {
-                display: flex;
+                float: right;
+                display: inline-flex;
                 flex-wrap: wrap;
-                gap: 2px;
+                gap: 1px;
                 align-items: center;
-                width: 100%;
-                margin: 3px 0 0 0;
-                clear: both;
+                justify-content: flex-end;
+                margin-left: 4px;
+                max-width: 100%;
+                vertical-align: middle;
             }
 
             .tpSchnell-botao {
@@ -895,6 +1001,72 @@
                 margin-top: 8px;
                 font-size: 11px;
                 min-height: 14px;
+            }
+
+            .tpSchnell-modal-trenner {
+                margin: 12px 0 8px;
+                border: none;
+                border-top: 1px solid rgba(125, 81, 15, 0.4);
+            }
+
+            .tpSchnell-modal-box h4 {
+                margin: 0 0 6px;
+                font-size: 12px;
+            }
+
+            #tpSchnellExistSearch {
+                width: 100%;
+                box-sizing: border-box;
+                margin-bottom: 6px;
+                font-size: 12px;
+            }
+
+            .tpSchnell-exist-list {
+                max-height: 180px;
+                overflow-y: auto;
+                border: 1px solid rgba(125, 81, 15, 0.35);
+                border-radius: 4px;
+                padding: 4px;
+                background: rgba(255, 255, 255, 0.35);
+            }
+
+            .tpSchnell-exist-empty {
+                margin: 4px 2px;
+                font-size: 11px;
+                font-style: italic;
+                opacity: 0.75;
+            }
+
+            .tpSchnell-exist-row {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 2px 0;
+            }
+
+            .tpSchnell-exist-row + .tpSchnell-exist-row {
+                border-top: 1px solid rgba(125, 81, 15, 0.15);
+            }
+
+            .tpSchnell-exist-coords {
+                flex: 0 0 auto;
+                font-size: 11px;
+                font-weight: 700;
+                white-space: nowrap;
+                min-width: 58px;
+            }
+
+            .tpSchnell-exist-input {
+                flex: 1 1 auto;
+                min-width: 0;
+                font-size: 11px;
+                box-sizing: border-box;
+            }
+
+            .tpSchnell-exist-delete {
+                flex: 0 0 auto;
+                padding: 2px 6px !important;
+                font-size: 11px !important;
             }
 
             .tpSchnell-info-icon {
