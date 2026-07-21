@@ -296,7 +296,14 @@
 
         const linhas = [texto];
         if (match.prediction_reason) linhas.push('Grund: ' + match.prediction_reason);
-        if (match.duplicate_count && match.duplicate_count > 1) linhas.push('Duplikate: ' + match.duplicate_count);
+        // duplicate_count aus der Forge-API zählt die ANDEREN Angriffe zu
+        // diesem Angriff, nicht ihn selbst mit (0 = keine weiteren, 1 = ein
+        // weiterer usw.).
+        if (typeof match.duplicate_count === 'number') {
+            linhas.push(match.duplicate_count === 0
+                ? 'Keine weiteren Angriffe'
+                : 'Weitere Angriffe: ' + match.duplicate_count);
+        }
         return linhas.join('\n');
     }
 
