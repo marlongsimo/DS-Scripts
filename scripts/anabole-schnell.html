@@ -94,9 +94,22 @@
             Gruppe per 🗑️-Button auf einen Schlag löschen.
           </p>
           <p>
+            Ebenfalls in dieser Zeile: <strong>„🔮 Vorhersage laden“</strong>
+            fragt <strong>einmalig</strong> das eigene Dorf (Koordinaten aus
+            <code>game_data.village</code>) beim Forge-DB-Info-Dienst ab
+            (derselbe API-Key wie bei „🧪 DB-Test“) und ordnet die
+            zurückgelieferten Angriffsvorhersagen anhand von
+            Herkunftskoordinate und Ankunftszeit den passenden Zeilen der
+            Angriffsübersicht zu – als farbiges Badge direkt in der Zeile,
+            statt jede Zeile einzeln abzufragen. Auch hier findet
+            <strong>keine automatische Abfrage</strong> im Hintergrund statt,
+            nur auf ausdrücklichen Klick auf den Button.
+          </p>
+          <p>
             In derselben Zeile wie „Wiederholte Angriffe markieren“,
-            „📥 Dörfer importieren“ und „🗑️ Dorfinfos löschen“ stehen
-            außerdem zwei Diagnose-Tools: <strong>„🧪 DB-Test“</strong>
+            „📥 Dörfer importieren“, „🗑️ Dorfinfos löschen“ und
+            „🔮 Vorhersage laden“ stehen außerdem zwei Diagnose-Tools:
+            <strong>„🧪 DB-Test“</strong>
             öffnet ein Fenster, in dem sich ein API-Key für den
             Forge-DB-Info-Dienst hinterlegen lässt (derselbe
             <code>localStorage</code>-Schlüssel wie beim offiziellen
@@ -136,6 +149,10 @@
             <div>
               <span class="label">Aktualisierung</span>
               <span class="value">Läuft dauerhaft im Hintergrund (MutationObserver + Intervall), erkennt neu geladene Zeilen automatisch</span>
+            </div>
+            <div>
+              <span class="label">Angriffsvorhersage</span>
+              <span class="value">„🔮 Vorhersage laden“ fragt einmalig das eigene Dorf beim Forge-DB-Info-Dienst ab und zeigt Badges pro Zeile, nur auf Klick aktiv</span>
             </div>
             <div>
               <span class="label">Diagnose-Werkzeuge</span>
@@ -201,12 +218,15 @@
           </p>
 
           <div class="note warn" style="margin-top:1.4rem;">
-            Nutzung auf eigene Verantwortung. Das Script sendet nichts
-            automatisch ab – es öffnet lediglich die im Spiel vorhandene
+            Nutzung auf eigene Verantwortung. Das Umbenennen selbst passiert
+            komplett lokal – es öffnet lediglich die im Spiel vorhandene
             Umbenennen-Funktion und trägt den Tag-Text ein, das Speichern
             übernimmt dabei denselben Dialog wie bei manueller Bedienung.
-            Bitte vorab die Regeln deines Servers zu Skripten/Bookmarklets
-            prüfen.
+            Einzige Ausnahme: „🧪 DB-Test“ und „🔮 Vorhersage laden“ senden
+            auf Klick den gespeicherten API-Key zusammen mit Koordinaten an
+            den externen Dienst <code>twforge.net</code> – dort sollte nur
+            ein Key hinterlegt werden, dem vertraut wird. Bitte vorab die
+            Regeln deines Servers zu Skripten/Bookmarklets prüfen.
           </div>
         </div>
       </div>

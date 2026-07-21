@@ -141,6 +141,119 @@
         return 'https://twforge.net/api/db-info/userscript?action=tribalwars&world=' + encodeURIComponent(world);
     }
 
+    // Gleiche Zeitformatierung wie im Original-DB-Info-Skript (timeConverter),
+    // hier lokal nachgebaut, um Ankunftszeiten aus der API mit der Tabelle
+    // abzugleichen, ohne DBInfo selbst laden zu müssen.
+    function timeConverterLocal(unixTimestamp) {
+        if (!unixTimestamp) return '';
+        const a = new Date(unixTimestamp * 1000);
+        const pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+        return pad(a.getHours()) + ':' + pad(a.getMinutes()) + ':' + pad(a.getSeconds());
+    }
+
+    // Sucht in einer Tabellenzeile nach einer Uhrzeit im Format HH:MM:SS
+    // (Ankunftszeitpunkt eines eingehenden Angriffs).
+    function obterHoraChegadaDaLinha(linha) {
+        const texto = linha.textContent || '';
+        const match = texto.match(/\b([01]\d|2[0-3]):[0-5]\d:[0-5]\d\b/);
+        return match ? match[0] : null;
+    }
+
+    // --- Teil 4: Angriffsvorhersage direkt in die Incomings-Tabelle laden ---
+    // Fragt EINMAL das eigene Dorf ab (liefert alle sos-Einträge dafür) und
+    // gleicht jede Zeile in der Tabelle anhand Herkunftskoordinate + Ankunfts-
+    // uhrzeit mit den sos-Einträgen ab, statt pro Zeile einzeln anzufragen.
+    function carregarVorhersaoIncomings() {
+        const screen = String((window.game_data || {}).screen || '');
+        const mode = getCurrentMode();
+        if (screen !== 'overview_villages' || mode !== 'incomings') {
+            window.alert('Funktioniert nur auf der Seite "Eintreffende Angriffe" deines Dorfes.');
+            return;
+        }
+
+        const village = window.game_data && window.game_data.village;
+        if (!village || !village.x || !village.y) {
+            window.alert('Eigene Dorfkoordinaten konnten nicht ermittelt werden (game_data.village fehlt).');
+            log('Vorhersage: game_data.village nicht gefunden.');
+            return;
+        }
+
+        const key = getDbKey();
+        if (!key) {
+            window.alert('Bitte zuerst deinen API-Key im DB-Test-Popup eingeben und speichern.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('Key', key);
+        formData.append('X', village.x);
+        formData.append('Y', village.y);
+
+        log('Vorhersage-Abfrage für eigenes Dorf ' + village.x + '|' + village.y + ' gestartet.');
+
+        fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
+            .then(function (resp) {
+                log('Vorhersage-Antwort → HTTP ' + resp.status);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                return resp.text();
+            })
+            .then(function (text) {
+                let data = null;
+                try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort war kein gültiges JSON.'); }
+                aplicarVorhersaoNaTabela(data.sos || []);
+            })
+            .catch(function (erro) {
+                log('Fehler beim Laden der Vorhersage: ' + erro);
+                window.alert('Fehler beim Laden der Vorhersage: ' + erro.message);
+            });
+    }
+
+    function aplicarVorhersaoNaTabela(sosArray) {
+        const table = document.querySelector('#incomings_table');
+        if (!table) return;
+
+        table.querySelectorAll('.tpSchnell-vorhersao-badge').forEach(function (b) { b.remove(); });
+
+        const sourceIndex = getSourceColumnIndex(table);
+        const rows = Array.from(table.querySelectorAll('tr.row_a, tr.row_b'));
+        let treffer = 0;
+
+        rows.forEach(function (row) {
+            const coords = getRowCoords(row, sourceIndex);
+            const horaChegada = obterHoraChegadaDaLinha(row);
+            if (!coords) return;
+
+            const match = sosArray.find(function (item) {
+                if (item.attacker_coords !== coords) return false;
+                if (!horaChegada) return true; // Fallback: nur nach Herkunft abgleichen
+                return timeConverterLocal(item.arrival_time) === horaChegada;
+            });
+
+            if (!match) return;
+            treffer += 1;
+
+            let texto = 'Unbekannt';
+            if (match.prediction === 1) texto = 'Kleiner Angriff';
+            else if (match.prediction === 2) texto = 'Mögliche Off';
+            else if (match.prediction === 3) texto = 'Mittlerer Angriff';
+            else if (match.prediction === 4) texto = 'Großer Angriff';
+
+            const badge = document.createElement('span');
+            badge.className = 'tpSchnell-vorhersao-badge';
+            badge.textContent = texto + (match.duplicate_count ? ' ×' + match.duplicate_count : '');
+            if (match.prediction_reason) badge.title = match.prediction_reason;
+
+            const cells = row.querySelectorAll('td,th');
+            const cell = cells[sourceIndex];
+            if (cell) cell.appendChild(badge);
+        });
+
+        log('Vorhersage angewendet: ' + sosArray.length + ' DB-Einträge, ' + treffer + ' Zeile(n) zugeordnet.');
+        if (!treffer) {
+            window.alert('Keine passenden Vorhersage-Daten für die aktuell angezeigten Zeilen gefunden (' + sosArray.length + ' Einträge insgesamt in der DB).');
+        }
+    }
+
     function testarConsultaForge(x, y, outEl) {
         const key = getDbKey();
         if (!key) {
@@ -386,6 +499,7 @@
             '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
             '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
             '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen"> ' +
+            '<input type="button" class="btn" id="tpSchnellVorhersaoBtn" value="🔮 Vorhersage laden"> ' +
             '<input type="button" class="btn" id="tpSchnellDbTestOpenPanel" value="🧪 DB-Test"> ' +
             '<input type="button" class="btn" id="tpSchnellDebugOpenPanel" value="🐞 Debug">';
 
@@ -398,6 +512,7 @@
         });
         document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
         document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
+        document.getElementById('tpSchnellVorhersaoBtn').addEventListener('click', carregarVorhersaoIncomings);
         document.getElementById('tpSchnellDbTestOpenPanel').addEventListener('click', abrirModalDbTest);
         document.getElementById('tpSchnellDebugOpenPanel').addEventListener('click', function () {
             if (document.getElementById('tpSchnellDebugPanel')) fecharDebugPainel();
@@ -1148,6 +1263,20 @@
                 color: #fff;
                 line-height: 14px;
                 vertical-align: middle;
+            }
+
+            .tpSchnell-vorhersao-badge {
+                display: inline-block;
+                margin-left: 4px;
+                padding: 0 5px;
+                border-radius: 3px;
+                font-size: 10px;
+                font-weight: bold;
+                color: #fff;
+                background: #9232a8;
+                line-height: 14px;
+                vertical-align: middle;
+                cursor: help;
             }
 
             .tpSchnell-botoes {
