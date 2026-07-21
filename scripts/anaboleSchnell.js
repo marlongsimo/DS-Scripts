@@ -173,14 +173,14 @@
         return h + ':' + partes[1] + ':' + partes[2];
     }
 
-    // --- Teil 4: Angriffsvorhersage (Testmodus: nur der 6. Eintrag) ---------
-    // Öffnet immer ein Popup (auch mobil, kein window.alert) und gleicht
-    // testweise NUR den 6. Eintrag (Index 5) der Angriffsliste ab, statt die
-    // ganze Tabelle zu durchlaufen. Das Zieldorf für die Forge-Abfrage wird
-    // aus der "Ziel"-Spalte DIESER Zeile gelesen (in der gesammelten
-    // Übersicht über mehrere eigene Dörfer kann jede Zeile ein anderes
-    // Zieldorf haben) - fällt auf game_data.village zurück, falls es keine
-    // eigene Ziel-Spalte gibt (einzelne Dorf-Übersicht).
+    // --- Teil 4: Angriffsvorhersage für ALLE Zeilen -------------------------
+    // Öffnet immer ein Popup (auch mobil, kein window.alert). Zeilen werden
+    // nach Zieldorf gruppiert (aus der "Ziel"-Spalte, sonst game_data.village
+    // als Fallback für die Einzeldorf-Ansicht), damit jedes Zieldorf nur
+    // EINMAL abgefragt wird, auch wenn mehrere Zeilen dasselbe Ziel haben.
+    // Pro Zeile erscheint ein "i"-Symbol mit der Vorhersage als Tooltip
+    // (Einordnung, Grund, Duplikate), oder ein "?"-Symbol, wenn für die
+    // Herkunftskoordinate kein passender DB-Eintrag gefunden wurde.
     function carregarVorhersaoIncomings() {
         abrirModalVorhersao();
         const resultado = document.getElementById('tpSchnellVorhersaoResult');
@@ -205,104 +205,127 @@
         }
 
         const rows = Array.from(table.querySelectorAll('tr.row_a, tr.row_b'));
-        const linhaTeste = rows[5];
-        if (!linhaTeste) {
-            resultado.textContent = 'Kein 6. Eintrag in der Liste vorhanden (nur ' + rows.length + ' Zeile(n)).';
+        if (!rows.length) {
+            resultado.textContent = 'Keine Angriffszeilen gefunden.';
             return;
         }
 
         const sourceIndex = getSourceColumnIndex(table);
         const targetIndex = getTargetColumnIndex(table);
-        const coordsOrigem = getRowCoords(linhaTeste, sourceIndex);
-        const horaChegadaTeste = obterHoraChegadaDaLinha(linhaTeste);
+        const village = window.game_data && window.game_data.village;
+        const coordsPadrao = (village && village.x && village.y) ? (village.x + '|' + village.y) : null;
 
-        let coordsAlvo = targetIndex >= 0 ? getRowCoords(linhaTeste, targetIndex) : null;
-        if (!coordsAlvo) {
-            const village = window.game_data && window.game_data.village;
-            coordsAlvo = (village && village.x && village.y) ? (village.x + '|' + village.y) : null;
-        }
+        const grupos = {};
+        rows.forEach(function (row) {
+            const alvoLinha = targetIndex >= 0 ? getRowCoords(row, targetIndex) : null;
+            const alvo = alvoLinha || coordsPadrao;
+            if (!alvo) return;
+            if (!grupos[alvo]) grupos[alvo] = [];
+            grupos[alvo].push(row);
+        });
 
-        if (!coordsAlvo) {
-            resultado.textContent = 'Zieldorf des 6. Eintrags konnte nicht ermittelt werden (weder Ziel-Spalte noch game_data.village).';
+        const alvos = Object.keys(grupos);
+        if (!alvos.length) {
+            resultado.textContent = 'Kein Zieldorf ermittelbar (weder Ziel-Spalte noch game_data.village).';
             return;
         }
 
-        const partesAlvo = coordsAlvo.split('|');
-        const alvoX = partesAlvo[0];
-        const alvoY = partesAlvo[1];
+        resultado.textContent = 'Frage ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) ab...';
+        log('Vorhersage: ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) werden abgefragt.');
 
-        resultado.textContent = 'Frage Server ab (Test: 6. Eintrag, Ziel ' + coordsAlvo + ', Herkunft ' + (coordsOrigem || '?') + ', Ankunft ' + (horaChegadaTeste || '?') + ')...';
+        let pendentes = alvos.length;
+        let totalZeilen = 0;
+        let totalTreffer = 0;
+        let algumErro = null;
 
-        const formData = new FormData();
-        formData.append('Key', key);
-        formData.append('X', alvoX);
-        formData.append('Y', alvoY);
+        alvos.forEach(function (alvo) {
+            const partes = alvo.split('|');
+            const formData = new FormData();
+            formData.append('Key', key);
+            formData.append('X', partes[0]);
+            formData.append('Y', partes[1]);
 
-        log('Vorhersage-Testabfrage (6. Eintrag: Ziel ' + coordsAlvo + ', Herkunft ' + coordsOrigem + ') gestartet.');
-
-        fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
-            .then(function (resp) {
-                log('Vorhersage-Antwort → HTTP ' + resp.status);
-                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
-                return resp.text();
-            })
-            .then(function (text) {
-                let data = null;
-                try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort war kein gültiges JSON.'); }
-                aplicarVorhersaoNaLinhaDeTeste(linhaTeste, sourceIndex, coordsOrigem, horaChegadaTeste, data.sos || [], resultado);
-            })
-            .catch(function (erro) {
-                log('Fehler beim Laden der Vorhersage: ' + erro);
-                resultado.textContent = 'Fehler beim Laden der Vorhersage: ' + erro.message;
-            });
+            fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
+                .then(function (resp) {
+                    log('Vorhersage-Antwort (' + alvo + ') → HTTP ' + resp.status);
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                    return resp.text();
+                })
+                .then(function (text) {
+                    let data = null;
+                    try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort für ' + alvo + ' war kein gültiges JSON.'); }
+                    grupos[alvo].forEach(function (row) {
+                        totalZeilen += 1;
+                        if (aplicarVorhersaoNaLinha(row, sourceIndex, data.sos || [])) totalTreffer += 1;
+                    });
+                })
+                .catch(function (erro) {
+                    algumErro = erro;
+                    log('Fehler beim Laden der Vorhersage für ' + alvo + ': ' + erro);
+                    grupos[alvo].forEach(function (row) {
+                        totalZeilen += 1;
+                        aplicarVorhersaoNaLinha(row, sourceIndex, null);
+                    });
+                })
+                .then(function () {
+                    pendentes -= 1;
+                    if (pendentes === 0) {
+                        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet (' + alvos.length + ' Zieldorf/Zieldörfer abgefragt)' +
+                            (algumErro ? '. Fehler bei mind. einer Abfrage, siehe Debug-Konsole.' : '.');
+                    }
+                });
+        });
     }
 
-    function aplicarVorhersaoNaLinhaDeTeste(linha, sourceIndex, coords, horaChegada, sosArray, resultado) {
-        linha.querySelectorAll('.tpSchnell-vorhersao-badge').forEach(function (b) { b.remove(); });
-
-        // Primär nur über die Herkunftskoordinate abgleichen (eindeutig in
-        // den allermeisten Fällen). Die Ankunftszeit aus der API ist ein
-        // Unix-Timestamp und timeConverterLocal() rechnet ihn in die lokale
-        // Zeitzone des Browsers um - das muss nicht mit der im Spiel
-        // angezeigten Ankunftszeit übereinstimmen (Server-/Spielzeitzone
-        // kann abweichen), daher dient die Ankunftszeit nur noch als
-        // Tie-Breaker, wenn mehrere Einträge dieselbe Koordinate haben.
+    // Ermittelt den passenden sos-Eintrag primär über die Herkunfts-
+    // koordinate (in der Praxis meist eindeutig); die Ankunftszeit dient nur
+    // als Tie-Breaker, falls mehrere Einträge dieselbe Koordinate haben.
+    function encontrarPrevisaoParaLinha(coords, horaChegada, sosArray) {
         const kandidaten = sosArray.filter(function (item) { return item.attacker_coords === coords; });
-
-        let match = null;
-        if (kandidaten.length <= 1) {
-            match = kandidaten[0] || null;
-        } else if (horaChegada) {
-            match = kandidaten.find(function (item) {
+        if (kandidaten.length <= 1) return kandidaten[0] || null;
+        if (horaChegada) {
+            const porHora = kandidaten.find(function (item) {
                 return timeConverterLocal(item.arrival_time) === horaChegada;
-            }) || kandidaten[0];
-        } else {
-            match = kandidaten[0];
+            });
+            if (porHora) return porHora;
         }
+        return kandidaten[0];
+    }
 
-        if (!match) {
-            resultado.textContent = 'Kein Treffer für ' + (coords || '?') + ' (Ankunft ' + (horaChegada || '?') + ') unter ' + sosArray.length + ' DB-Einträgen.';
-            log('Vorhersage-Test: kein Treffer für ' + coords);
-            return;
-        }
-
+    function formatarResumoVorhersao(match) {
         let texto = 'Unbekannt';
         if (match.prediction === 1) texto = 'Kleiner Angriff';
         else if (match.prediction === 2) texto = 'Mögliche Off';
         else if (match.prediction === 3) texto = 'Mittlerer Angriff';
         else if (match.prediction === 4) texto = 'Großer Angriff';
 
-        const badge = document.createElement('span');
-        badge.className = 'tpSchnell-vorhersao-badge';
-        badge.textContent = texto + (match.duplicate_count ? ' ×' + match.duplicate_count : '');
-        if (match.prediction_reason) badge.title = match.prediction_reason;
+        const linhas = [texto];
+        if (match.prediction_reason) linhas.push('Grund: ' + match.prediction_reason);
+        if (match.duplicate_count && match.duplicate_count > 1) linhas.push('Duplikate: ' + match.duplicate_count);
+        return linhas.join('\n');
+    }
 
-        const cells = linha.querySelectorAll('td,th');
+    // sosArray === null bedeutet: Abfrage für das Zieldorf dieser Zeile ist
+    // fehlgeschlagen (z.B. Netzwerkfehler) - dann wie "kein Treffer" behandeln.
+    function aplicarVorhersaoNaLinha(row, sourceIndex, sosArray) {
+        row.querySelectorAll('.tpSchnell-vorhersao-icon').forEach(function (el) { el.remove(); });
+
+        const cells = row.querySelectorAll('td,th');
         const cell = cells[sourceIndex];
-        if (cell) cell.appendChild(badge);
+        if (!cell) return false;
 
-        resultado.textContent = 'Treffer für ' + coords + ' (' + texto + '):\n' + JSON.stringify(match, null, 2);
-        log('Vorhersage-Test: Treffer für ' + coords + ' → ' + texto);
+        const coords = getRowCoords(row, sourceIndex);
+        const horaChegada = obterHoraChegadaDaLinha(row);
+        const match = (sosArray && coords) ? encontrarPrevisaoParaLinha(coords, horaChegada, sosArray) : null;
+
+        const icone = match
+            ? criarInfoIcon(formatarResumoVorhersao(match), { simbolo: 'i', ariaPrefixo: 'Vorhersage: ', classeExtra: 'tpSchnell-info-icon--vorhersao' })
+            : criarInfoIcon('Keine Vorhersage-Daten für dieses Herkunftsdorf gefunden.', { simbolo: '?', ariaPrefixo: 'Vorhersage: ', classeExtra: 'tpSchnell-info-icon--vorhersao-vazio' });
+
+        icone.classList.add('tpSchnell-vorhersao-icon');
+        cell.appendChild(icone);
+
+        return !!match;
     }
 
     function abrirModalVorhersao() {
@@ -313,7 +336,7 @@
         backdrop.className = 'tpSchnell-modal-backdrop';
         backdrop.innerHTML =
             '<div class="tpSchnell-modal-box">' +
-            '<h3>🔮 Vorhersage (Test: 6. Eintrag)</h3>' +
+            '<h3>🔮 Vorhersage laden</h3>' +
             '<div class="tpSchnell-modal-actions">' +
             '<button type="button" class="btn" id="tpSchnellVorhersaoClose">Schließen</button>' +
             '</div>' +
@@ -870,13 +893,14 @@
     }
 
     // --- Info-Icon + Tooltip-Overlay (auch mobil per Tap) -------------------
-    function criarInfoIcon(infoText) {
+    function criarInfoIcon(infoText, opcoes) {
+        opcoes = opcoes || {};
         const icone = document.createElement('span');
-        icone.className = 'tpSchnell-info-icon';
-        icone.textContent = 'i';
+        icone.className = 'tpSchnell-info-icon' + (opcoes.classeExtra ? ' ' + opcoes.classeExtra : '');
+        icone.textContent = opcoes.simbolo || 'i';
         icone.tabIndex = 0;
         icone.setAttribute('role', 'button');
-        icone.setAttribute('aria-label', 'Dorfinfo: ' + infoText);
+        icone.setAttribute('aria-label', (opcoes.ariaPrefixo || 'Dorfinfo: ') + infoText);
 
         icone.addEventListener('mouseenter', function () {
             if (!(tooltipPinned && tooltipAlvo === icone)) mostrarTooltip(icone, infoText);
@@ -1361,20 +1385,6 @@
                 vertical-align: middle;
             }
 
-            .tpSchnell-vorhersao-badge {
-                display: inline-block;
-                margin-left: 4px;
-                padding: 0 5px;
-                border-radius: 3px;
-                font-size: 10px;
-                font-weight: bold;
-                color: #fff;
-                background: #9232a8;
-                line-height: 14px;
-                vertical-align: middle;
-                cursor: help;
-            }
-
             .tpSchnell-botoes {
                 float: right;
                 display: inline-flex;
@@ -1610,6 +1620,26 @@
                 background: #d3e9ff;
             }
 
+            .tpSchnell-info-icon--vorhersao {
+                border-color: #9232a8;
+                background: #f4e4ff;
+                color: #9232a8;
+            }
+
+            .tpSchnell-info-icon--vorhersao:hover {
+                background: #e9ccff;
+            }
+
+            .tpSchnell-info-icon--vorhersao-vazio {
+                border-color: #828891;
+                background: #eceef1;
+                color: #5a6068;
+            }
+
+            .tpSchnell-info-icon--vorhersao-vazio:hover {
+                background: #dde0e4;
+            }
+
             .tpSchnell-tooltip {
                 position: fixed;
                 z-index: 999999;
@@ -1623,6 +1653,7 @@
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
                 pointer-events: none;
                 word-wrap: break-word;
+                white-space: pre-line;
             }
 
             .tpSchnell-debug-pre,
