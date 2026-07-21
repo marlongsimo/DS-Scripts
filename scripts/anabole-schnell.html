@@ -91,15 +91,18 @@
             Welt-Kennung), du musst also nur noch deinen eigenen API-Key
             eintragen – der Endpunkt lässt sich bei Bedarf aber auch ändern.
             Sobald ein Key hinterlegt ist, fragt das Script pro
-            Herkunftskoordinate eine Angriffs-Vorhersage ab (Größenschätzung,
-            Begründung, Anzahl Duplikate) und zeigt sie über ein zusätzliches
-            (orange hervorgehobenes) Info-Symbol an – abgeglichen über die
-            Ankunftszeit der Zeile. Ohne hinterlegten Key bleibt diese Abfrage
-            komplett inaktiv. <strong>Wichtig:</strong> Endpunkt und Key
-            werden nur lokal im Browser gespeichert, aber bei jeder Abfrage im
-            Klartext an den eingetragenen Endpunkt gesendet – bei einem
-            geänderten, selbst eingetragenen Endpunkt nur einen Dienst
-            nutzen, dem du vertraust.
+            Herkunftskoordinate eine kurze Dorf-Zusammenfassung ab (Dorftyp
+            Off/Deff, Zeitpunkt des letzten Angriffs bzw. der letzten
+            Verteidigung, Anzahl eingehender Angriffe insgesamt samt
+            Aufschlüsselung nach Größenschätzung) und zeigt sie über ein
+            zusätzliches (orange hervorgehobenes) Info-Symbol an – bei
+            vorhandenem eigenen Dorf-Info-Text werden beide kombiniert
+            angezeigt. Ohne hinterlegten Key bleibt diese Abfrage komplett
+            inaktiv. <strong>Wichtig:</strong> Endpunkt und Key werden nur
+            lokal im Browser gespeichert, aber bei jeder Abfrage im Klartext
+            an den eingetragenen Endpunkt gesendet – bei einem geänderten,
+            selbst eingetragenen Endpunkt nur einen Dienst nutzen, dem du
+            vertraust.
           </p>
 
           <div class="script-meta">
@@ -133,7 +136,7 @@
             </div>
             <div>
               <span class="label">Forge-API (optional)</span>
-              <span class="value">Endpunkt vorbelegt mit twforge.net (inkl. Welt), nur eigener Key nötig über „🔑 Forge API“; liefert Angriffs-Vorhersage pro Herkunftsdorf; ohne Key inaktiv</span>
+              <span class="value">Endpunkt vorbelegt mit twforge.net (inkl. Welt), nur eigener Key nötig über „🔑 Forge API“; liefert Dorf-Zusammenfassung (Typ, letzter Angriff/Verteidigung, eingehende Angriffe) pro Herkunftsdorf; ohne Key inaktiv</span>
             </div>
           </div>
 
