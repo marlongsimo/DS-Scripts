@@ -95,18 +95,23 @@
           </p>
           <p>
             Ebenfalls in dieser Zeile: <strong>„🔮 Vorhersage laden“</strong>
-            öffnet zunächst ein Popup-Fenster (funktioniert auch mobil) und
-            fragt <strong>einmalig</strong> das eigene Dorf (Koordinaten aus
-            <code>game_data.village</code>) beim Forge-DB-Info-Dienst ab
-            (derselbe API-Key wie bei „🧪 DB-Test“). Aktuell im
-            <strong>Testmodus</strong>: statt die gesamte Angriffsliste
-            abzugleichen, wird nur der <strong>6. Eintrag</strong> der Liste
-            anhand von Herkunftskoordinate und Ankunftszeit mit den
-            zurückgelieferten Daten abgeglichen – Treffer erscheinen als
-            Badge in dieser Zeile, das Ergebnis (Treffer oder Rohdaten)
-            wird zusätzlich im Popup angezeigt. Auch hier findet
-            <strong>keine automatische Abfrage</strong> im Hintergrund statt,
-            nur auf ausdrücklichen Klick auf den Button.
+            öffnet zunächst ein Popup-Fenster (funktioniert auch mobil).
+            Aktuell im <strong>Testmodus</strong>: statt die gesamte
+            Angriffsliste abzugleichen, wird nur der <strong>6. Eintrag</strong>
+            der Liste verwendet. Als Zieldorf für die Forge-Abfrage wird das
+            Dorf aus der <strong>„Ziel“-Spalte</strong> dieser Zeile
+            verwendet, falls vorhanden (relevant in der gesammelten
+            Übersicht über mehrere eigene Dörfer, wo jede Zeile ein anderes
+            Zieldorf haben kann) – nur wenn keine Ziel-Spalte existiert
+            (einfache Einzeldorf-Ansicht), wird ersatzweise das aktuell
+            geöffnete Dorf (<code>game_data.village</code>) verwendet.
+            Herkunftskoordinate und Ankunftszeit der Zeile werden dann mit
+            den zurückgelieferten Daten abgeglichen (derselbe API-Key wie
+            bei „🧪 DB-Test“) – Treffer erscheinen als Badge in dieser Zeile,
+            das Ergebnis (Treffer oder Rohdaten) wird zusätzlich im Popup
+            angezeigt. Auch hier findet <strong>keine automatische
+            Abfrage</strong> im Hintergrund statt, nur auf ausdrücklichen
+            Klick auf den Button.
           </p>
           <p>
             In derselben Zeile wie „Wiederholte Angriffe markieren“,
@@ -155,7 +160,7 @@
             </div>
             <div>
               <span class="label">Angriffsvorhersage</span>
-              <span class="value">„🔮 Vorhersage laden“ öffnet ein Popup, fragt einmalig das eigene Dorf ab und gleicht testweise nur den 6. Eintrag der Liste ab, nur auf Klick aktiv</span>
+              <span class="value">„🔮 Vorhersage laden“ öffnet ein Popup und fragt testweise nur den 6. Eintrag der Liste ab (Zieldorf aus der „Ziel“-Spalte der Zeile, sonst game_data.village), nur auf Klick aktiv</span>
             </div>
             <div>
               <span class="label">Diagnose-Werkzeuge</span>
