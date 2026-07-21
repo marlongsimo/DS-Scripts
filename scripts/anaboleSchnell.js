@@ -233,51 +233,48 @@
         resultado.textContent = 'Frage ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) ab...';
         log('Vorhersage: ' + alvos.length + ' Zieldorf/Zieldörfer für ' + rows.length + ' Zeile(n) werden abgefragt.');
 
-        processarVorhersaoSequencial(alvos, grupos, sourceIndex, key, resultado);
-    }
-
-    // Fragt die Zieldörfer NACHEINANDER ab statt alle gleichzeitig. Bei
-    // vielen Zieldörfern (z.B. 30+ in der gesammelten Übersicht) führten
-    // parallele Anfragen zu "TypeError: Load failed" bei einem Großteil der
-    // Requests (zu viele gleichzeitige Verbindungen zum selben Server).
-    async function processarVorhersaoSequencial(alvos, grupos, sourceIndex, key, resultado) {
+        let pendentes = alvos.length;
         let totalZeilen = 0;
         let totalTreffer = 0;
         let algumErro = null;
 
-        for (let i = 0; i < alvos.length; i += 1) {
-            const alvo = alvos[i];
-            resultado.textContent = 'Frage Zieldorf ' + (i + 1) + '/' + alvos.length + ' ab (' + alvo + ')...';
-
+        alvos.forEach(function (alvo) {
             const partes = alvo.split('|');
             const formData = new FormData();
             formData.append('Key', key);
             formData.append('X', partes[0]);
             formData.append('Y', partes[1]);
 
-            try {
-                const resp = await fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' });
-                log('Vorhersage-Antwort (' + alvo + ') → HTTP ' + resp.status);
-                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
-                const text = await resp.text();
-                let data = null;
-                try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort für ' + alvo + ' war kein gültiges JSON.'); }
-                grupos[alvo].forEach(function (row) {
-                    totalZeilen += 1;
-                    if (aplicarVorhersaoNaLinha(row, sourceIndex, data.sos || [])) totalTreffer += 1;
+            fetch(construirUrlForge(), { method: 'POST', body: formData, cache: 'no-store' })
+                .then(function (resp) {
+                    log('Vorhersage-Antwort (' + alvo + ') → HTTP ' + resp.status);
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                    return resp.text();
+                })
+                .then(function (text) {
+                    let data = null;
+                    try { data = JSON.parse(text); } catch (erroParse) { throw new Error('Antwort für ' + alvo + ' war kein gültiges JSON.'); }
+                    grupos[alvo].forEach(function (row) {
+                        totalZeilen += 1;
+                        if (aplicarVorhersaoNaLinha(row, sourceIndex, data.sos || [])) totalTreffer += 1;
+                    });
+                })
+                .catch(function (erro) {
+                    algumErro = erro;
+                    log('Fehler beim Laden der Vorhersage für ' + alvo + ': ' + erro);
+                    grupos[alvo].forEach(function (row) {
+                        totalZeilen += 1;
+                        aplicarVorhersaoNaLinha(row, sourceIndex, null);
+                    });
+                })
+                .then(function () {
+                    pendentes -= 1;
+                    if (pendentes === 0) {
+                        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet (' + alvos.length + ' Zieldorf/Zieldörfer abgefragt)' +
+                            (algumErro ? '. Fehler bei mind. einer Abfrage, siehe Debug-Konsole.' : '.');
+                    }
                 });
-            } catch (erro) {
-                algumErro = erro;
-                log('Fehler beim Laden der Vorhersage für ' + alvo + ': ' + erro);
-                grupos[alvo].forEach(function (row) {
-                    totalZeilen += 1;
-                    aplicarVorhersaoNaLinha(row, sourceIndex, null);
-                });
-            }
-        }
-
-        resultado.textContent = totalTreffer + ' von ' + totalZeilen + ' Zeile(n) zugeordnet (' + alvos.length + ' Zieldorf/Zieldörfer abgefragt)' +
-            (algumErro ? '. Fehler bei mind. einer Abfrage, siehe Debug-Konsole.' : '.');
+        });
     }
 
     // Ermittelt den passenden sos-Eintrag primär über die Herkunfts-
