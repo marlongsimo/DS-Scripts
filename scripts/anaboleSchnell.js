@@ -164,7 +164,8 @@
         panel.innerHTML =
             '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
             '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
-            '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen">';
+            '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen"> ' +
+            '<input type="button" class="btn" id="tpSchnellForgeBtn" value="🔑 Forge API">';
 
         const filters = document.querySelector('.overview_filters');
         if (filters) filters.before(panel);
@@ -175,6 +176,7 @@
         });
         document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
         document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
+        document.getElementById('tpSchnellForgeBtn').addEventListener('click', abrirModalForgeConfig);
 
         // Direkt beim Laden einmal automatisch markieren
         markDuplicates(rows, sourceIndex);
@@ -215,6 +217,108 @@
         } catch (erro) {
             // ignorieren
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // Forge-API-Konfiguration (Key + Endpunkt speichern/laden)
+    // Trage hier deinen EIGENEN, offiziellen API-Endpunkt ein bzw. über den
+    // Konfigurations-Dialog (Button "🔑 Forge API" im Panel).
+    // ---------------------------------------------------------------------
+    const FORGE_STORAGE_KEY = 'tpSchnellForgeConfig';
+
+    function ladeForgeConfig() {
+        try {
+            const raw = localStorage.getItem(FORGE_STORAGE_KEY);
+            return raw ? JSON.parse(raw) : { apiUrl: '', apiKey: '' };
+        } catch (erro) {
+            return { apiUrl: '', apiKey: '' };
+        }
+    }
+
+    function speichereForgeConfig(config) {
+        try {
+            localStorage.setItem(FORGE_STORAGE_KEY, JSON.stringify(config));
+        } catch (erro) {
+            log('Konnte Forge-Config nicht speichern: ' + erro);
+        }
+    }
+
+    let forgeConfigCache = ladeForgeConfig();
+    const dbInfoCache = {}; // Zwischenspeicher pro Koordinate, um nicht bei jeder Zeile neu abzufragen
+
+    function forgeIstKonfiguriert() {
+        return Boolean(forgeConfigCache.apiUrl && forgeConfigCache.apiKey);
+    }
+
+    function holeDbInfo(x, y, callback) {
+        const cacheKey = x + '|' + y;
+        if (Object.prototype.hasOwnProperty.call(dbInfoCache, cacheKey)) {
+            callback(dbInfoCache[cacheKey]);
+            return;
+        }
+        if (!forgeIstKonfiguriert()) {
+            callback(null);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('Key', forgeConfigCache.apiKey);
+        formData.append('X', x);
+        formData.append('Y', y);
+
+        fetch(forgeConfigCache.apiUrl, { method: 'POST', body: formData })
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (data) {
+                dbInfoCache[cacheKey] = data;
+                callback(data);
+            })
+            .catch(function (erro) {
+                log('Forge-API-Fehler: ' + erro);
+                dbInfoCache[cacheKey] = null;
+                callback(null);
+            });
+    }
+
+    function findePassendenAngriff(data, arrivalZeitText) {
+        if (!data || !Array.isArray(data.sos) || !arrivalZeitText) return null;
+        return data.sos.find(function (element) {
+            return timeConverterHHMMSS(element.arrival_time) === arrivalZeitText;
+        }) || null;
+    }
+
+    function timeConverterHHMMSS(unixTimestamp) {
+        if (!unixTimestamp) return '';
+        const datum = new Date(unixTimestamp * 1000);
+        const hh = String(datum.getHours()).padStart(2, '0');
+        const mm = String(datum.getMinutes()).padStart(2, '0');
+        const ss = String(datum.getSeconds()).padStart(2, '0');
+        return hh + ':' + mm + ':' + ss;
+    }
+
+    const PREDICTION_LABELS = {
+        1: 'Kleiner Angriff',
+        2: 'Mögliche Off',
+        3: 'Mittlerer Angriff',
+        4: 'Großer Angriff',
+    };
+
+    function baueErweitertenInfoText(eigenerText, angriffsEintrag) {
+        let text = eigenerText || '';
+        if (angriffsEintrag) {
+            const typLabel = PREDICTION_LABELS[angriffsEintrag.prediction] || 'Unbekannt';
+            const zusatz =
+                'Vorhersage: ' + typLabel + '\n' +
+                'Grund: ' + (angriffsEintrag.prediction_reason || '–') + '\n' +
+                'Duplikate: ' + (angriffsEintrag.duplicate_count ?? 0);
+            text = text ? (text + '\n\n' + zusatz) : zusatz;
+        }
+        return text;
+    }
+
+    function getArrivalTextFromRow(linha) {
+        const texto = String(linha.textContent || '');
+        const match = texto.match(/\b\d{2}:\d{2}:\d{2}\b/);
+        return match ? match[0] : null;
     }
 
     // Liest Info sowohl im neuen Format (String) als auch im alten Format
@@ -378,6 +482,71 @@
         if (backdrop) backdrop.remove();
     }
 
+    // --- Forge-API-Konfigurationsdialog -------------------------------------
+    function abrirModalForgeConfig() {
+        if (document.getElementById('tpSchnellForgeBackdrop')) return;
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'tpSchnellForgeBackdrop';
+        backdrop.className = 'tpSchnell-modal-backdrop';
+        backdrop.innerHTML =
+            '<div class="tpSchnell-modal-box">' +
+            '<h3>Forge API-Einstellungen</h3>' +
+            '<p>API-Endpunkt (URL):</p>' +
+            '<input type="text" id="tpSchnellForgeUrl" placeholder="https://...">' +
+            '<p>API-Key:</p>' +
+            '<input type="text" id="tpSchnellForgeKey" placeholder="Dein Key">' +
+            '<div class="tpSchnell-modal-actions">' +
+            '<button type="button" class="btn" id="tpSchnellForgeClear">Löschen</button>' +
+            '<button type="button" class="btn" id="tpSchnellForgeCancel">Abbrechen</button>' +
+            '<button type="button" class="btn" id="tpSchnellForgeSave">Speichern</button>' +
+            '</div>' +
+            '<div id="tpSchnellForgeResult"></div>' +
+            '</div>';
+
+        document.body.appendChild(backdrop);
+
+        document.getElementById('tpSchnellForgeUrl').value = forgeConfigCache.apiUrl || '';
+        document.getElementById('tpSchnellForgeKey').value = forgeConfigCache.apiKey || '';
+
+        backdrop.addEventListener('click', function (evento) {
+            if (evento.target === backdrop) fecharModalForgeConfig();
+        });
+        document.getElementById('tpSchnellForgeCancel').addEventListener('click', fecharModalForgeConfig);
+        document.getElementById('tpSchnellForgeClear').addEventListener('click', function () {
+            forgeConfigCache = { apiUrl: '', apiKey: '' };
+            speichereForgeConfig(forgeConfigCache);
+            Object.keys(dbInfoCache).forEach(function (k) { delete dbInfoCache[k]; });
+            document.getElementById('tpSchnellForgeUrl').value = '';
+            document.getElementById('tpSchnellForgeKey').value = '';
+            document.getElementById('tpSchnellForgeResult').textContent = 'Zurückgesetzt.';
+            atualizarTudoAgora();
+        });
+        document.getElementById('tpSchnellForgeSave').addEventListener('click', function () {
+            const url = document.getElementById('tpSchnellForgeUrl').value.trim();
+            const key = document.getElementById('tpSchnellForgeKey').value.trim();
+            const resultado = document.getElementById('tpSchnellForgeResult');
+
+            if (!url || !key) {
+                resultado.textContent = 'Bitte URL und Key eingeben.';
+                return;
+            }
+
+            forgeConfigCache = { apiUrl: url, apiKey: key };
+            speichereForgeConfig(forgeConfigCache);
+            Object.keys(dbInfoCache).forEach(function (k) { delete dbInfoCache[k]; });
+
+            resultado.textContent = 'Gespeichert.';
+            atualizarTudoAgora();
+            setTimeout(fecharModalForgeConfig, 600);
+        });
+    }
+
+    function fecharModalForgeConfig() {
+        const backdrop = document.getElementById('tpSchnellForgeBackdrop');
+        if (backdrop) backdrop.remove();
+    }
+
     function salvarImportDorf() {
         const coordsInput = document.getElementById('tpSchnellImportCoords');
         const infoInput = document.getElementById('tpSchnellImportInfo');
@@ -414,9 +583,14 @@
         icone.tabIndex = 0;
         icone.setAttribute('role', 'button');
         icone.setAttribute('aria-label', 'Dorfinfo: ' + infoText);
+        icone.dataset.tpSchnellText = infoText;
+
+        function textoAktuell() {
+            return icone.dataset.tpSchnellText || infoText;
+        }
 
         icone.addEventListener('mouseenter', function () {
-            if (!(tooltipPinned && tooltipAlvo === icone)) mostrarTooltip(icone, infoText);
+            if (!(tooltipPinned && tooltipAlvo === icone)) mostrarTooltip(icone, textoAktuell());
         });
         icone.addEventListener('mouseleave', function () {
             if (!tooltipPinned) esconderTooltip();
@@ -429,7 +603,7 @@
                 tooltipPinned = false;
                 tooltipAlvo = null;
             } else {
-                mostrarTooltip(icone, infoText);
+                mostrarTooltip(icone, textoAktuell());
                 tooltipPinned = true;
                 tooltipAlvo = icone;
             }
@@ -651,8 +825,37 @@
 
         const coordsLinha = getCoordsFromRow(linha);
         const infoLinha = coordsLinha ? obterInfoParaCoords(coordsLinha) : null;
+
         if (infoLinha) {
-            container.appendChild(criarInfoIcon(infoLinha));
+            const infoIcon = criarInfoIcon(infoLinha);
+            container.appendChild(infoIcon);
+        }
+
+        // Forge-Vorhersage (prediction / Grund / Duplikate) asynchron nachladen
+        // und zusätzlich als eigenes Info-Icon anzeigen, sobald verfügbar.
+        if (coordsLinha && forgeIstKonfiguriert()) {
+            const [x, y] = coordsLinha.split('|');
+            const arrivalText = getArrivalTextFromRow(linha);
+
+            holeDbInfo(x, y, function (data) {
+                if (!linha.isConnected) return; // Zeile evtl. mittlerweile aus DOM entfernt/neu gerendert
+
+                const angriffsEintrag = findePassendenAngriff(data, arrivalText);
+                if (!angriffsEintrag) return;
+
+                const vollText = baueErweitertenInfoText('', angriffsEintrag);
+                const bestehendesIcon = container.querySelector('.tpSchnell-info-icon');
+                if (bestehendesIcon) {
+                    // eigenen Notiztext + Forge-Vorhersage kombinieren
+                    const kombiniert = baueErweitertenInfoText(infoLinha || '', angriffsEintrag);
+                    bestehendesIcon.setAttribute('aria-label', 'Dorfinfo: ' + kombiniert);
+                    bestehendesIcon.dataset.tpSchnellText = kombiniert;
+                } else {
+                    const forgeIcon = criarInfoIcon(vollText);
+                    forgeIcon.classList.add('tpSchnell-forge-icon');
+                    container.insertBefore(forgeIcon, container.firstChild);
+                }
+            });
         }
 
         let ultimaKategoria = null;
@@ -1092,6 +1295,16 @@
 
             .tpSchnell-info-icon:hover {
                 background: #d3e9ff;
+            }
+
+            .tpSchnell-forge-icon {
+                border-color: #a8590e;
+                background: #fff2e2;
+                color: #a8590e;
+            }
+
+            .tpSchnell-forge-icon:hover {
+                background: #ffe3c2;
             }
 
             .tpSchnell-tooltip {
