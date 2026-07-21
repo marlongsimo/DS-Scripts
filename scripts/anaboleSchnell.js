@@ -148,15 +148,26 @@
             return;
         }
 
-        outEl.textContent = 'Frage Forge-Server ab (' + x + '|' + y + ', Modus: ' + getDbMode() + ')...';
+        const world = (window.game_data && window.game_data.world) || '(unbekannt)';
+        const modo = getDbMode();
+        const url = construirUrlForge();
+
+        outEl.textContent = 'Frage Forge-Server ab (' + x + '|' + y + ', Modus: ' + modo + ')...';
+
+        // Ausführliches Logging der gesendeten Anfrage (Key maskiert), damit
+        // sich Abweichungen (z.B. falsche Welt/Modus) direkt in der
+        // Debug-Konsole nachvollziehen lassen.
+        log('Forge-Anfrage → URL: ' + url);
+        log('Forge-Anfrage → Welt: ' + world + ', Modus: ' + modo + ', X: ' + x + ', Y: ' + y + ', Key: ' + (key ? key.slice(0, 4) + '…' : '(leer)'));
 
         const formData = new FormData();
         formData.append('Key', key);
         formData.append('X', x);
         formData.append('Y', y);
 
-        fetch(construirUrlForge(), { method: 'POST', body: formData })
+        fetch(url, { method: 'POST', body: formData, cache: 'no-store' })
             .then(function (resp) {
+                log('Forge-Antwort → HTTP ' + resp.status);
                 if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
                 return resp.text();
             })
@@ -375,8 +386,8 @@
             '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
             '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
             '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen"> ' +
-            '<input type="button" class="btn" id="tpSchnellDbTestOpen" value="🧪 DB-Test"> ' +
-            '<input type="button" class="btn" id="tpSchnellDebugOpen" value="🐞 Debug">';
+            '<input type="button" class="btn" id="tpSchnellDbTestOpenPanel" value="🧪 DB-Test"> ' +
+            '<input type="button" class="btn" id="tpSchnellDebugOpenPanel" value="🐞 Debug">';
 
         const filters = document.querySelector('.overview_filters');
         if (filters) filters.before(panel);
@@ -387,8 +398,8 @@
         });
         document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
         document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
-        document.getElementById('tpSchnellDbTestOpen').addEventListener('click', abrirModalDbTest);
-        document.getElementById('tpSchnellDebugOpen').addEventListener('click', function () {
+        document.getElementById('tpSchnellDbTestOpenPanel').addEventListener('click', abrirModalDbTest);
+        document.getElementById('tpSchnellDebugOpenPanel').addEventListener('click', function () {
             if (document.getElementById('tpSchnellDebugPanel')) fecharDebugPainel();
             else abrirDebugPainel();
         });
@@ -1410,7 +1421,7 @@
                 position: fixed;
                 left: 8px;
                 right: 8px;
-                bottom: 52px;
+                bottom: 8px;
                 max-height: 42vh;
                 z-index: 999998;
                 background: rgba(20, 20, 20, 0.96);
