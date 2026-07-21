@@ -296,12 +296,13 @@
 
         const linhas = [texto];
         if (match.prediction_reason) linhas.push('Grund: ' + match.prediction_reason);
-        // duplicate_count aus der Forge-API zählt nur die ANDEREN Duplikate,
-        // nicht den Angriff selbst mit (0 = keine Duplikate, 1 = ein
-        // weiterer Angriff = insgesamt 2, usw.) - daher +1 für die
-        // angezeigte Gesamtzahl.
-        if (typeof match.duplicate_count === 'number' && match.duplicate_count >= 1) {
-            linhas.push('Duplikate: ' + (match.duplicate_count + 1));
+        // duplicate_count aus der Forge-API zählt die ANDEREN Angriffe zu
+        // diesem Angriff, nicht ihn selbst mit (0 = keine weiteren, 1 = ein
+        // weiterer usw.).
+        if (typeof match.duplicate_count === 'number') {
+            linhas.push(match.duplicate_count === 0
+                ? 'Keine weiteren Angriffe'
+                : 'Weitere Angriffe: ' + match.duplicate_count);
         }
         return linhas.join('\n');
     }
