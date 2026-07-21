@@ -18,6 +18,10 @@
 
     if (window.top !== window.self) return;
 
+    // Debug-Konsole so früh wie möglich installieren, damit auch Fehler
+    // vom Skriptstart selbst mitgeschnitten werden (wichtig ohne F12).
+    instalarDebugConsole();
+
     const APP = { name: '💪 Anabole Schnell', prefix: 'tpSchnell', version: '1.0.0', styleId: 'tpSchnellStyles' };
 
     // ---------------------------------------------------------------------
@@ -106,6 +110,232 @@
     let tooltipAlvo = null;
 
     // =======================================================================
+    // Teil 3: Forge DB-Test (X/Y abfragen + API-Key speichern) und
+    // Debug-Konsole (Konsolenausgabe auch ohne F12/DevTools sichtbar machen)
+    // =======================================================================
+
+    // Verwendet bewusst dieselben localStorage-Keys wie das offizielle
+    // DB-Info-Skript ("dbkey"/"dbMode"), damit ein bereits gespeicherter
+    // Key automatisch übernommen wird und umgekehrt.
+    const DB_STORAGE_KEYS = { key: 'dbkey', mode: 'dbMode' };
+
+    function getDbKey() {
+        try { return localStorage.getItem(DB_STORAGE_KEYS.key) || ''; }
+        catch (erro) { return ''; }
+    }
+
+    function setDbKey(valor) {
+        try { localStorage.setItem(DB_STORAGE_KEYS.key, valor); }
+        catch (erro) { log('Konnte API-Key nicht speichern: ' + erro); }
+    }
+
+    function getDbMode() {
+        try { return localStorage.getItem(DB_STORAGE_KEYS.mode) || 'USER'; }
+        catch (erro) { return 'USER'; }
+    }
+
+    function construirUrlForge() {
+        const world = (window.game_data && window.game_data.world) || '';
+        // Gleiches Anfrageformat wie im DB-Info-Skript (action=tribalwars),
+        // SF und USER-Modus laufen aktuell über denselben Forge-Endpunkt.
+        return 'https://twforge.net/api/db-info/userscript?action=tribalwars&world=' + encodeURIComponent(world);
+    }
+
+    function testarConsultaForge(x, y, outEl) {
+        const key = getDbKey();
+        if (!key) {
+            outEl.textContent = 'Kein API-Key gespeichert. Bitte zuerst oben eingeben und speichern.';
+            return;
+        }
+
+        outEl.textContent = 'Frage Forge-Server ab (' + x + '|' + y + ', Modus: ' + getDbMode() + ')...';
+
+        const formData = new FormData();
+        formData.append('Key', key);
+        formData.append('X', x);
+        formData.append('Y', y);
+
+        fetch(construirUrlForge(), { method: 'POST', body: formData })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                return resp.text();
+            })
+            .then(function (text) {
+                let ausgabe = text;
+                try { ausgabe = JSON.stringify(JSON.parse(text), null, 2); } catch (erroParse) { /* Rohtext anzeigen */ }
+                outEl.textContent = ausgabe || '(leere Antwort)';
+                log('Forge-Test OK für ' + x + '|' + y);
+            })
+            .catch(function (erro) {
+                outEl.textContent = 'Fehler bei der Abfrage: ' + erro.message;
+                log('Forge-Test Fehler: ' + erro);
+            });
+    }
+
+    function abrirModalDbTest() {
+        if (document.getElementById('tpSchnellDbTestBackdrop')) return;
+
+        const keyGespeichert = !!getDbKey();
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'tpSchnellDbTestBackdrop';
+        backdrop.className = 'tpSchnell-modal-backdrop';
+        backdrop.innerHTML =
+            '<div class="tpSchnell-modal-box">' +
+            '<h3>🧪 Forge DB-Test</h3>' +
+            '<p>API-Key (wird nur lokal im Browser gespeichert):</p>' +
+            '<input type="text" id="tpSchnellDbKeyInput" placeholder="API-Key eingeben" value="' + (keyGespeichert ? '****************' : '') + '">' +
+            '<div class="tpSchnell-modal-actions">' +
+            '<button type="button" class="btn" id="tpSchnellDbKeySave">Key speichern</button>' +
+            '</div>' +
+            '<div id="tpSchnellDbKeyResult" style="font-size:11px; margin-top:2px;"></div>' +
+            '<hr class="tpSchnell-modal-trenner">' +
+            '<p>Testkoordinate:</p>' +
+            '<div style="display:flex; gap:6px;">' +
+            '<input type="text" id="tpSchnellDbTestX" placeholder="X, z.B. 500" style="width:50%">' +
+            '<input type="text" id="tpSchnellDbTestY" placeholder="Y, z.B. 500" style="width:50%">' +
+            '</div>' +
+            '<div class="tpSchnell-modal-actions">' +
+            '<button type="button" class="btn" id="tpSchnellDbTestCancel">Schließen</button>' +
+            '<button type="button" class="btn" id="tpSchnellDbTestRun">Abfragen</button>' +
+            '</div>' +
+            '<pre id="tpSchnellDbTestResult" class="tpSchnell-debug-pre"></pre>' +
+            '</div>';
+
+        document.body.appendChild(backdrop);
+
+        backdrop.addEventListener('click', function (evento) {
+            if (evento.target === backdrop) fecharModalDbTest();
+        });
+        document.getElementById('tpSchnellDbTestCancel').addEventListener('click', fecharModalDbTest);
+
+        document.getElementById('tpSchnellDbKeySave').addEventListener('click', function () {
+            const input = document.getElementById('tpSchnellDbKeyInput');
+            const resultado = document.getElementById('tpSchnellDbKeyResult');
+            if (!input.value || input.value === '****************') {
+                resultado.textContent = 'Kein neuer Key eingegeben.';
+                return;
+            }
+            setDbKey(input.value.trim());
+            input.value = '****************';
+            resultado.textContent = 'Key gespeichert.';
+            log('API-Key gespeichert.');
+        });
+
+        document.getElementById('tpSchnellDbTestRun').addEventListener('click', function () {
+            const x = document.getElementById('tpSchnellDbTestX').value.trim();
+            const y = document.getElementById('tpSchnellDbTestY').value.trim();
+            const outEl = document.getElementById('tpSchnellDbTestResult');
+            if (!/^\d{1,3}$/.test(x) || !/^\d{1,3}$/.test(y)) {
+                outEl.textContent = 'Bitte gültige X/Y Koordinaten eingeben (jeweils 1-3 Ziffern).';
+                return;
+            }
+            testarConsultaForge(x, y, outEl);
+        });
+    }
+
+    function fecharModalDbTest() {
+        const backdrop = document.getElementById('tpSchnellDbTestBackdrop');
+        if (backdrop) backdrop.remove();
+    }
+
+    // --- Debug-Konsole (fängt console.log/warn/error + Skriptfehler ab) ----
+    const debugState = { linhas: [], painelAberto: false, maxLinhas: 300 };
+
+    function instalarDebugConsole() {
+        if (window.__tpSchnellDebugInstalled) return;
+        window.__tpSchnellDebugInstalled = true;
+
+        ['log', 'warn', 'error', 'info'].forEach(function (metodo) {
+            const original = console[metodo];
+            console[metodo] = function () {
+                try {
+                    const partes = Array.prototype.slice.call(arguments).map(function (a) {
+                        if (typeof a === 'string') return a;
+                        try { return JSON.stringify(a); } catch (erroJson) { return String(a); }
+                    });
+                    registrarLinhaDebug(metodo, partes.join(' '));
+                } catch (erro) { /* Debug-Konsole darf normales Logging nie blockieren */ }
+                original.apply(console, arguments);
+            };
+        });
+
+        window.addEventListener('error', function (evento) {
+            registrarLinhaDebug('error', 'Fehler: ' + evento.message + ' (' + evento.filename + ':' + evento.lineno + ')');
+        });
+        window.addEventListener('unhandledrejection', function (evento) {
+            registrarLinhaDebug('error', 'Unhandled Promise: ' + evento.reason);
+        });
+    }
+
+    function registrarLinhaDebug(tipo, texto) {
+        const linha = '[' + new Date().toLocaleTimeString() + '] ' + tipo.toUpperCase() + ': ' + texto;
+        debugState.linhas.push(linha);
+        if (debugState.linhas.length > debugState.maxLinhas) debugState.linhas.shift();
+        if (debugState.painelAberto) renderizarDebugPainel();
+    }
+
+    function abrirDebugPainel() {
+        if (document.getElementById('tpSchnellDebugPanel')) return;
+        debugState.painelAberto = true;
+
+        const painel = document.createElement('div');
+        painel.id = 'tpSchnellDebugPanel';
+        painel.className = 'tpSchnell-debug-panel';
+        painel.innerHTML =
+            '<div class="tpSchnell-debug-header">' +
+            '<span>🐞 Debug-Konsole</span>' +
+            '<span>' +
+            '<button type="button" class="btn" id="tpSchnellDebugClear">Leeren</button> ' +
+            '<button type="button" class="btn" id="tpSchnellDebugClose">✕</button>' +
+            '</span>' +
+            '</div>' +
+            '<div id="tpSchnellDebugBody" class="tpSchnell-debug-body"></div>';
+
+        document.body.appendChild(painel);
+        document.getElementById('tpSchnellDebugClose').addEventListener('click', fecharDebugPainel);
+        document.getElementById('tpSchnellDebugClear').addEventListener('click', function () {
+            debugState.linhas = [];
+            renderizarDebugPainel();
+        });
+
+        renderizarDebugPainel();
+    }
+
+    function renderizarDebugPainel() {
+        const body = document.getElementById('tpSchnellDebugBody');
+        if (!body) return;
+        body.textContent = debugState.linhas.join('\n') || '(noch keine Einträge)';
+        body.scrollTop = body.scrollHeight;
+    }
+
+    function fecharDebugPainel() {
+        debugState.painelAberto = false;
+        const painel = document.getElementById('tpSchnellDebugPanel');
+        if (painel) painel.remove();
+    }
+
+    // --- Feste Buttonleiste unten auf der Seite -----------------------------
+    function adicionarBarraInferior() {
+        if (document.getElementById('tpSchnellBottomBar')) return;
+
+        const barra = document.createElement('div');
+        barra.id = 'tpSchnellBottomBar';
+        barra.className = 'tpSchnell-bottom-bar';
+        barra.innerHTML =
+            '<button type="button" class="btn" id="tpSchnellDbTestOpen">🧪 DB-Test</button>' +
+            '<button type="button" class="btn" id="tpSchnellDebugOpen">🐞 Debug</button>';
+
+        document.body.appendChild(barra);
+
+        document.getElementById('tpSchnellDbTestOpen').addEventListener('click', abrirModalDbTest);
+        document.getElementById('tpSchnellDebugOpen').addEventListener('click', function () {
+            if (document.getElementById('tpSchnellDebugPanel')) fecharDebugPainel();
+            else abrirDebugPainel();
+        });
+    }
+
+    // =======================================================================
     // Boot
     // =======================================================================
     function boot() {
@@ -117,6 +347,7 @@
         addStyles();
         runRenameButtons();
         runDuplicateMarker();
+        adicionarBarraInferior();
 
         document.addEventListener('click', fecharTooltipSeForaDoAlvo, true);
         window.addEventListener('scroll', function () { if (!tooltipPinned) esconderTooltip(); }, true);
@@ -1170,6 +1401,83 @@
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
                 pointer-events: none;
                 word-wrap: break-word;
+            }
+
+            .tpSchnell-bottom-bar {
+                position: fixed;
+                left: 8px;
+                bottom: 8px;
+                z-index: 999997;
+                display: flex;
+                gap: 6px;
+                background: rgba(244, 228, 188, 0.95);
+                border: 1px solid #7d510f;
+                border-radius: 6px;
+                padding: 5px 6px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            }
+
+            .tpSchnell-bottom-bar .btn {
+                font-size: 11px !important;
+                padding: 4px 8px !important;
+            }
+
+            .tpSchnell-debug-pre,
+            .tpSchnell-debug-body {
+                font-family: monospace;
+            }
+
+            .tpSchnell-debug-pre {
+                white-space: pre-wrap;
+                word-break: break-word;
+                max-height: 220px;
+                overflow-y: auto;
+                background: rgba(0, 0, 0, 0.06);
+                padding: 6px;
+                border-radius: 4px;
+                font-size: 11px;
+                margin-top: 6px;
+            }
+
+            .tpSchnell-debug-panel {
+                position: fixed;
+                left: 8px;
+                right: 8px;
+                bottom: 52px;
+                max-height: 42vh;
+                z-index: 999998;
+                background: rgba(20, 20, 20, 0.96);
+                color: #d7ffb3;
+                border-radius: 6px;
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .tpSchnell-debug-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 8px;
+                background: rgba(255, 255, 255, 0.08);
+                font-size: 12px;
+                font-weight: 700;
+                color: #fff;
+            }
+
+            .tpSchnell-debug-header .btn {
+                font-size: 10px !important;
+                padding: 2px 6px !important;
+            }
+
+            .tpSchnell-debug-body {
+                padding: 6px 8px;
+                font-size: 11px;
+                line-height: 1.4;
+                overflow-y: auto;
+                white-space: pre-wrap;
+                word-break: break-word;
             }
         `;
         document.head.appendChild(style);
