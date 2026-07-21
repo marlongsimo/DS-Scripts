@@ -371,6 +371,8 @@
             return;
         }
 
+        if (weiterleitenZurAngriffsuebersicht()) return;
+
         addStyles();
         runRenameButtons();
         runDuplicateMarker();
@@ -451,6 +453,31 @@
     function getCurrentMode() {
         if (window.game_data && window.game_data.mode) return String(window.game_data.mode);
         return new URLSearchParams(window.location.search).get('mode') || '';
+    }
+
+    // Leitet zur Eintreffende-Angriffe-Seite (Tab "Angriffe", Filter "alle")
+    // weiter, falls das Bookmarklet auf einer anderen Seite geklickt wird.
+    // Bestätigtes Ziel-URL-Muster: .../game.php?village=<id>&screen=
+    // overview_villages&mode=incomings&type=unignored&subtype=attacks
+    function weiterleitenZurAngriffsuebersicht() {
+        const gd = window.game_data || {};
+        const screen = String(gd.screen || '');
+        const mode = getCurrentMode();
+        const params = new URLSearchParams(window.location.search);
+        const subtype = params.get('subtype') || '';
+        const type = params.get('type') || '';
+
+        if (screen === 'overview_villages' && mode === 'incomings' && subtype === 'attacks' && type === 'unignored') {
+            return false;
+        }
+
+        const village = gd.village;
+        if (!village || !village.id) return false;
+
+        const url = 'game.php?village=' + village.id + '&screen=overview_villages&mode=incomings&type=unignored&subtype=attacks';
+        log('Nicht auf der Eintreffende-Angriffe-Seite (Tab "Angriffe") - leite weiter zu ' + url);
+        window.location.href = url;
+        return true;
     }
 
     // =======================================================================
