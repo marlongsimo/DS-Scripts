@@ -94,19 +94,23 @@
             Gruppe per 🗑️-Button auf einen Schlag löschen.
           </p>
           <p>
-            Ebenfalls in dieser Zeile: <strong>„🔮 Vorhersage laden“</strong>
-            öffnet zunächst ein Popup-Fenster (funktioniert auch mobil) und
-            läuft für <strong>alle Zeilen</strong> der Angriffsliste. Als
-            Zieldorf für die Forge-Abfrage wird pro Zeile das Dorf aus der
-            <strong>„Ziel“-Spalte</strong> verwendet, falls vorhanden
-            (relevant in der gesammelten Übersicht über mehrere eigene
-            Dörfer, wo jede Zeile ein anderes Zieldorf haben kann) – nur
-            wenn keine Ziel-Spalte existiert (einfache Einzeldorf-Ansicht),
-            wird ersatzweise das aktuell geöffnete Dorf
+            Beim Öffnen der Angriffsübersicht wird außerdem <strong>automatisch</strong>
+            eine Angriffsvorhersage geladen (kein Button mehr nötig) und ein
+            Popup-Fenster angezeigt (funktioniert auch mobil), das den
+            Fortschritt anzeigt. Sie läuft für <strong>alle Zeilen</strong>
+            der Angriffsliste: als Zieldorf für die Forge-Abfrage wird pro
+            Zeile das Dorf aus der <strong>„Ziel“-Spalte</strong> verwendet,
+            falls vorhanden (relevant in der gesammelten Übersicht über
+            mehrere eigene Dörfer, wo jede Zeile ein anderes Zieldorf haben
+            kann) – nur wenn keine Ziel-Spalte existiert (einfache
+            Einzeldorf-Ansicht), wird ersatzweise das aktuell geöffnete Dorf
             (<code>game_data.village</code>) verwendet. Jedes Zieldorf wird
             dabei nur <strong>einmal</strong> abgefragt (derselbe API-Key
-            wie bei „🧪 DB-Test“), auch wenn mehrere Zeilen dasselbe Ziel
-            haben. Die Herkunftskoordinate jeder Zeile wird dann mit den
+            wie bei „🧪 DB-Test“, sofern dort bereits hinterlegt), auch wenn
+            mehrere Zeilen dasselbe Ziel haben – die Zieldörfer werden dabei
+            <strong>nacheinander</strong> abgefragt statt gleichzeitig, um
+            Verbindungsfehler bei vielen Zieldörfern zu vermeiden. Die
+            Herkunftskoordinate jeder Zeile wird dann mit den
             zurückgelieferten Daten abgeglichen (Ankunftszeit nur als
             Tie-Breaker bei mehreren Einträgen derselben Koordinate).
             Bei Treffer erscheint ein <strong>„i“-Symbol</strong> (wie bei
@@ -114,14 +118,14 @@
             Tooltip; ohne Treffer erscheint stattdessen ein
             <strong>„?“-Symbol</strong>. Das Popup zeigt am Ende eine kurze
             Zusammenfassung (wie viele Zeilen zugeordnet werden konnten).
-            Auch hier findet <strong>keine automatische Abfrage</strong> im
-            Hintergrund statt, nur auf ausdrücklichen Klick auf den Button.
+            Diese Abfrage läuft also <strong>automatisch im Hintergrund</strong>,
+            sobald ein API-Key hinterlegt ist – anders als die beiden
+            folgenden Diagnose-Tools.
           </p>
           <p>
             In derselben Zeile wie „Wiederholte Angriffe markieren“,
-            „📥 Dörfer importieren“, „🗑️ Dorfinfos löschen“ und
-            „🔮 Vorhersage laden“ stehen außerdem zwei Diagnose-Tools:
-            <strong>„🧪 DB-Test“</strong>
+            „📥 Dörfer importieren“ und „🗑️ Dorfinfos löschen“ stehen
+            außerdem zwei Diagnose-Tools: <strong>„🧪 DB-Test“</strong>
             öffnet ein Fenster, in dem sich ein API-Key für den
             Forge-DB-Info-Dienst hinterlegen lässt (derselbe
             <code>localStorage</code>-Schlüssel wie beim offiziellen
@@ -164,7 +168,7 @@
             </div>
             <div>
               <span class="label">Angriffsvorhersage</span>
-              <span class="value">„🔮 Vorhersage laden“ öffnet ein Popup und fragt für alle Zeilen ab (Zieldorf aus der „Ziel“-Spalte, sonst game_data.village); Treffer als „i“-Symbol mit Tooltip, sonst „?“, nur auf Klick aktiv</span>
+              <span class="value">Läuft automatisch beim Öffnen der Angriffsübersicht (kein Button), fragt nacheinander alle Zieldörfer ab (Ziel-Spalte, sonst game_data.village); Treffer als „i“-Symbol mit Tooltip, sonst „?“</span>
             </div>
             <div>
               <span class="label">Diagnose-Werkzeuge</span>
@@ -234,11 +238,14 @@
             komplett lokal – es öffnet lediglich die im Spiel vorhandene
             Umbenennen-Funktion und trägt den Tag-Text ein, das Speichern
             übernimmt dabei denselben Dialog wie bei manueller Bedienung.
-            Einzige Ausnahme: „🧪 DB-Test“ und „🔮 Vorhersage laden“ senden
-            auf Klick den gespeicherten API-Key zusammen mit Koordinaten an
-            den externen Dienst <code>twforge.net</code> – dort sollte nur
-            ein Key hinterlegt werden, dem vertraut wird. Bitte vorab die
-            Regeln deines Servers zu Skripten/Bookmarklets prüfen.
+            Einzige Ausnahme: „🧪 DB-Test“ sendet auf Klick den gespeicherten
+            API-Key zusammen mit Koordinaten an den externen Dienst
+            <code>twforge.net</code>. Die Angriffsvorhersage sendet denselben
+            Key zusammen mit den Zielkoordinaten <strong>automatisch</strong>
+            beim Öffnen der Angriffsübersicht, sobald ein Key hinterlegt ist
+            – dort sollte nur ein Key hinterlegt werden, dem vertraut wird.
+            Bitte vorab die Regeln deines Servers zu Skripten/Bookmarklets
+            prüfen.
           </div>
         </div>
       </div>
