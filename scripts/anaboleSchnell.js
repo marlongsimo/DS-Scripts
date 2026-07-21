@@ -127,7 +127,6 @@
 
         setInterval(runRenameButtons, CONFIG.intervaloFallbackMs);
         log('Skript geladen: ' + location.href);
-        log('Forge-Config beim Start: apiUrl="' + forgeConfigCache.apiUrl + '", apiKey ' + (forgeConfigCache.apiKey ? 'gesetzt (Länge ' + forgeConfigCache.apiKey.length + ')' : 'NICHT gesetzt'));
     }
 
     function agendarExecucao() {
@@ -165,8 +164,7 @@
         panel.innerHTML =
             '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
             '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
-            '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen"> ' +
-            '<input type="button" class="btn" id="tpSchnellForgeBtn" value="🔑 Forge API">';
+            '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen">';
 
         const filters = document.querySelector('.overview_filters');
         if (filters) filters.before(panel);
@@ -177,7 +175,6 @@
         });
         document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
         document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
-        document.getElementById('tpSchnellForgeBtn').addEventListener('click', abrirModalForgeConfig);
 
         // Direkt beim Laden einmal automatisch markieren
         markDuplicates(rows, sourceIndex);
@@ -218,145 +215,6 @@
         } catch (erro) {
             // ignorieren
         }
-    }
-
-    // ---------------------------------------------------------------------
-    // Forge-API-Konfiguration (Key + Endpunkt speichern/laden)
-    // Standardmäßig auf twforge.net vorbelegt (inkl. automatischer Welt-
-    // Erkennung). Über den Button "🔑 Forge API" im Panel trägst du nur
-    // noch deinen persönlichen API-Key ein; die URL kann bei Bedarf dort
-    // ebenfalls angepasst werden.
-    // ---------------------------------------------------------------------
-    const FORGE_STORAGE_KEY = 'tpSchnellForgeConfig';
-    const FORGE_DEFAULT_URL_BASE = 'https://twforge.net/api/db-info/userscript?action=tribalwars';
-
-    function forgeBasisUrlMitWelt() {
-        const welt = (window.game_data && window.game_data.world) ? window.game_data.world : '';
-        return FORGE_DEFAULT_URL_BASE + (welt ? ('&world=' + encodeURIComponent(welt)) : '');
-    }
-
-    function ladeForgeConfig() {
-        try {
-            const raw = localStorage.getItem(FORGE_STORAGE_KEY);
-            const config = raw ? JSON.parse(raw) : {};
-            return {
-                apiUrl: config.apiUrl || forgeBasisUrlMitWelt(),
-                apiKey: config.apiKey || '',
-            };
-        } catch (erro) {
-            return { apiUrl: forgeBasisUrlMitWelt(), apiKey: '' };
-        }
-    }
-
-    function speichereForgeConfig(config) {
-        try {
-            localStorage.setItem(FORGE_STORAGE_KEY, JSON.stringify(config));
-        } catch (erro) {
-            log('Konnte Forge-Config nicht speichern: ' + erro);
-        }
-    }
-
-    let forgeConfigCache = ladeForgeConfig();
-    const dbInfoCache = {}; // Zwischenspeicher pro Koordinate, um nicht bei jeder Zeile neu abzufragen
-
-    function forgeIstKonfiguriert() {
-        return Boolean(forgeConfigCache.apiUrl && forgeConfigCache.apiKey);
-    }
-
-    function holeDbInfo(x, y, callback) {
-        const cacheKey = x + '|' + y;
-        if (Object.prototype.hasOwnProperty.call(dbInfoCache, cacheKey)) {
-            callback(dbInfoCache[cacheKey]);
-            return;
-        }
-        if (!forgeIstKonfiguriert()) {
-            log('Forge-Debug: nicht konfiguriert (Key fehlt?) – config=' + JSON.stringify(forgeConfigCache));
-            callback(null);
-            return;
-        }
-
-        log('Forge-Debug: Anfrage an ' + forgeConfigCache.apiUrl + ' für ' + cacheKey);
-
-        const formData = new FormData();
-        formData.append('Key', forgeConfigCache.apiKey);
-        formData.append('X', x);
-        formData.append('Y', y);
-
-        fetch(forgeConfigCache.apiUrl, { method: 'POST', body: formData })
-            .then(function (res) {
-                log('Forge-Debug: HTTP-Status ' + res.status + ' für ' + cacheKey);
-                return res.ok ? res.json() : null;
-            })
-            .then(function (data) {
-                log('Forge-Debug: Antwort für ' + cacheKey + ': ' + JSON.stringify(data));
-                dbInfoCache[cacheKey] = data;
-                callback(data);
-            })
-            .catch(function (erro) {
-                log('Forge-API-Fehler für ' + cacheKey + ': ' + erro);
-                dbInfoCache[cacheKey] = null;
-                callback(null);
-            });
-    }
-
-    const PREDICTION_LABELS = {
-        1: 'Kleiner Angriff',
-        2: 'Mögliche Off',
-        3: 'Mittlerer Angriff',
-        4: 'Großer Angriff',
-    };
-
-    // Baut eine allgemeine Zusammenfassung der Forge-Daten zu EINER Koordinate
-    // (Dorftyp, letzter Angriff, eingehende Angriffe insgesamt) – unabhängig
-    // davon, welche konkrete Zeile gerade angeschaut wird.
-    function baueDorfZusammenfassung(data) {
-        if (!data) return '';
-
-        const zeilen = [];
-
-        if (typeof data.type !== 'undefined') {
-            const typLabel = data.type == 0 ? 'Deff' : data.type == 1 ? 'Off' : 'Unbekannt';
-            zeilen.push('Dorftyp: ' + typLabel);
-        }
-
-        if (data.attack_report && data.attack_report.fighttime) {
-            zeilen.push('Letzter Angriff: ' + timeConverterVoll(data.attack_report.fighttime));
-        }
-
-        if (data.defend_report && data.defend_report.fighttime) {
-            zeilen.push('Letzte Verteidigung: ' + timeConverterVoll(data.defend_report.fighttime));
-        }
-
-        if (Array.isArray(data.sos)) {
-            zeilen.push('Eingehende Angriffe: ' + data.sos.length);
-
-            if (data.sos.length) {
-                const zaehlung = {};
-                data.sos.forEach(function (element) {
-                    const label = PREDICTION_LABELS[element.prediction] || 'Unbekannt';
-                    zaehlung[label] = (zaehlung[label] || 0) + 1;
-                });
-                const uebersicht = Object.keys(zaehlung)
-                    .map(function (label) { return zaehlung[label] + 'x ' + label; })
-                    .join(', ');
-                zeilen.push('Davon: ' + uebersicht);
-            }
-        }
-
-        return zeilen.join('\n');
-    }
-
-    function timeConverterVoll(unixTimestamp) {
-        if (!unixTimestamp) return 'Keine Daten';
-        const datum = new Date(unixTimestamp * 1000);
-        const pad = function (n) { return String(n).padStart(2, '0'); };
-        return pad(datum.getDate()) + '.' + pad(datum.getMonth() + 1) + '.' + datum.getFullYear() +
-            ' ' + pad(datum.getHours()) + ':' + pad(datum.getMinutes()) + ':' + pad(datum.getSeconds());
-    }
-
-    function baueErweitertenInfoText(eigenerText, zusammenfassung) {
-        if (!zusammenfassung) return eigenerText || '';
-        return eigenerText ? (eigenerText + '\n\n' + zusammenfassung) : zusammenfassung;
     }
 
     // Liest Info sowohl im neuen Format (String) als auch im alten Format
@@ -433,155 +291,131 @@
         renderizarListaExistente('');
     }
 
+    function obterGruposDorfInfos() {
+        const dados = obterDorfInfos();
+        const grupos = {};
+
+        Object.keys(dados).forEach(function (coords) {
+            const label = obterInfoParaCoords(coords);
+            if (!label) return;
+            if (!grupos[label]) grupos[label] = [];
+            grupos[label].push(coords);
+        });
+
+        Object.keys(grupos).forEach(function (label) {
+            grupos[label].sort(function (a, b) { return a.localeCompare(b, 'de', { numeric: true }); });
+        });
+
+        return grupos;
+    }
+
     function renderizarListaExistente(filtro) {
         const lista = document.getElementById('tpSchnellExistList');
         const contagem = document.getElementById('tpSchnellExistCount');
         if (!lista || !contagem) return;
 
         const termo = clean(filtro || '');
-        const dados = obterDorfInfos();
+        const grupos = obterGruposDorfInfos();
 
-        const entradas = Object.keys(dados)
-            .map(function (coords) { return { coords: coords, valor: obterInfoParaCoords(coords) || '' }; })
-            .filter(function (entrada) {
+        const nomesGrupos = Object.keys(grupos)
+            .filter(function (label) {
                 if (!termo) return true;
-                return clean(entrada.coords).includes(termo) || clean(entrada.valor).includes(termo);
+                if (clean(label).includes(termo)) return true;
+                return grupos[label].some(function (coords) { return clean(coords).includes(termo); });
             })
-            .sort(function (a, b) { return a.coords.localeCompare(b.coords, 'de', { numeric: true }); });
+            .sort(function (a, b) { return a.localeCompare(b, 'de'); });
 
-        contagem.textContent = Object.keys(dados).length;
+        contagem.textContent = Object.keys(grupos).length;
         lista.innerHTML = '';
 
-        if (!entradas.length) {
+        if (!nomesGrupos.length) {
             const vazio = document.createElement('p');
             vazio.className = 'tpSchnell-exist-empty';
-            vazio.textContent = termo ? 'Keine Treffer.' : 'Noch keine Einträge gespeichert.';
+            vazio.textContent = termo ? 'Keine Treffer.' : 'Noch keine Gruppen gespeichert.';
             lista.appendChild(vazio);
             return;
         }
 
-        entradas.forEach(function (entrada) {
-            lista.appendChild(criarLinhaExistente(entrada.coords, entrada.valor));
+        nomesGrupos.forEach(function (label) {
+            lista.appendChild(criarGrupoExistente(label, grupos[label]));
         });
     }
 
-    function criarLinhaExistente(coords, valorAtual) {
-        const linha = document.createElement('div');
-        linha.className = 'tpSchnell-exist-row';
+    function criarGrupoExistente(labelOriginal, coordsOriginais) {
+        const card = document.createElement('div');
+        card.className = 'tpSchnell-grupo-card';
 
-        const labelCoords = document.createElement('span');
-        labelCoords.className = 'tpSchnell-exist-coords';
-        labelCoords.textContent = coords;
+        const cabecalho = document.createElement('div');
+        cabecalho.className = 'tpSchnell-grupo-cabecalho';
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'tpSchnell-exist-input';
-        input.value = valorAtual;
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.className = 'tpSchnell-grupo-label';
+        labelInput.value = labelOriginal;
 
-        function salvarEdicao() {
-            const dados = obterDorfInfos();
-            const novoValor = normalizarEspacos(input.value);
-            if (!novoValor) {
-                delete dados[coords];
-            } else {
-                dados[coords] = novoValor;
-            }
-            salvarDorfInfos(dados);
-            atualizarTudoAgora();
-        }
-
-        input.addEventListener('change', salvarEdicao);
-        input.addEventListener('keydown', function (evento) {
-            if (evento.key === 'Enter') input.blur();
-        });
+        const contagemBadge = document.createElement('span');
+        contagemBadge.className = 'tpSchnell-grupo-count';
+        contagemBadge.textContent = coordsOriginais.length + ' Dorf/Dörfer';
 
         const btnExcluir = document.createElement('button');
         btnExcluir.type = 'button';
-        btnExcluir.className = 'btn tpSchnell-exist-delete';
+        btnExcluir.className = 'btn tpSchnell-grupo-delete';
         btnExcluir.textContent = '🗑️';
-        btnExcluir.title = 'Eintrag löschen';
-        btnExcluir.addEventListener('click', function () {
+        btnExcluir.title = 'Ganze Gruppe löschen';
+
+        cabecalho.appendChild(labelInput);
+        cabecalho.appendChild(contagemBadge);
+        cabecalho.appendChild(btnExcluir);
+
+        const coordsTextarea = document.createElement('textarea');
+        coordsTextarea.className = 'tpSchnell-grupo-coords';
+        coordsTextarea.rows = 2;
+        coordsTextarea.placeholder = '123|456 789|123 ...';
+        coordsTextarea.value = coordsOriginais.join(' ');
+
+        const btnSalvar = document.createElement('button');
+        btnSalvar.type = 'button';
+        btnSalvar.className = 'btn tpSchnell-grupo-salvar';
+        btnSalvar.textContent = 'Gruppe speichern';
+
+        card.appendChild(cabecalho);
+        card.appendChild(coordsTextarea);
+        card.appendChild(btnSalvar);
+
+        // Entfernt zuerst ALLE ursprünglichen Mitglieder dieser Gruppe aus der
+        // Datenbank (egal ob umbenannt, Mitglieder entfernt/hinzugefügt wurden)
+        // und schreibt danach den aktuellen Stand aus den Eingabefeldern neu.
+        function salvarGrupo() {
             const dados = obterDorfInfos();
-            delete dados[coords];
+            coordsOriginais.forEach(function (coords) { delete dados[coords]; });
+
+            const novoLabel = normalizarEspacos(labelInput.value);
+            const novasCoords = Array.from(new Set(coordsTextarea.value.match(/\b\d{1,3}\|\d{1,3}\b/g) || []));
+
+            if (novoLabel && novasCoords.length) {
+                novasCoords.forEach(function (coords) { dados[coords] = novoLabel; });
+            }
+
             salvarDorfInfos(dados);
             atualizarTudoAgora();
-            linha.remove();
-            document.getElementById('tpSchnellExistCount').textContent = Object.keys(obterDorfInfos()).length;
+            renderizarListaExistente(document.getElementById('tpSchnellExistSearch').value);
+        }
+
+        btnSalvar.addEventListener('click', salvarGrupo);
+
+        btnExcluir.addEventListener('click', function () {
+            const dados = obterDorfInfos();
+            coordsOriginais.forEach(function (coords) { delete dados[coords]; });
+            salvarDorfInfos(dados);
+            atualizarTudoAgora();
+            renderizarListaExistente(document.getElementById('tpSchnellExistSearch').value);
         });
 
-        linha.appendChild(labelCoords);
-        linha.appendChild(input);
-        linha.appendChild(btnExcluir);
-        return linha;
+        return card;
     }
 
     function fecharModalDorfImport() {
         const backdrop = document.getElementById('tpSchnellImportBackdrop');
-        if (backdrop) backdrop.remove();
-    }
-
-    // --- Forge-API-Konfigurationsdialog -------------------------------------
-    function abrirModalForgeConfig() {
-        if (document.getElementById('tpSchnellForgeBackdrop')) return;
-
-        const backdrop = document.createElement('div');
-        backdrop.id = 'tpSchnellForgeBackdrop';
-        backdrop.className = 'tpSchnell-modal-backdrop';
-        backdrop.innerHTML =
-            '<div class="tpSchnell-modal-box">' +
-            '<h3>Forge API-Einstellungen</h3>' +
-            '<p>API-Endpunkt (vorbelegt mit twforge.net, bei Bedarf änderbar):</p>' +
-            '<input type="text" id="tpSchnellForgeUrl" placeholder="https://...">' +
-            '<p>Dein Forge API-Key:</p>' +
-            '<input type="text" id="tpSchnellForgeKey" placeholder="Dein Key">' +
-            '<div class="tpSchnell-modal-actions">' +
-            '<button type="button" class="btn" id="tpSchnellForgeClear">Löschen</button>' +
-            '<button type="button" class="btn" id="tpSchnellForgeCancel">Abbrechen</button>' +
-            '<button type="button" class="btn" id="tpSchnellForgeSave">Speichern</button>' +
-            '</div>' +
-            '<div id="tpSchnellForgeResult"></div>' +
-            '</div>';
-
-        document.body.appendChild(backdrop);
-
-        document.getElementById('tpSchnellForgeUrl').value = forgeConfigCache.apiUrl || '';
-        document.getElementById('tpSchnellForgeKey').value = forgeConfigCache.apiKey || '';
-
-        backdrop.addEventListener('click', function (evento) {
-            if (evento.target === backdrop) fecharModalForgeConfig();
-        });
-        document.getElementById('tpSchnellForgeCancel').addEventListener('click', fecharModalForgeConfig);
-        document.getElementById('tpSchnellForgeClear').addEventListener('click', function () {
-            forgeConfigCache = { apiUrl: forgeBasisUrlMitWelt(), apiKey: '' };
-            speichereForgeConfig(forgeConfigCache);
-            Object.keys(dbInfoCache).forEach(function (k) { delete dbInfoCache[k]; });
-            document.getElementById('tpSchnellForgeUrl').value = forgeConfigCache.apiUrl;
-            document.getElementById('tpSchnellForgeKey').value = '';
-            document.getElementById('tpSchnellForgeResult').textContent = 'Zurückgesetzt (Standard-URL, Key gelöscht).';
-            atualizarTudoAgora();
-        });
-        document.getElementById('tpSchnellForgeSave').addEventListener('click', function () {
-            const url = document.getElementById('tpSchnellForgeUrl').value.trim();
-            const key = document.getElementById('tpSchnellForgeKey').value.trim();
-            const resultado = document.getElementById('tpSchnellForgeResult');
-
-            if (!url || !key) {
-                resultado.textContent = 'Bitte URL und Key eingeben.';
-                return;
-            }
-
-            forgeConfigCache = { apiUrl: url, apiKey: key };
-            speichereForgeConfig(forgeConfigCache);
-            Object.keys(dbInfoCache).forEach(function (k) { delete dbInfoCache[k]; });
-
-            resultado.textContent = 'Gespeichert.';
-            atualizarTudoAgora();
-            setTimeout(fecharModalForgeConfig, 600);
-        });
-    }
-
-    function fecharModalForgeConfig() {
-        const backdrop = document.getElementById('tpSchnellForgeBackdrop');
         if (backdrop) backdrop.remove();
     }
 
@@ -621,14 +455,9 @@
         icone.tabIndex = 0;
         icone.setAttribute('role', 'button');
         icone.setAttribute('aria-label', 'Dorfinfo: ' + infoText);
-        icone.dataset.tpSchnellText = infoText;
-
-        function textoAktuell() {
-            return icone.dataset.tpSchnellText || infoText;
-        }
 
         icone.addEventListener('mouseenter', function () {
-            if (!(tooltipPinned && tooltipAlvo === icone)) mostrarTooltip(icone, textoAktuell());
+            if (!(tooltipPinned && tooltipAlvo === icone)) mostrarTooltip(icone, infoText);
         });
         icone.addEventListener('mouseleave', function () {
             if (!tooltipPinned) esconderTooltip();
@@ -641,7 +470,7 @@
                 tooltipPinned = false;
                 tooltipAlvo = null;
             } else {
-                mostrarTooltip(icone, textoAktuell());
+                mostrarTooltip(icone, infoText);
                 tooltipPinned = true;
                 tooltipAlvo = icone;
             }
@@ -863,38 +692,8 @@
 
         const coordsLinha = getCoordsFromRow(linha);
         const infoLinha = coordsLinha ? obterInfoParaCoords(coordsLinha) : null;
-
         if (infoLinha) {
-            const infoIcon = criarInfoIcon(infoLinha);
-            container.appendChild(infoIcon);
-        }
-
-        // Forge-Zusammenfassung (Dorftyp, letzter Angriff, eingehende Angriffe)
-        // asynchron nachladen und als eigenes Info-Icon anzeigen, sobald verfügbar.
-        if (coordsLinha && forgeIstKonfiguriert()) {
-            const [x, y] = coordsLinha.split('|');
-
-            holeDbInfo(x, y, function (data) {
-                if (!linha.isConnected) return; // Zeile evtl. mittlerweile aus DOM entfernt/neu gerendert
-
-                const zusammenfassung = baueDorfZusammenfassung(data);
-                if (!zusammenfassung) {
-                    log('Forge-Debug: keine verwertbaren Daten für ' + coordsLinha);
-                    return;
-                }
-
-                const bestehendesIcon = container.querySelector('.tpSchnell-info-icon');
-                if (bestehendesIcon) {
-                    // eigenen Notiztext + Forge-Zusammenfassung kombinieren
-                    const kombiniert = baueErweitertenInfoText(infoLinha || '', zusammenfassung);
-                    bestehendesIcon.setAttribute('aria-label', 'Dorfinfo: ' + kombiniert);
-                    bestehendesIcon.dataset.tpSchnellText = kombiniert;
-                } else {
-                    const forgeIcon = criarInfoIcon(zusammenfassung);
-                    forgeIcon.classList.add('tpSchnell-forge-icon');
-                    container.insertBefore(forgeIcon, container.firstChild);
-                }
-            });
+            container.appendChild(criarInfoIcon(infoLinha));
         }
 
         let ultimaKategoria = null;
@@ -1264,7 +1063,7 @@
             }
 
             .tpSchnell-exist-list {
-                max-height: 180px;
+                max-height: 260px;
                 overflow-y: auto;
                 border: 1px solid rgba(125, 81, 15, 0.35);
                 border-radius: 4px;
@@ -1279,36 +1078,58 @@
                 opacity: 0.75;
             }
 
-            .tpSchnell-exist-row {
+            .tpSchnell-grupo-card {
+                background: rgba(255, 255, 255, 0.55);
+                border: 1px solid rgba(125, 81, 15, 0.3);
+                border-radius: 4px;
+                padding: 6px;
+                margin-bottom: 6px;
+            }
+
+            .tpSchnell-grupo-card:last-child {
+                margin-bottom: 0;
+            }
+
+            .tpSchnell-grupo-cabecalho {
                 display: flex;
                 align-items: center;
                 gap: 4px;
-                padding: 2px 0;
+                margin-bottom: 4px;
             }
 
-            .tpSchnell-exist-row + .tpSchnell-exist-row {
-                border-top: 1px solid rgba(125, 81, 15, 0.15);
-            }
-
-            .tpSchnell-exist-coords {
-                flex: 0 0 auto;
-                font-size: 11px;
-                font-weight: 700;
-                white-space: nowrap;
-                min-width: 58px;
-            }
-
-            .tpSchnell-exist-input {
+            .tpSchnell-grupo-label {
                 flex: 1 1 auto;
                 min-width: 0;
-                font-size: 11px;
+                font-size: 12px;
+                font-weight: 700;
                 box-sizing: border-box;
             }
 
-            .tpSchnell-exist-delete {
+            .tpSchnell-grupo-count {
+                flex: 0 0 auto;
+                font-size: 10px;
+                white-space: nowrap;
+                opacity: 0.8;
+            }
+
+            .tpSchnell-grupo-delete {
                 flex: 0 0 auto;
                 padding: 2px 6px !important;
                 font-size: 11px !important;
+            }
+
+            .tpSchnell-grupo-coords {
+                width: 100%;
+                box-sizing: border-box;
+                font-size: 11px;
+                margin-bottom: 4px;
+                resize: vertical;
+            }
+
+            .tpSchnell-grupo-salvar {
+                width: 100% !important;
+                font-size: 11px !important;
+                padding: 4px !important;
             }
 
             .tpSchnell-info-icon {
@@ -1334,16 +1155,6 @@
 
             .tpSchnell-info-icon:hover {
                 background: #d3e9ff;
-            }
-
-            .tpSchnell-forge-icon {
-                border-color: #a8590e;
-                background: #fff2e2;
-                color: #a8590e;
-            }
-
-            .tpSchnell-forge-icon:hover {
-                background: #ffe3c2;
             }
 
             .tpSchnell-tooltip {

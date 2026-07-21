@@ -75,34 +75,23 @@
             ein Fenster, in dem sich beliebig viele Koordinaten zusammen mit
             einem Infotext hinterlegen lassen (z.B. „Vollbauer“, „Feind XY“),
             „🗑️ Dorfinfos löschen“ entfernt die komplette Datenbank nach
-            Bestätigung. Im selben Fenster zeigt eine durchsuchbare Liste
-            alle bereits gespeicherten Einträge an – jeder Eintrag lässt
-            sich dort direkt bearbeiten (Enter oder Fokus verlassen
-            speichert) oder einzeln per 🗑️-Button löschen. Taucht eine
-            hinterlegte Koordinate als Herkunftsdorf auf, erscheint davor
-            ein kleines <strong>i</strong>-Symbol; per Hover (Desktop) oder
-            Tippen (mobil) zeigt es den gespeicherten Infotext als Overlay
-            an.
+            Bestätigung. Taucht eine hinterlegte Koordinate als Herkunftsdorf
+            auf, erscheint davor ein kleines <strong>i</strong>-Symbol; per
+            Hover (Desktop) oder Tippen (mobil) zeigt es den gespeicherten
+            Infotext als Overlay an.
           </p>
           <p>
-            Optional lässt sich außerdem eine <strong>Forge-API</strong>
-            anbinden (Button „🔑 Forge API“): der API-Endpunkt ist bereits mit
-            <code>twforge.net</code> vorbelegt (inkl. der aktuellen
-            Welt-Kennung), du musst also nur noch deinen eigenen API-Key
-            eintragen – der Endpunkt lässt sich bei Bedarf aber auch ändern.
-            Sobald ein Key hinterlegt ist, fragt das Script pro
-            Herkunftskoordinate eine kurze Dorf-Zusammenfassung ab (Dorftyp
-            Off/Deff, Zeitpunkt des letzten Angriffs bzw. der letzten
-            Verteidigung, Anzahl eingehender Angriffe insgesamt samt
-            Aufschlüsselung nach Größenschätzung) und zeigt sie über ein
-            zusätzliches (orange hervorgehobenes) Info-Symbol an – bei
-            vorhandenem eigenen Dorf-Info-Text werden beide kombiniert
-            angezeigt. Ohne hinterlegten Key bleibt diese Abfrage komplett
-            inaktiv. <strong>Wichtig:</strong> Endpunkt und Key werden nur
-            lokal im Browser gespeichert, aber bei jeder Abfrage im Klartext
-            an den eingetragenen Endpunkt gesendet – bei einem geänderten,
-            selbst eingetragenen Endpunkt nur einen Dienst nutzen, dem du
-            vertraust.
+            Im selben Fenster zeigt eine durchsuchbare Liste alle bereits
+            gespeicherten Einträge <strong>gruppiert nach identischem
+            Infotext</strong> an: Dörfer mit demselben Text (z.B. alle als
+            „Vollbauer“ markierten Koordinaten) erscheinen als eine
+            gemeinsame Karte mit editierbarem Gruppennamen und einem
+            Textfeld mit allen zugehörigen Koordinaten – Name und
+            Koordinatenliste lassen sich dort gemeinsam bearbeiten
+            („Gruppe speichern“ übernimmt die Änderungen, entfernt aber
+            zuerst alle bisherigen Mitglieder der Gruppe, damit auch
+            entfernte Koordinaten korrekt verschwinden) oder die komplette
+            Gruppe per 🗑️-Button auf einen Schlag löschen.
           </p>
 
           <div class="script-meta">
@@ -135,8 +124,8 @@
               <span class="value">Import per Koordinatenliste + Infotext über die Buttons in der Angriffsübersicht, Anzeige als i-Symbol mit Tooltip, komplett löschbar</span>
             </div>
             <div>
-              <span class="label">Forge-API (optional)</span>
-              <span class="value">Endpunkt vorbelegt mit twforge.net (inkl. Welt), nur eigener Key nötig über „🔑 Forge API“; liefert Dorf-Zusammenfassung (Typ, letzter Angriff/Verteidigung, eingehende Angriffe) pro Herkunftsdorf; ohne Key inaktiv</span>
+              <span class="label">Verwaltung der Dorf-Infos</span>
+              <span class="value">Im Import-Fenster gruppiert nach Infotext (eine Karte pro Text mit allen zugehörigen Koordinaten), gemeinsam editierbar oder gruppenweise löschbar</span>
             </div>
           </div>
 
