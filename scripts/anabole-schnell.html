@@ -84,6 +84,19 @@
             Tippen (mobil) zeigt es den gespeicherten Infotext als Overlay
             an.
           </p>
+          <p>
+            Optional lässt sich außerdem eine <strong>Forge-API</strong>
+            anbinden (Button „🔑 Forge API“): nach Eintragen von
+            API-Endpunkt (URL) und Key fragt das Script pro Herkunftskoordinate
+            eine Angriffs-Vorhersage ab (Größenschätzung, Begründung, Anzahl
+            Duplikate) und zeigt sie über ein zusätzliches (orange
+            hervorgehobenes) Info-Symbol an – abgeglichen über die
+            Ankunftszeit der Zeile. Ohne konfigurierten Endpunkt/Key bleibt
+            diese Abfrage komplett inaktiv. <strong>Wichtig:</strong> URL und
+            Key werden nur lokal im Browser gespeichert, aber bei jeder
+            Abfrage im Klartext an die von dir eingetragene URL gesendet –
+            nutze hier nur einen Dienst, dem du vertraust.
+          </p>
 
           <div class="script-meta">
             <div>
@@ -113,6 +126,10 @@
             <div>
               <span class="label">Dorf-Infos-Datenbank</span>
               <span class="value">Import per Koordinatenliste + Infotext über die Buttons in der Angriffsübersicht, Anzeige als i-Symbol mit Tooltip, komplett löschbar</span>
+            </div>
+            <div>
+              <span class="label">Forge-API (optional)</span>
+              <span class="value">Eigener API-Endpunkt + Key über „🔑 Forge API“ hinterlegbar, liefert Angriffs-Vorhersage pro Herkunftsdorf; ohne Konfiguration inaktiv</span>
             </div>
           </div>
 
