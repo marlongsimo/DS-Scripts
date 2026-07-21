@@ -315,26 +315,6 @@
         if (painel) painel.remove();
     }
 
-    // --- Feste Buttonleiste unten auf der Seite -----------------------------
-    function adicionarBarraInferior() {
-        if (document.getElementById('tpSchnellBottomBar')) return;
-
-        const barra = document.createElement('div');
-        barra.id = 'tpSchnellBottomBar';
-        barra.className = 'tpSchnell-bottom-bar';
-        barra.innerHTML =
-            '<button type="button" class="btn" id="tpSchnellDbTestOpen">🧪 DB-Test</button>' +
-            '<button type="button" class="btn" id="tpSchnellDebugOpen">🐞 Debug</button>';
-
-        document.body.appendChild(barra);
-
-        document.getElementById('tpSchnellDbTestOpen').addEventListener('click', abrirModalDbTest);
-        document.getElementById('tpSchnellDebugOpen').addEventListener('click', function () {
-            if (document.getElementById('tpSchnellDebugPanel')) fecharDebugPainel();
-            else abrirDebugPainel();
-        });
-    }
-
     // =======================================================================
     // Boot
     // =======================================================================
@@ -347,7 +327,6 @@
         addStyles();
         runRenameButtons();
         runDuplicateMarker();
-        adicionarBarraInferior();
 
         document.addEventListener('click', fecharTooltipSeForaDoAlvo, true);
         window.addEventListener('scroll', function () { if (!tooltipPinned) esconderTooltip(); }, true);
@@ -395,7 +374,9 @@
         panel.innerHTML =
             '<input type="button" class="btn" id="tpSchnellMarkDup" value="Wiederholte Angriffe markieren"> ' +
             '<input type="button" class="btn" id="tpSchnellImportBtn" value="📥 Dörfer importieren"> ' +
-            '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen">';
+            '<input type="button" class="btn" id="tpSchnellDeleteBtn" value="🗑️ Dorfinfos löschen"> ' +
+            '<input type="button" class="btn" id="tpSchnellDbTestOpen" value="🧪 DB-Test"> ' +
+            '<input type="button" class="btn" id="tpSchnellDebugOpen" value="🐞 Debug">';
 
         const filters = document.querySelector('.overview_filters');
         if (filters) filters.before(panel);
@@ -406,6 +387,11 @@
         });
         document.getElementById('tpSchnellImportBtn').addEventListener('click', abrirModalDorfImport);
         document.getElementById('tpSchnellDeleteBtn').addEventListener('click', apagarDorfInfosComConfirmacao);
+        document.getElementById('tpSchnellDbTestOpen').addEventListener('click', abrirModalDbTest);
+        document.getElementById('tpSchnellDebugOpen').addEventListener('click', function () {
+            if (document.getElementById('tpSchnellDebugPanel')) fecharDebugPainel();
+            else abrirDebugPainel();
+        });
 
         // Direkt beim Laden einmal automatisch markieren
         markDuplicates(rows, sourceIndex);
@@ -1401,25 +1387,6 @@
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
                 pointer-events: none;
                 word-wrap: break-word;
-            }
-
-            .tpSchnell-bottom-bar {
-                position: fixed;
-                left: 8px;
-                bottom: 8px;
-                z-index: 999997;
-                display: flex;
-                gap: 6px;
-                background: rgba(244, 228, 188, 0.95);
-                border: 1px solid #7d510f;
-                border-radius: 6px;
-                padding: 5px 6px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-            }
-
-            .tpSchnell-bottom-bar .btn {
-                font-size: 11px !important;
-                padding: 4px 8px !important;
             }
 
             .tpSchnell-debug-pre,
