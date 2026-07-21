@@ -105,9 +105,11 @@
             Zieldorf haben kann) – nur wenn keine Ziel-Spalte existiert
             (einfache Einzeldorf-Ansicht), wird ersatzweise das aktuell
             geöffnete Dorf (<code>game_data.village</code>) verwendet.
-            Herkunftskoordinate und Ankunftszeit der Zeile werden dann mit
-            den zurückgelieferten Daten abgeglichen (derselbe API-Key wie
-            bei „🧪 DB-Test“) – Treffer erscheinen als Badge in dieser Zeile,
+            Die Herkunftskoordinate der Zeile wird dann mit den
+            zurückgelieferten Daten abgeglichen (derselbe API-Key wie bei
+            „🧪 DB-Test“); die Ankunftszeit dient dabei nur noch als
+            Tie-Breaker, falls mehrere DB-Einträge dieselbe
+            Herkunftskoordinate haben – Treffer erscheinen als Badge in dieser Zeile,
             das Ergebnis (Treffer oder Rohdaten) wird zusätzlich im Popup
             angezeigt. Auch hier findet <strong>keine automatische
             Abfrage</strong> im Hintergrund statt, nur auf ausdrücklichen

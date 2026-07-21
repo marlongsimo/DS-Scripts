@@ -246,11 +246,25 @@
     function aplicarVorhersaoNaLinhaDeTeste(linha, sourceIndex, coords, horaChegada, sosArray, resultado) {
         linha.querySelectorAll('.tpSchnell-vorhersao-badge').forEach(function (b) { b.remove(); });
 
-        const match = sosArray.find(function (item) {
-            if (item.attacker_coords !== coords) return false;
-            if (!horaChegada) return true; // Fallback: nur nach Herkunft abgleichen
-            return timeConverterLocal(item.arrival_time) === horaChegada;
-        });
+        // Primär nur über die Herkunftskoordinate abgleichen (eindeutig in
+        // den allermeisten Fällen). Die Ankunftszeit aus der API ist ein
+        // Unix-Timestamp und timeConverterLocal() rechnet ihn in die lokale
+        // Zeitzone des Browsers um - das muss nicht mit der im Spiel
+        // angezeigten Ankunftszeit übereinstimmen (Server-/Spielzeitzone
+        // kann abweichen), daher dient die Ankunftszeit nur noch als
+        // Tie-Breaker, wenn mehrere Einträge dieselbe Koordinate haben.
+        const kandidaten = sosArray.filter(function (item) { return item.attacker_coords === coords; });
+
+        let match = null;
+        if (kandidaten.length <= 1) {
+            match = kandidaten[0] || null;
+        } else if (horaChegada) {
+            match = kandidaten.find(function (item) {
+                return timeConverterLocal(item.arrival_time) === horaChegada;
+            }) || kandidaten[0];
+        } else {
+            match = kandidaten[0];
+        }
 
         if (!match) {
             resultado.textContent = 'Kein Treffer für ' + (coords || '?') + ' (Ankunft ' + (horaChegada || '?') + ') unter ' + sosArray.length + ' DB-Einträgen.';
