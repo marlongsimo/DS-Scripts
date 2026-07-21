@@ -151,12 +151,26 @@
         return pad(a.getHours()) + ':' + pad(a.getMinutes()) + ':' + pad(a.getSeconds());
     }
 
-    // Sucht in einer Tabellenzeile nach einer Uhrzeit im Format HH:MM:SS
-    // (Ankunftszeitpunkt eines eingehenden Angriffs).
+    // Sucht in einer Tabellenzeile nach der ABSOLUTEN Ankunftsuhrzeit
+    // (z.B. "heute um 7:19:14" oder "morgen um 13:03:06"). Die Ankunft-Spalte
+    // zeigt zusätzlich eine zweite Zeile mit der verbleibenden Restzeit als
+    // Countdown (z.B. "26:20:10") - die hat zufällig dasselbe HH:MM:SS-Format
+    // und wurde vorher versehentlich statt der echten Ankunftszeit erkannt,
+    // deshalb zuerst gezielt nach "heute/morgen ... um HH:MM:SS" suchen.
     function obterHoraChegadaDaLinha(linha) {
         const texto = linha.textContent || '';
-        const match = texto.match(/\b([01]\d|2[0-3]):[0-5]\d:[0-5]\d\b/);
-        return match ? match[0] : null;
+
+        const comPrefixo = texto.match(/(?:heute|morgen)[^\d]*(\d{1,2}:[0-5]\d:[0-5]\d)/i);
+        if (comPrefixo) return normalizarHora(comPrefixo[1]);
+
+        const generico = texto.match(/\b([01]?\d|2[0-3]):[0-5]\d:[0-5]\d\b/);
+        return generico ? normalizarHora(generico[0]) : null;
+    }
+
+    function normalizarHora(hora) {
+        const partes = String(hora).split(':');
+        const h = partes[0].length === 1 ? '0' + partes[0] : partes[0];
+        return h + ':' + partes[1] + ':' + partes[2];
     }
 
     // --- Teil 4: Angriffsvorhersage (Testmodus: nur der 6. Eintrag) ---------
