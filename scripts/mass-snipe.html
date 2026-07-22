@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mass Snipe – DS-Scripts</title>
+  <meta name="description" content="Berechnet Abschickzeiten für mehrere Snipe-Ziele gleichzeitig anhand von Ankunftszeit, Entfernung, Einheitengeschwindigkeit und Sigel-Bonus – inkl. Massenimport aus Forenthreads.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Scripts</a> / Mass Snipe</p>
+
+        <div class="script-detail">
+          <div class="tag-row" style="margin-bottom:0.8rem;">
+            <span class="badge">v1.1.5-de</span>
+            <span class="badge">Snipe</span>
+            <span class="badge">Zeitplanung</span>
+          </div>
+          <h2>🎯 Mass Snipe</h2>
+          <p>
+            Berechnet für mehrere Snipe-Ziele gleichzeitig, wann welche
+            eigene Dorf-Gruppe welchen Einheitentyp losschicken muss, damit
+            der Angriff exakt zur gewünschten Ankunftszeit landet. Für jede
+            Kombination aus Ziel-Koordinate, gewünschter Ankunftszeit,
+            Sigel-Bonus (prozentualer Geschwindigkeits-Malus/-Bonus) und
+            Mindest-Truppenanzahl werden alle passenden eigenen Dörfer aus
+            der aktuell gewählten Gruppe durchsucht: Distanz, gewählte
+            Einheitengeschwindigkeit und Sigel-Wert ergeben die
+            Abschickzeit; anschließend wird geprüft, ob im jeweiligen Dorf
+            tatsächlich genug von der gewählten Einheit vorhanden ist. Nur
+            wirklich durchführbare Kombinationen (liegen in der Zukunft und
+            haben genug Truppen) landen in der Ergebnistabelle.
+          </p>
+          <p>
+            Zusätzlich gibt es einen <strong>Massenimport</strong>: Text aus
+            einem Forenthread (z.B. eine Liste angekündigter Adelszüge)
+            einfügen, das Script erkennt Koordinaten und Ankunftszeiten
+            automatisch und legt daraus passende Snipe-Zeilen an. Das
+            Ergebnis lässt sich als BB-Code exportieren, und ein
+            Live-Countdown zeigt an, wie viel Zeit bis zum nächsten
+            Abschicken bleibt.
+          </p>
+
+          <div class="script-meta">
+            <div>
+              <span class="label">Version</span>
+              <span class="value">v1.1.5-de</span>
+            </div>
+            <div>
+              <span class="label">Autor</span>
+              <span class="value">RedAlert (twscripts.dev)</span>
+            </div>
+            <div>
+              <span class="label">Mod</span>
+              <span class="value">JawJaw – de_DE-Übersetzung ergänzt (locale-abhängige Zeiterkennung „heute/morgen/am … um …“)</span>
+            </div>
+            <div>
+              <span class="label">Forum</span>
+              <span class="value"><a href="https://forum.tribalwars.net/index.php?threads/mass-snipe.290217/" target="_blank" rel="noopener">Original-Thread ↗</a></span>
+            </div>
+            <div>
+              <span class="label">Voraussetzung</span>
+              <span class="value">Beliebiger Screen; nutzt die aktuell im Spiel gewählte Dorf-Gruppe für die eigenen Dörfer</span>
+            </div>
+            <div>
+              <span class="label">Ausgabeformat</span>
+              <span class="value">Ergebnistabelle im Overlay, optional als BB-Code exportierbar</span>
+            </div>
+          </div>
+
+          <h3>Installation (Desktop)</h3>
+          <div class="install-box">
+            <p style="margin-bottom:0.8rem;">
+              Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach
+              das Spiel und klicke auf das Lesezeichen, um das Script zu
+              starten.
+            </p>
+            <a class="bookmarklet"
+               href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/massSnipe.js');"
+               onclick="return false;"
+               title="In die Lesezeichenleiste ziehen">
+              🎯 Mass Snipe starten
+            </a>
+          </div>
+
+          <h3>Installation (Handy: iPhone/Android)</h3>
+          <p>
+            Auf dem Handy lässt sich das Bookmarklet nicht per Drag &amp; Drop
+            in die Lesezeichen-/Favoritenleiste ziehen. Stattdessen legst du
+            zuerst ein ganz normales Lesezeichen an und ersetzt dessen Adresse
+            danach durch den folgenden Code:
+          </p>
+          <pre><code id="console-snippet">javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/massSnipe.js');</code></pre>
+          <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
+
+          <p style="margin-top:1rem;"><strong>iPhone (Safari):</strong></p>
+          <ol style="margin:0 0 1rem 1.2rem; padding:0;">
+            <li>Diese Seite (oder eine beliebige andere) über das Teilen-Symbol als Lesezeichen speichern.</li>
+            <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
+            <li>Das Adressfeld leeren und den oben kopierten Code einfügen. Als Namen z.B. „Mass Snipe“ eintragen und speichern.</li>
+            <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben – es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
+            <li>Im Spiel einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
+          </ol>
+
+          <p><strong>Android (Chrome):</strong></p>
+          <ol style="margin:0 0 0 1.2rem; padding:0;">
+            <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
+            <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben kopierten Code ersetzen, Namen anpassen und speichern.</li>
+            <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
+            <li>Im Spiel das Lesezeichen aus der Leiste antippen.</li>
+          </ol>
+
+          <h3 style="margin-top:1.6rem;">Quellcode</h3>
+          <p>
+            <a href="https://github.com/marlongsimo/DS-Scripts/blob/main/scripts/massSnipe.js" target="_blank" rel="noopener">
+              scripts/massSnipe.js auf GitHub ansehen ↗
+            </a>
+          </p>
+
+          <div class="note warn" style="margin-top:1.4rem;">
+            Nutzung auf eigene Verantwortung. Das Script schickt nichts
+            automatisch ab, sondern berechnet nur Abschickzeiten und zeigt
+            sie an bzw. exportiert sie als BB-Code – den Befehl musst du
+            selbst im Spiel eintragen und abschicken. Bitte vorab die
+            Regeln deines Servers zu Skripten/Bookmarklets prüfen.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+    document.getElementById('copy-snippet').addEventListener('click', function () {
+      var text = document.getElementById('console-snippet').textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copy-snippet');
+        var original = btn.textContent;
+        btn.textContent = '✅ Kopiert!';
+        setTimeout(function () { btn.textContent = original; }, 1800);
+      });
+    });
+  </script>
+</body>
+</html>
