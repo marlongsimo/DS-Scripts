@@ -1,6 +1,6 @@
 /*
  * Script Name: Mass Snipe (DE Fix)
- * Version: v1.1.6-de
+ * Version: v1.1.7-de
  * Last Updated: 2026-07-22
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -19,6 +19,13 @@
  *   dieser Ansicht gar nicht vorhanden ist (nur bei per Kartenklick geöffneten
  *   Popups). game_data.village.coord liefert die Koordinate des gerade
  *   angezeigten Dorfs zuverlässig auf jeder Ansicht.
+ * - Der Fehler trat nach diesem Fix live weiterhin auf, ohne dass die
+ *   generische Toast-Meldung erkennen ließ, woran es liegt (alert()/
+ *   console.error() sind in der mobilen App-WebView unsichtbar). Neuer
+ *   "🐞 Debug"-Button + Panel (#raDebugInfo): zeigt bei einem Fehler in den
+ *   Klick-Handlern jetzt den echten Fehler-Stack, den Wert von
+ *   game_data.village.coord und das HTML der angeklickten Zeile direkt im
+ *   Overlay an.
  */
 
 /* Copyright (c) RedAlert
@@ -33,7 +40,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'massSnipe',
         name: 'Mass Snipe',
-        version: 'v1.1.4',
+        version: 'v1.1.7-de',
         author: 'RedAlert',
         authorUrl: 'https://twscripts.dev/',
         helpLink:
@@ -2118,6 +2125,7 @@ window.twSDK = {
             handleMassImport();
             handleExportBBCode();
             handleResetScript();
+            handleDebugToggle();
         } catch (error) {
             UI.ErrorMessage(twSDK.tt('There was an error!'));
             console.error(`${scriptInfo} Error:`, error);
@@ -2161,6 +2169,12 @@ window.twSDK = {
                     )}</label>
                     <div id="raPossibleCombinationsTable"></div>
                 </div>
+                <div class="ra-mt15">
+                    <a href="javascript:void(0);" id="raDebugToggleBtn" class="btn">
+                        🐞 Debug
+                    </a>
+                </div>
+                <div id="raDebugInfo" style="display:none;"></div>
             `;
 
         const customStyle = `
@@ -2320,6 +2334,35 @@ window.twSDK = {
         });
     }
 
+    // Helper: rohes/unbekanntes HTML sicher als sichtbaren Text ins
+    // Debug-Panel rendern - alert()/console.error() sind in der mobilen
+    // App-WebView unsichtbar, Diagnosen müssen daher direkt im Panel
+    // erscheinen.
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function renderDebugInfo(text) {
+        jQuery('#raDebugInfo')
+            .show()
+            .html(
+                `<pre style="white-space:pre-wrap; word-break:break-all; margin-top:10px; padding:8px; background:rgba(0,0,0,0.08); font-size:11px; max-height:400px; overflow:auto;">${escapeHtml(
+                    text
+                )}</pre>`
+            );
+    }
+
+    // Action Handler: Debug-Panel manuell ein-/ausblenden
+    function handleDebugToggle() {
+        jQuery('#raDebugToggleBtn').on('click', function (e) {
+            e.preventDefault();
+            jQuery('#raDebugInfo').toggle();
+        });
+    }
+
     // Action Handler: Add snipe needed on table from DOM
     function handleAddSnipeNeededFromDOM() {
         // add from "/game.php?screen=info_village&id=XXXX" screen
@@ -2342,6 +2385,16 @@ window.twSDK = {
             } catch (error) {
                 UI.ErrorMessage(twSDK.tt('There was an error!'));
                 console.error(`${scriptInfo} Error: `, error);
+                renderDebugInfo(
+                    `Fehler beim Klick auf eine Zeile (info_village-Screen):\n\n` +
+                        `${error && (error.stack || error.message) || String(error)}\n\n` +
+                        `game_data.village.coord: ${
+                            (game_data.village && game_data.village.coord) || '(fehlt)'
+                        }\n\n` +
+                        `Angeklickte Zeile (HTML):\n${
+                            (this && this.outerHTML) || '(nicht verfügbar)'
+                        }`
+                );
             }
         });
 
@@ -2366,6 +2419,13 @@ window.twSDK = {
             } catch (error) {
                 UI.ErrorMessage(twSDK.tt('There was an error!'));
                 console.error(`${scriptInfo} Error: `, error);
+                renderDebugInfo(
+                    `Fehler beim Klick auf eine Zeile (overview_villages&mode=incomings-Screen):\n\n` +
+                        `${error && (error.stack || error.message) || String(error)}\n\n` +
+                        `Angeklickte Zeile (HTML):\n${
+                            (this && this.outerHTML) || '(nicht verfügbar)'
+                        }`
+                );
             }
         });
     }
