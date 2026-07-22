@@ -1,6 +1,6 @@
 /*
  * Script Name: Mass Snipe (DE Fix)
- * Version: v1.1.8-de
+ * Version: v1.1.9-de
  * Last Updated: 2026-07-22
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -32,6 +32,11 @@
  *   info_village-Screen hat aber nur H:M:S - das "MS"-Segment ist jetzt
  *   optional (`(?::\d+)?`), die Millisekunden wurden ohnehin nirgends
  *   weiterverwendet.
+ * - Nutzerwunsch: Snipe-Zeilen (${prefix}_snipes_needed) wurden bisher in
+ *   sessionStorage gespeichert, das beim Schließen des Tabs/der App-Session
+ *   geleert wird. Auf localStorage umgestellt (wie die gewählten
+ *   Einheitentypen bereits), damit angelegte Snipes über Sitzungen hinweg
+ *   erhalten bleiben.
  */
 
 /* Copyright (c) RedAlert
@@ -46,7 +51,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'massSnipe',
         name: 'Mass Snipe',
-        version: 'v1.1.8-de',
+        version: 'v1.1.9-de',
         author: 'RedAlert',
         authorUrl: 'https://twscripts.dev/',
         helpLink:
@@ -2914,7 +2919,7 @@ window.twSDK = {
 
         const snipesNeeded =
             JSON.parse(
-                sessionStorage.getItem(
+                localStorage.getItem(
                     `${scriptConfig.scriptData.prefix}_snipes_needed`
                 )
             ) ?? null;
@@ -2982,7 +2987,7 @@ window.twSDK = {
         }
 
         if (snipesNeeded.length) {
-            sessionStorage.setItem(
+            localStorage.setItem(
                 `${scriptConfig.scriptData.prefix}_snipes_needed`,
                 JSON.stringify(snipesNeeded)
             );
