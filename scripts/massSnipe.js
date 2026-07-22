@@ -1,6 +1,6 @@
 /*
  * Script Name: Mass Snipe (DE Fix)
- * Version: v1.1.7-de
+ * Version: v1.1.8-de
  * Last Updated: 2026-07-22
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
@@ -26,6 +26,12 @@
  *   Klick-Handlern jetzt den echten Fehler-Stack, den Wert von
  *   game_data.village.coord und das HTML der angeklickten Zeile direkt im
  *   Overlay an.
+ * - Debug-Panel deckte die eigentliche Ursache auf: twSDK.getTimeFromString()
+ *   verlangte in allen drei Zweigen (heute/morgen/am ... um ...) zwingend ein
+ *   Zeitformat mit Millisekunden (H:M:S:MS), "am 25.07. um 07:03:02" auf dem
+ *   info_village-Screen hat aber nur H:M:S - das "MS"-Segment ist jetzt
+ *   optional (`(?::\d+)?`), die Millisekunden wurden ohnehin nirgends
+ *   weiterverwendet.
  */
 
 /* Copyright (c) RedAlert
@@ -40,7 +46,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'massSnipe',
         name: 'Mass Snipe',
-        version: 'v1.1.7-de',
+        version: 'v1.1.8-de',
         author: 'RedAlert',
         authorUrl: 'https://twscripts.dev/',
         helpLink:
@@ -1375,7 +1381,7 @@ window.twSDK = {
                 '/' +
                 serverDate[2] +
                 ' ' +
-                timeLand.match(/\d+:\d+:\d+:\d+/)[0];
+                timeLand.match(/\d+:\d+:\d+(?::\d+)?/)[0];
         } else if (tomorrowPattern !== null) {
             // tomorrow
             let tomorrowDate = new Date(
@@ -1389,7 +1395,7 @@ window.twSDK = {
                 '/' +
                 tomorrowDate.getFullYear() +
                 ' ' +
-                timeLand.match(/\d+:\d+:\d+:\d+/)[0];
+                timeLand.match(/\d+:\d+:\d+(?::\d+)?/)[0];
         } else {
             // on
             let on = timeLand.match(/\d+.\d+/)[0].split('.');
@@ -1400,7 +1406,7 @@ window.twSDK = {
                 '/' +
                 serverDate[2] +
                 ' ' +
-                timeLand.match(/\d+:\d+:\d+:\d+/)[0];
+                timeLand.match(/\d+:\d+:\d+(?::\d+)?/)[0];
         }
 
         return dateLand;
