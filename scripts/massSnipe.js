@@ -1,7 +1,7 @@
 /*
  * Script Name: Mass Snipe (DE Fix)
- * Version: v1.1.5-de
- * Last Updated: 2025-08-15
+ * Version: v1.1.6-de
+ * Last Updated: 2026-07-22
  * Author: RedAlert
  * Author URL: https://twscripts.dev/
  * Author Contact: redalert_tw (Discord)
@@ -13,6 +13,12 @@
  * - de_DE Übersetzung ergänzt (translations Objekt)
  * - getTimeFromString(): locale-abhängige Zeitmuster (heute/morgen/am ... um ...)
  *   + case-insensitive Regex als Absicherung gegen Groß-/Kleinschreibungs-Varianten
+ * - handleAddSnipeNeededFromDOM(): Klick auf eine Zeile in "Eintreffend"
+ *   (screen=info_village) löste "Es gab einen Fehler!" aus, da die
+ *   Dorf-Koordinate aus einem URL-Hash-Fragment (#x;y) gelesen wurde, das auf
+ *   dieser Ansicht gar nicht vorhanden ist (nur bei per Kartenklick geöffneten
+ *   Popups). game_data.village.coord liefert die Koordinate des gerade
+ *   angezeigten Dorfs zuverlässig auf jeder Ansicht.
  */
 
 /* Copyright (c) RedAlert
@@ -2332,9 +2338,7 @@ window.twSDK = {
                     .trim();
                 const landingTime = twSDK.getTimeFromString(commandLandingTime);
 
-                const [x, y] = window.location.href.split('#')[1].split(';');
-
-                addTableRow(`${x}|${y}`, landingTime);
+                addTableRow(game_data.village.coord, landingTime);
             } catch (error) {
                 UI.ErrorMessage(twSDK.tt('There was an error!'));
                 console.error(`${scriptInfo} Error: `, error);
