@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gruppen-Tool – DS-Scripts</title>
+  <meta name="description" content="Ordnet eigene Dörfer anhand einer Koordinatenliste einer Dorfgruppe zu – optional nachdem die Zielgruppe vorher komplett geleert wurde.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Scripts</a> / Gruppen-Tool</p>
+
+        <div class="script-detail">
+          <div class="tag-row" style="margin-bottom:0.8rem;">
+            <span class="badge">v1.0</span>
+            <span class="badge">Dorfgruppen</span>
+            <span class="badge">Koordinaten-Import</span>
+          </div>
+          <h2>🗂️ Gruppen-Tool</h2>
+          <p>
+            Öffnet einen Dialog mit einem Textfeld für Koordinaten. Beim
+            Klick auf „Dörfer auswählen“ werden alle eingefügten
+            Koordinaten (Format <code>123|456</code>) gegen die eigene
+            Dorfliste abgeglichen – Dörfer, die einem nicht selbst gehören,
+            werden ignoriert (Ausgabe in der Konsole). Aus den gefundenen
+            eigenen Dörfern wird anschließend eine Liste mit Checkboxen
+            gebaut, aus der sich die passende Zielgruppe auswählen und mit
+            „Add“ bestätigen lässt – dieselbe serverseitige Aktion wie beim
+            manuellen Hinzufügen über die Dorfgruppen-Verwaltung.
+          </p>
+          <p>
+            Zusätzlich lässt sich schon vor dem Import eine
+            <strong>Zielgruppe vorauswählen</strong> und über die Checkbox
+            „Gruppe vorher komplett leeren“ festlegen, dass alle aktuell in
+            dieser Gruppe enthaltenen Dörfer zuerst entfernt werden, bevor
+            nur die neu eingefügten Koordinaten hinzukommen. Über den
+            Button „Nur Gruppe komplett leeren“ lässt sich eine Gruppe auch
+            ganz ohne neuen Import leeren. Die Dorfliste (für den
+            Koordinaten-Abgleich) wird wie im Original 24 Stunden lang im
+            Browser zwischengespeichert, damit nicht bei jedem Aufruf neu
+            geladen werden muss.
+          </p>
+
+          <div class="script-meta">
+            <div>
+              <span class="label">Version</span>
+              <span class="value">v1.0</span>
+            </div>
+            <div>
+              <span class="label">Voraussetzung</span>
+              <span class="value">Manuelle Dorfgruppe(n) angelegt</span>
+            </div>
+            <div>
+              <span class="label">Koordinaten-Format</span>
+              <span class="value">Ein oder mehrere <code>123|456</code>, beliebig getrennt</span>
+            </div>
+            <div>
+              <span class="label">Dorfliste-Cache</span>
+              <span class="value">24 Stunden (Browser-Speicher)</span>
+            </div>
+            <div>
+              <span class="label">Bedienung</span>
+              <span class="value">Bookmarklet an beliebiger Stelle im Spiel anklicken</span>
+            </div>
+          </div>
+
+          <h3>Installation (Desktop)</h3>
+          <div class="install-box">
+            <p style="margin-bottom:0.8rem;">
+              Ziehe diesen Button in deine Lesezeichenleiste. Klicke ihn
+              danach im Spiel an, um den Dialog zu öffnen.
+            </p>
+            <a class="bookmarklet"
+               href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/gruppenTool.js');"
+               onclick="return false;"
+               title="In die Lesezeichenleiste ziehen">
+              🗂️ Gruppen-Tool starten
+            </a>
+          </div>
+
+          <h3>Installation (Handy: iPhone/Android)</h3>
+          <p>
+            Auf dem Handy lässt sich das Bookmarklet nicht per Drag &amp; Drop
+            in die Lesezeichen-/Favoritenleiste ziehen. Stattdessen legst du
+            zuerst ein ganz normales Lesezeichen an und ersetzt dessen Adresse
+            danach durch den folgenden Code:
+          </p>
+          <pre><code id="console-snippet">javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/gruppenTool.js');</code></pre>
+          <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
+
+          <p style="margin-top:1rem;"><strong>iPhone (Safari):</strong></p>
+          <ol style="margin:0 0 1rem 1.2rem; padding:0;">
+            <li>Diese Seite (oder eine beliebige andere) über das Teilen-Symbol als Lesezeichen speichern.</li>
+            <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
+            <li>Das Adressfeld leeren und den oben kopierten Code einfügen. Als Namen z.B. „Gruppen-Tool“ eintragen und speichern.</li>
+            <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben – es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
+            <li>Im Spiel einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
+          </ol>
+
+          <p><strong>Android (Chrome):</strong></p>
+          <ol style="margin:0 0 0 1.2rem; padding:0;">
+            <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
+            <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben kopierten Code ersetzen, Namen anpassen und speichern.</li>
+            <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
+            <li>Im Spiel das Lesezeichen aus der Leiste antippen.</li>
+          </ol>
+
+          <h3 style="margin-top:1.6rem;">Quellcode</h3>
+          <p>
+            <a href="https://github.com/marlongsimo/DS-Scripts/blob/main/scripts/gruppenTool.js" target="_blank" rel="noopener">
+              scripts/gruppenTool.js auf GitHub ansehen ↗
+            </a>
+          </p>
+
+          <div class="note warn" style="margin-top:1.4rem;">
+            Nutzung auf eigene Verantwortung. Das „Gruppe leeren“-Feature
+            entfernt Dörfer unwiderruflich aus der gewählten Gruppe (die
+            Dörfer selbst bleiben davon unberührt) – vor dem Bestätigen im
+            Dialog kontrollieren, ob die richtige Gruppe ausgewählt ist.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+    document.getElementById('copy-snippet').addEventListener('click', function () {
+      var text = document.getElementById('console-snippet').textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copy-snippet');
+        var original = btn.textContent;
+        btn.textContent = '✅ Kopiert!';
+        setTimeout(function () { btn.textContent = original; }, 1800);
+      });
+    });
+  </script>
+</body>
+</html>
