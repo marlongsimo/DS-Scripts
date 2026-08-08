@@ -148,13 +148,14 @@
     async function ensureTeamNodeExists(teamKey, accountId) {
         try {
             const url = `${FIREBASE_DB_URL}/teams/${encodeURIComponent(teamKey)}/meta.json`;
-            const res = await fetch(url);
+            const res = await fetch(url, { cache: 'no-store' });
             if (!res.ok) return;
             const existing = await res.json();
             if (existing) return; // Team-Knoten existiert schon - nichts anlegen, vorhandene Daten nutzen
             await fetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
                 body: JSON.stringify({
                     createdAt: Date.now(),
                     createdByAccount: accountId,
@@ -230,7 +231,10 @@
         if (!teamKey) return null;
         const url = buildUrl(teamKey, scriptName, subPath);
         try {
-            const res = await fetch(url);
+            // cache:'no-store' ist hier entscheidend - ohne das kann der Browser
+            // eine veraltete, gecachte Antwort liefern und Änderungen (z.B.
+            // eine Löschung über das Dashboard) würden nicht erkannt werden.
+            const res = await fetch(url, { cache: 'no-store' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return await res.json();
         } catch (e) {
@@ -253,6 +257,7 @@
             const res = await fetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
                 body: JSON.stringify(value)
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
