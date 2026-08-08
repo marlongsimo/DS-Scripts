@@ -77,13 +77,40 @@
             <span class="adb-key-display">Team-Key: <span id="adbKeyLabel"></span> &nbsp;
               <a href="#" id="adbChangeKey">(ändern)</a>
             </span>
-            <div style="display:flex; gap:0.6rem;">
+            <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
               <button class="btn btn-outline" id="adbRefreshBtn" type="button">🔄 Aktualisieren</button>
+              <button class="btn btn-outline" id="adbImportExportBtn" type="button">⇅ Import/Export</button>
               <button class="btn btn-primary" id="adbNewCommandBtn" type="button">➕ Neuer Befehl</button>
             </div>
           </div>
 
           <div id="adbLoadStatus" class="status"></div>
+
+          <!-- ── Import / Export (Workbench-Format, identisch zum Script) ── -->
+          <div id="adbImportExportPanel" class="panel adb-hidden" style="margin-bottom:1.2rem;">
+            <h3>⇅ Import / Export (Workbench-Format)</h3>
+            <p style="font-size:0.85rem;">
+              Gleiches Textformat wie „Export"/„Import" im Planer-Script selbst
+              - ihr könnt Pläne also 1:1 zwischen Script und Dashboard hin- und
+              herkopieren. <strong>Hinweis:</strong> Dieses Format kennt nur
+              eine Angriffswelle pro Befehl (kein Mehrwellen-Support) und
+              braucht bereits aufgelöste Dorf-IDs (kein Koordinaten-Format).
+            </p>
+
+            <label style="display:block; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.4rem;">Export</label>
+            <textarea id="adbExportOutput" rows="4" readonly style="font-family:monospace; font-size:0.8rem;"></textarea>
+            <div style="display:flex; gap:0.6rem; margin:0.6rem 0 1.4rem;">
+              <button class="btn btn-outline" id="adbExportBtn" type="button">Exportieren</button>
+              <button class="btn btn-outline" id="adbExportCopyBtn" type="button">📋 Kopieren</button>
+            </div>
+
+            <label style="display:block; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.4rem;">Import</label>
+            <textarea id="adbImportInput" rows="4" placeholder="Hier Workbench-Text einfügen…" style="font-family:monospace; font-size:0.8rem;"></textarea>
+            <div style="margin-top:0.6rem;">
+              <button class="btn btn-primary" id="adbImportBtn" type="button">Importieren</button>
+            </div>
+            <div id="adbImportExportStatus" class="status"></div>
+          </div>
 
           <div class="panel" style="overflow-x:auto;">
             <table>
@@ -476,6 +503,119 @@
       document.getElementById('adbFormPanel').classList.add('adb-hidden');
     });
     document.getElementById('adbRefreshBtn').addEventListener('click', loadPlan);
+
+    // ── Import / Export (Workbench-Format) ──────────────────────────────
+    // Identischer Algorithmus wie exportWorkbench()/convertWBPlanToArray()
+    // im Planer-Script - Zeile: origin&target&slowestUnit&arrival&type&
+    // drawIn&sent&unit1=base64(qty)/unit2=base64(qty)[&catapultTarget]
+    document.getElementById('adbImportExportBtn').addEventListener('click', () => {
+      document.getElementById('adbImportExportPanel').classList.toggle('adb-hidden');
+    });
+
+    function parseBoolWB(v) {
+      return v === true || v === 'true' || v === '1' || v === 1;
+    }
+
+    function exportWorkbench(commands) {
+      let out = '';
+      (commands || []).forEach(row => {
+        const { originVillageId, targetVillageId, slowestUnit, arrivalTimestamp, type, drawIn, sent, units, catapultTarget } = row;
+        if (!originVillageId || !targetVillageId) return; // noch nicht aufgelöst (Dashboard-Befehl ohne Dorf-ID) - kann nicht exportiert werden
+        const t = type || 16;
+        const arrTimestamp = (arrivalTimestamp || 0) + t;
+        let line = `${originVillageId}&${targetVillageId}&${slowestUnit || ''}&${arrTimestamp}&${t}&${!!drawIn}&${!!sent}&`;
+        const unitsArray = [];
+        for (const unit in (units || {})) {
+          if (units[unit]) unitsArray.push(`${unit}=${btoa(String(units[unit]))}`);
+        }
+        line += unitsArray.join('/');
+        if (catapultTarget) line += `&${catapultTarget}`;
+        out += line + '\n';
+      });
+      return out;
+    }
+
+    function importWorkbench(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '');
+      const imported = [];
+      lines.forEach(line => {
+        const parts = line.split('&');
+        if (parts.length < 8) return; // Zeile unvollständig, überspringen
+        const units = {};
+        (parts[7] || '').split('/').forEach(pair => {
+          if (!pair) return;
+          const [unit, val] = pair.split('=');
+          if (unit === undefined || val === undefined) return;
+          try { units[unit] = parseInt(atob(val)) || 0; } catch (e) { /* ungültiger Wert ignorieren */ }
+        });
+        imported.push({
+          originVillageId: parseInt(parts[0]),
+          targetVillageId: parseInt(parts[1]),
+          slowestUnit: parts[2],
+          arrivalTimestamp: parseInt(parts[3]),
+          type: parseInt(parts[4]) || 16,
+          drawIn: parseBoolWB(parts[5]),
+          sent: parseBoolWB(parts[6]),
+          catapultTarget: (parts[8] || '').trim(),
+          units,
+          originCoord: null, targetCoord: null, // Script trägt Koordinaten beim nächsten Sync automatisch nach
+          needsResolve: false, // Dorf-IDs sind schon da, keine Auflösung nötig
+          source: 'dashboard-import'
+        });
+      });
+      return imported;
+    }
+
+    document.getElementById('adbExportBtn').addEventListener('click', () => {
+      const text = exportWorkbench(currentPlanData.commands || []);
+      document.getElementById('adbExportOutput').value = text;
+      const skipped = (currentPlanData.commands || []).filter(c => !c.originVillageId || !c.targetVillageId).length;
+      const statusEl = document.getElementById('adbImportExportStatus');
+      if (skipped) {
+        statusEl.textContent = `${skipped} Befehl(e) noch nicht exportierbar (warten auf Dorf-ID-Auflösung durch das Script).`;
+        statusEl.className = 'status err';
+      } else {
+        statusEl.textContent = '';
+        statusEl.className = 'status';
+      }
+    });
+
+    document.getElementById('adbExportCopyBtn').addEventListener('click', async () => {
+      const text = document.getElementById('adbExportOutput').value;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        const ta = document.getElementById('adbExportOutput');
+        ta.select();
+        document.execCommand('copy');
+      }
+    });
+
+    document.getElementById('adbImportBtn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbImportExportStatus');
+      const text = document.getElementById('adbImportInput').value;
+      const imported = importWorkbench(text);
+      if (!imported.length) {
+        statusEl.textContent = 'Nichts zu importieren (Text leer oder ungültiges Format).';
+        statusEl.className = 'status err';
+        return;
+      }
+      if (!currentPlanData.commands) currentPlanData.commands = [];
+      imported.forEach(cmd => {
+        cmd.commandId = nextCommandId(currentPlanData.commands);
+        currentPlanData.commands.push(cmd);
+      });
+      try {
+        await pushPlan();
+        renderTable();
+        document.getElementById('adbImportInput').value = '';
+        statusEl.textContent = `${imported.length} Befehl(e) importiert. Landen im Script beim nächsten Sync (Laden der Seite oder automatisches Polling).`;
+        statusEl.className = 'status ok';
+      } catch (e) {
+        statusEl.textContent = 'Fehler beim Speichern: ' + e.message;
+        statusEl.className = 'status err';
+      }
+    });
 
     document.getElementById('adbSaveCommand').addEventListener('click', async () => {
       const statusEl = document.getElementById('adbFormStatus');
