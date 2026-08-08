@@ -140,8 +140,18 @@
             </div>
           </div>
 
-          <label style="display:block; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem;">Einheiten</label>
-          <div class="adb-unit-grid" id="adbUnitGrid"></div>
+          <div class="field" style="max-width:220px;">
+            <label for="adbWaveCount">Anzahl Angriffswellen (AG-Train)</label>
+            <select id="adbWaveCount">
+              <option value="1">1 (einzelner Angriff)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+
+          <div id="adbWavesContainer"></div>
 
           <div style="display:flex; gap:0.7rem; margin-top:0.6rem;">
             <button class="btn btn-primary" id="adbSaveCommand" type="button">Speichern</button>
@@ -335,18 +345,71 @@
     }
 
     // ── Formular (Neu / Bearbeiten) ─────────────────────────────────────
-    function buildUnitGrid(existingUnits) {
-      const grid = document.getElementById('adbUnitGrid');
-      grid.innerHTML = '';
+    function buildUnitGrid(existingUnits, waveNumber) {
+      const wrap = document.createElement('div');
+      wrap.className = 'panel';
+      wrap.style.marginBottom = '1rem';
+      wrap.dataset.wave = waveNumber;
+      const heading = document.createElement('label');
+      heading.style.cssText = 'display:block; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.6rem;';
+      heading.textContent = `Angriff #${waveNumber}`;
+      wrap.appendChild(heading);
+      const grid = document.createElement('div');
+      grid.className = 'adb-unit-grid';
       UNIT_TYPES.forEach(unit => {
-        const wrap = document.createElement('div');
-        wrap.className = 'field adb-unit-field';
-        wrap.innerHTML = `
-          <label for="adbUnit_${unit}">${UNIT_LABELS[unit] || unit}</label>
-          <input type="number" min="0" id="adbUnit_${unit}" value="${(existingUnits && existingUnits[unit]) || 0}">
+        const field = document.createElement('div');
+        field.className = 'field adb-unit-field';
+        field.innerHTML = `
+          <label for="adbWave${waveNumber}_unit_${unit}">${UNIT_LABELS[unit] || unit}</label>
+          <input type="number" min="0" id="adbWave${waveNumber}_unit_${unit}" value="${(existingUnits && existingUnits[unit]) || 0}">
         `;
-        grid.appendChild(wrap);
+        grid.appendChild(field);
       });
+      wrap.appendChild(grid);
+      return wrap;
+    }
+
+    // prefillWaves: Array von Einheiten-Objekten, Index 0 = Welle 1 (units),
+    // Index 1..3 = weitere Wellen (trains[0..3]).
+    function renderWaves(waveCount, prefillWaves) {
+      const container = document.getElementById('adbWavesContainer');
+      container.innerHTML = '';
+      for (let i = 1; i <= waveCount; i++) {
+        const prefill = prefillWaves ? prefillWaves[i - 1] : null;
+        container.appendChild(buildUnitGrid(prefill, i));
+      }
+    }
+
+    document.getElementById('adbWaveCount').addEventListener('change', (e) => {
+      const count = parseInt(e.target.value) || 1;
+      // Bereits eingegebene Werte beim Ändern der Wellenzahl möglichst behalten.
+      const existing = collectWaves(count > (currentWaveCount || 1) ? (currentWaveCount || 1) : count);
+      currentWaveCount = count;
+      renderWaves(count, existing);
+    });
+
+    let currentWaveCount = 1;
+
+    // Liest die aktuell im Formular eingetragenen Wellen aus (bis maxWave, oder
+    // alle vorhandenen, falls maxWave weggelassen wird).
+    function collectWaves(maxWave) {
+      const container = document.getElementById('adbWavesContainer');
+      const waveBlocks = Array.from(container.querySelectorAll('[data-wave]'));
+      const limit = maxWave || waveBlocks.length;
+      const result = [];
+      for (let i = 1; i <= limit; i++) {
+        const block = waveBlocks.find(b => parseInt(b.dataset.wave) === i);
+        const waveUnits = {};
+        if (block) {
+          UNIT_TYPES.forEach(unit => {
+            const input = block.querySelector(`#adbWave${i}_unit_${unit}`);
+            const val = input ? (parseInt(input.value) || 0) : 0;
+            if (val > 0) waveUnits[unit] = val;
+          });
+        }
+        result.push(waveUnits);
+      }
+      return result;
     }
 
     function openForm(commandId) {
@@ -374,7 +437,14 @@
         arrivalInput.value = '';
       }
 
-      buildUnitGrid(command ? command.units : null);
+      // Wellenzahl ermitteln: 1 (nur units) + Anzahl trains, gedeckelt auf 5.
+      const waveCount = command ? Math.min(1 + ((command.trains || []).length), 5) : 1;
+      currentWaveCount = waveCount;
+      document.getElementById('adbWaveCount').value = String(waveCount);
+
+      const prefillWaves = command ? [command.units || {}, ...((command.trains || []))] : null;
+      renderWaves(waveCount, prefillWaves);
+
       formPanel.classList.remove('adb-hidden');
       formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -400,11 +470,20 @@
       if (isNaN(arrivalTimestamp)) { showStatus(statusEl, 'Ungültige Ankunftszeit.', 'error'); return; }
 
       const units = {};
-      UNIT_TYPES.forEach(unit => {
-        const val = parseInt(document.getElementById(`adbUnit_${unit}`).value) || 0;
-        if (val > 0) units[unit] = val;
-      });
-      if (!Object.keys(units).length) { showStatus(statusEl, 'Bitte mindestens eine Einheit angeben.', 'error'); return; }
+      const trains = [];
+      const waveCount = parseInt(document.getElementById('adbWaveCount').value) || 1;
+      const waves = collectWaves(waveCount);
+
+      Object.assign(units, waves[0] || {});
+      if (!Object.keys(units).length) { showStatus(statusEl, 'Angriff #1: Bitte mindestens eine Einheit angeben.', 'error'); return; }
+
+      for (let i = 1; i < waves.length; i++) {
+        if (!Object.keys(waves[i]).length) {
+          showStatus(statusEl, `Angriff #${i + 1} enthält keine Truppen.`, 'error');
+          return;
+        }
+        trains.push(waves[i]);
+      }
 
       if (!currentPlanData.commands) currentPlanData.commands = [];
 
@@ -416,6 +495,7 @@
           const coordChanged = existing.originCoord !== originCoord || existing.targetCoord !== targetCoord;
           currentPlanData.commands[idx] = Object.assign({}, existing, {
             originCoord, targetCoord, attackKind, arrivalTimestamp, units,
+            trains: trains.length ? trains : undefined,
             originVillageId: coordChanged ? null : existing.originVillageId,
             targetVillageId: coordChanged ? null : existing.targetVillageId,
             slowestUnit: null, // bei Einheiten-Änderung neu berechnen lassen
@@ -428,7 +508,7 @@
           originCoord, targetCoord,
           originVillageId: null, targetVillageId: null,
           attackKind, arrivalTimestamp, type: 16,
-          catapultTarget: '', trains: undefined,
+          catapultTarget: '', trains: trains.length ? trains : undefined,
           units, drawIn: true, sent: false,
           needsResolve: true, source: 'dashboard'
         });
