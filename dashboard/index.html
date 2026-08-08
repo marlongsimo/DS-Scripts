@@ -334,6 +334,19 @@
     }
 
     // ── Speichern (Push nach Firebase) ──────────────────────────────────
+    // Identische Logik wie naNextCommandId() im Script: fortlaufende Zahl (als
+    // String), NICHT plan.length verwenden (Lücken durch Löschungen möglich).
+    // WICHTIG: Der Planer spaltet die commandId beim Edit-Klick an Bindestrichen
+    // auf - die ID darf deshalb KEINE Bindestriche enthalten, nur Ziffern.
+    function nextCommandId(commands) {
+      let max = -1;
+      (commands || []).forEach(c => {
+        const id = parseInt(c.commandId, 10);
+        if (!isNaN(id) && id > max) max = id;
+      });
+      return (max + 1).toString();
+    }
+
     async function pushPlan() {
       currentPlanData.updatedAt = Date.now();
       await fbPut(`teams/${encodeURIComponent(teamKey)}/planer/plan`, currentPlanData);
@@ -515,7 +528,7 @@
         }
       } else {
         currentPlanData.commands.push({
-          commandId: 'dash-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+          commandId: nextCommandId(currentPlanData.commands),
           originCoord, targetCoord,
           originVillageId: null, targetVillageId: null,
           attackKind, arrivalTimestamp, type: 16,
