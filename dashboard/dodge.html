@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dodge – Anaboles Dashboard – DS-Scripts</title>
+  <meta name="description" content="Anaboles Dashboard für Anaboles Dodge – Automatik-Modus, Dodge-Ziele und Keep-Units einsehen und bearbeiten, synct automatisch mit dem Tampermonkey-Script.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <style>
+    .adb-hidden { display: none !important; }
+    .adb-key-box { max-width: 420px; margin: 0 auto; }
+    .adb-key-display { font-family: monospace; font-size: 0.85rem; color: var(--text-muted); }
+    .adb-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
+    .adb-toggle-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.8rem 0; }
+    .adb-toggle-row input[type="checkbox"] { accent-color: var(--accent); width: 17px; height: 17px; cursor: pointer; }
+    .adb-target-row { display: grid; grid-template-columns: 90px 90px 130px 90px auto; gap: 0.6rem; align-items: end; margin-bottom: 0.7rem; }
+    @media (max-width: 720px) { .adb-target-row { grid-template-columns: 1fr 1fr; } }
+    .adb-target-row .field { margin-bottom: 0; }
+    .adb-remove-target { background: none; border: 1px solid var(--border); color: var(--danger); border-radius: 6px; padding: 0.5rem 0.7rem; cursor: pointer; height: fit-content; }
+    .adb-unit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 0.6rem; }
+    .adb-timing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="../scripts/index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a href="index.html" data-nav="dashboard">Anaboles Dashboard</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Anaboles Dashboard</a> / Dodge</p>
+        <h2>🐇 Dodge</h2>
+        <p>
+          Automatik-Modus, Dodge-Ziele und "Truppen behalten"-Grid einsehen und
+          bearbeiten – synct automatisch mit dem <code>Anaboles Dodge</code>-Script.
+        </p>
+
+        <!-- ── Key-Eingabe (Fallback, falls direkt aufgerufen) ─────────── -->
+        <div id="adbKeyScreen" class="panel adb-key-box">
+          <h3>Team-Key</h3>
+          <p style="font-size:0.88rem;">
+            Den Key findest du im Spiel im „!“-Panel des Sync-Moduls.
+          </p>
+          <div class="field">
+            <label for="adbKeyInput">Team-Key</label>
+            <input type="text" id="adbKeyInput" placeholder="z.B. 60bf2e8b859746f620d4">
+          </div>
+          <button class="btn btn-primary" id="adbKeySubmit" type="button">Verbinden</button>
+          <div id="adbKeyStatus" class="status"></div>
+        </div>
+
+        <!-- ── Hauptansicht ─────────────────────────────────────────── -->
+        <div id="adbMain" class="adb-hidden">
+          <div class="adb-toolbar">
+            <span class="adb-key-display">Team-Key: <span id="adbKeyLabel"></span> &nbsp;
+              <a href="#" id="adbChangeKey">(ändern)</a>
+            </span>
+            <button class="btn btn-outline" id="adbRefreshBtn" type="button">🔄 Aktualisieren</button>
+          </div>
+
+          <div id="adbLoadStatus" class="status"></div>
+
+          <div class="panel" style="margin-bottom:1.2rem;">
+            <h3>🤖 Automatic Dodge</h3>
+            <div class="adb-toggle-row">
+              <input type="checkbox" id="adbAutomaticActive">
+              <label for="adbAutomaticActive">Automatik aktiv</label>
+            </div>
+            <div class="note" style="margin-bottom:1rem;">
+              Wenn aktiv, prüft das Script im Hintergrund regelmäßig die
+              Eintreffend-Übersicht und plant automatisch Dodges ein.
+            </div>
+            <div class="field" style="max-width:220px;">
+              <label for="adbCheckInterval">Check-Intervall (Sekunden)</label>
+              <input type="number" id="adbCheckInterval" min="5" value="30">
+            </div>
+            <div class="field">
+              <label>Gruppe für Automatik</label>
+              <div id="adbAutoGroupDisplay" style="color:var(--text-muted); font-size:0.9rem;">–</div>
+              <div class="note" style="margin-top:0.5rem;">
+                Die Gruppen-Auswahl braucht Zugriff auf deine echten Ingame-Gruppen
+                und kann daher nur im Spiel selbst geändert werden (Dodge-Panel →
+                Settings). Hier nur zur Info angezeigt.
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:1.2rem;">
+            <h3>📍 Dodge-Ziele</h3>
+            <p style="font-size:0.88rem;">Legt fest, wohin gedodged wird.</p>
+            <div class="adb-toggle-row">
+              <input type="checkbox" id="adbGlobalAutoBarb">
+              <label for="adbGlobalAutoBarb">🎯 Für alle Ziele automatisch nächstes Barbarendorf verwenden</label>
+            </div>
+            <div id="adbTargetsContainer"></div>
+            <button class="btn btn-outline" id="adbAddTarget" type="button">➕ Ziel hinzufügen</button>
+            <div class="note" style="margin-top:1rem;">
+              Ziele, die hier neu angelegt werden, gelten für die Gruppe
+              "alle" (gruppenspezifische Ziele lassen sich nur im Spiel
+              anlegen, da dafür deine echten Gruppen gebraucht werden).
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:1.2rem;">
+            <h3>⏱️ Timing</h3>
+            <div class="adb-timing-grid">
+              <div class="field">
+                <label for="adbCancelAfter">Abbruch nach (Sek.)</label>
+                <input type="number" id="adbCancelAfter" min="0" value="20">
+              </div>
+              <div class="field">
+                <label for="adbLeadTime">Vorlaufzeit (Sek.)</label>
+                <input type="number" id="adbLeadTime" min="0" value="10">
+              </div>
+              <div class="field">
+                <label for="adbLockPadding">Sperr-Puffer (Sek.)</label>
+                <input type="number" id="adbLockPadding" min="0" value="5">
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:1.2rem;">
+            <h3>🛡️ Truppen behalten</h3>
+            <p style="font-size:0.88rem;">Diese Anzahl je Einheit bleibt beim Dodge immer im Dorf.</p>
+            <div class="adb-unit-grid" id="adbKeepUnitsGrid"></div>
+          </div>
+
+          <button class="btn btn-primary" id="adbSaveBtn" type="button">Speichern</button>
+          <div id="adbSaveStatus" class="status"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const FIREBASE_DB_URL = 'https://anaboler-sync-default-rtdb.europe-west1.firebasedatabase.app';
+    const KEY_STORAGE = 'anaboleDashboardTeamKey';
+    const UNIT_TYPES = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult', 'knight', 'snob'];
+    const UNIT_LABELS = {
+      spear: 'Speer', sword: 'Schwert', axe: 'Axt', archer: 'Bogen', spy: 'Späher',
+      light: 'LC', marcher: 'BR', heavy: 'HC', ram: 'Ramme', catapult: 'Kata',
+      knight: 'Adelsg.', snob: 'Adliger'
+    };
+
+    function defaultSettings() {
+      return {
+        automaticActive: false,
+        checkInterval: 30,
+        autoGroupId: '0',
+        autoGroupName: 'alle',
+        globalAutoBarb: false,
+        targets: [{ groupId: '0', groupName: 'alle', x: '', y: '', type: 'support', auto: false }],
+        cancelAfterSeconds: 20,
+        leadTimeSeconds: 10,
+        lockPaddingSeconds: 5,
+        keepUnits: Object.fromEntries(UNIT_TYPES.map(u => [u, 0])),
+      };
+    }
+
+    let teamKey = null;
+    let currentData = null; // { updatedAt, settings }
+
+    async function fbGet(path) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+    async function fbPut(path, value) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+
+    function loadStoredKey() {
+      try { return localStorage.getItem(KEY_STORAGE); } catch (e) { return null; }
+    }
+    function storeKey(key) {
+      try { localStorage.setItem(KEY_STORAGE, key); } catch (e) { /* ignorieren */ }
+    }
+
+    function connectWithKey(key) {
+      teamKey = key.trim();
+      storeKey(teamKey);
+      document.getElementById('adbKeyLabel').textContent = teamKey;
+      document.getElementById('adbKeyScreen').classList.add('adb-hidden');
+      document.getElementById('adbMain').classList.remove('adb-hidden');
+      loadSettingsFromCloud();
+    }
+
+    document.getElementById('adbKeySubmit').addEventListener('click', () => {
+      const val = document.getElementById('adbKeyInput').value.trim();
+      const statusEl = document.getElementById('adbKeyStatus');
+      if (!val) { statusEl.textContent = 'Bitte einen Team-Key eingeben.'; statusEl.className = 'status err'; return; }
+      statusEl.textContent = ''; statusEl.className = 'status';
+      connectWithKey(val);
+    });
+    document.getElementById('adbChangeKey').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('adbMain').classList.add('adb-hidden');
+      document.getElementById('adbKeyScreen').classList.remove('adb-hidden');
+      document.getElementById('adbKeyInput').value = teamKey || '';
+    });
+    document.getElementById('adbRefreshBtn').addEventListener('click', loadSettingsFromCloud);
+
+    async function loadSettingsFromCloud() {
+      const loadStatusEl = document.getElementById('adbLoadStatus');
+      loadStatusEl.textContent = ''; loadStatusEl.className = 'status';
+      try {
+        const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/dodge/settings`);
+        currentData = (data && data.settings) ? data : { updatedAt: Date.now(), settings: defaultSettings() };
+        currentData.settings = Object.assign(defaultSettings(), currentData.settings, {
+          keepUnits: Object.assign(Object.fromEntries(UNIT_TYPES.map(u => [u, 0])), (currentData.settings || {}).keepUnits || {}),
+          targets: (currentData.settings && currentData.settings.targets && currentData.settings.targets.length)
+            ? currentData.settings.targets
+            : defaultSettings().targets,
+        });
+        populateForm(currentData.settings);
+      } catch (e) {
+        loadStatusEl.textContent = 'Fehler beim Laden: ' + e.message;
+        loadStatusEl.className = 'status err';
+      }
+    }
+
+    function populateForm(s) {
+      document.getElementById('adbAutomaticActive').checked = !!s.automaticActive;
+      document.getElementById('adbCheckInterval').value = s.checkInterval;
+      document.getElementById('adbAutoGroupDisplay').textContent = s.autoGroupName || 'alle';
+      document.getElementById('adbGlobalAutoBarb').checked = !!s.globalAutoBarb;
+      document.getElementById('adbCancelAfter').value = s.cancelAfterSeconds;
+      document.getElementById('adbLeadTime').value = s.leadTimeSeconds;
+      document.getElementById('adbLockPadding').value = s.lockPaddingSeconds;
+
+      renderTargets(s.targets);
+      renderKeepUnits(s.keepUnits);
+    }
+
+    function renderTargets(targets) {
+      const container = document.getElementById('adbTargetsContainer');
+      container.innerHTML = '';
+      const globallyLocked = document.getElementById('adbGlobalAutoBarb').checked;
+
+      targets.forEach((t, idx) => {
+        const row = document.createElement('div');
+        row.className = 'adb-target-row';
+        row.dataset.idx = idx;
+        row.innerHTML = `
+          <div class="field">
+            <label>X</label>
+            <input type="text" class="adb-target-x" value="${t.x || ''}" ${globallyLocked || t.auto ? 'disabled' : ''} placeholder="${globallyLocked || t.auto ? 'auto' : 'X'}">
+          </div>
+          <div class="field">
+            <label>Y</label>
+            <input type="text" class="adb-target-y" value="${t.y || ''}" ${globallyLocked || t.auto ? 'disabled' : ''} placeholder="${globallyLocked || t.auto ? 'auto' : 'Y'}">
+          </div>
+          <div class="field">
+            <label>Art</label>
+            <select class="adb-target-type">
+              <option value="support"${t.type === 'support' ? ' selected' : ''}>Support</option>
+              <option value="attack"${t.type === 'attack' ? ' selected' : ''}>Angriff</option>
+            </select>
+          </div>
+          <div class="field">
+            <label title="Automatisch nächstgelegenes Barbarendorf verwenden">🎯 Barb</label>
+            <input type="checkbox" class="adb-target-auto" ${t.auto ? 'checked' : ''} ${globallyLocked ? 'disabled' : ''}>
+          </div>
+          <button type="button" class="adb-remove-target" ${targets.length <= 1 ? 'style="visibility:hidden;"' : ''}>✕</button>
+        `;
+        container.appendChild(row);
+
+        const xInput = row.querySelector('.adb-target-x');
+        const yInput = row.querySelector('.adb-target-y');
+        const autoCb = row.querySelector('.adb-target-auto');
+        autoCb.addEventListener('change', () => {
+          xInput.disabled = autoCb.checked || globallyLocked;
+          yInput.disabled = autoCb.checked || globallyLocked;
+          xInput.placeholder = autoCb.checked ? 'auto' : 'X';
+          yInput.placeholder = autoCb.checked ? 'auto' : 'Y';
+        });
+        row.querySelector('.adb-remove-target').addEventListener('click', () => {
+          if (currentData.settings.targets.length <= 1) return;
+          currentData.settings.targets.splice(idx, 1);
+          renderTargets(currentData.settings.targets);
+        });
+      });
+    }
+
+    document.getElementById('adbGlobalAutoBarb').addEventListener('change', () => {
+      renderTargets(collectTargetsFromForm());
+    });
+
+    document.getElementById('adbAddTarget').addEventListener('click', () => {
+      const targets = collectTargetsFromForm();
+      targets.push({ groupId: '0', groupName: 'alle', x: '', y: '', type: 'support', auto: false });
+      currentData.settings.targets = targets;
+      renderTargets(targets);
+    });
+
+    function collectTargetsFromForm() {
+      const rows = Array.from(document.getElementById('adbTargetsContainer').children);
+      return rows.map((row, idx) => ({
+        groupId: (currentData.settings.targets[idx] && currentData.settings.targets[idx].groupId) || '0',
+        groupName: (currentData.settings.targets[idx] && currentData.settings.targets[idx].groupName) || 'alle',
+        x: row.querySelector('.adb-target-x').value,
+        y: row.querySelector('.adb-target-y').value,
+        type: row.querySelector('.adb-target-type').value,
+        auto: row.querySelector('.adb-target-auto').checked,
+      }));
+    }
+
+    function renderKeepUnits(keepUnits) {
+      const grid = document.getElementById('adbKeepUnitsGrid');
+      grid.innerHTML = '';
+      UNIT_TYPES.forEach(unit => {
+        const field = document.createElement('div');
+        field.className = 'field';
+        field.innerHTML = `
+          <label for="adbKeep_${unit}">${UNIT_LABELS[unit] || unit}</label>
+          <input type="number" min="0" id="adbKeep_${unit}" value="${(keepUnits && keepUnits[unit]) || 0}">
+        `;
+        grid.appendChild(field);
+      });
+    }
+
+    document.getElementById('adbSaveBtn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbSaveStatus');
+      statusEl.textContent = ''; statusEl.className = 'status';
+
+      const keepUnits = {};
+      UNIT_TYPES.forEach(unit => {
+        keepUnits[unit] = parseInt(document.getElementById(`adbKeep_${unit}`).value) || 0;
+      });
+
+      const newSettings = Object.assign({}, currentData.settings, {
+        automaticActive: document.getElementById('adbAutomaticActive').checked,
+        checkInterval: Math.max(5, parseInt(document.getElementById('adbCheckInterval').value) || 30),
+        globalAutoBarb: document.getElementById('adbGlobalAutoBarb').checked,
+        targets: collectTargetsFromForm(),
+        cancelAfterSeconds: Math.max(0, parseInt(document.getElementById('adbCancelAfter').value) || 0),
+        leadTimeSeconds: Math.max(0, parseInt(document.getElementById('adbLeadTime').value) || 0),
+        lockPaddingSeconds: Math.max(0, parseInt(document.getElementById('adbLockPadding').value) || 0),
+        keepUnits,
+        // autoGroupId/autoGroupName bewusst unverändert übernommen - nur im
+        // Spiel änderbar (siehe Hinweis im Formular)
+      });
+
+      currentData = { updatedAt: Date.now(), settings: newSettings };
+
+      try {
+        await fbPut(`teams/${encodeURIComponent(teamKey)}/dodge/settings`, currentData);
+        statusEl.textContent = 'Gespeichert.';
+        statusEl.className = 'status ok';
+      } catch (e) {
+        statusEl.textContent = 'Fehler beim Speichern: ' + e.message;
+        statusEl.className = 'status err';
+      }
+    });
+
+    // ── Start ───────────────────────────────────────────────────────────
+    const stored = loadStoredKey();
+    if (stored) connectWithKey(stored);
+  })();
+  </script>
+</body>
+</html>
