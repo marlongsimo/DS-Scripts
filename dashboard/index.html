@@ -335,7 +335,7 @@
 
     async function deleteCommand(commandId) {
       if (!confirm('Diesen Befehl wirklich löschen?')) return;
-      currentPlanData.commands = currentPlanData.commands.filter(c => c.commandId !== commandId);
+      currentPlanData.commands = currentPlanData.commands.filter(c => String(c.commandId) !== String(commandId));
       try {
         await pushPlan();
         renderTable();
@@ -420,7 +420,7 @@
 
       let command = null;
       if (editingCommandId) {
-        command = (currentPlanData.commands || []).find(c => c.commandId === editingCommandId);
+        command = (currentPlanData.commands || []).find(c => String(c.commandId) === String(editingCommandId));
       }
 
       formTitle.textContent = editingCommandId ? 'Befehl bearbeiten' : 'Neuer Befehl';
@@ -488,7 +488,7 @@
       if (!currentPlanData.commands) currentPlanData.commands = [];
 
       if (editingCommandId) {
-        const idx = currentPlanData.commands.findIndex(c => c.commandId === editingCommandId);
+        const idx = currentPlanData.commands.findIndex(c => String(c.commandId) === String(editingCommandId));
         if (idx !== -1) {
           const existing = currentPlanData.commands[idx];
           // Bei Änderung der Koordinaten muss ggf. neu aufgelöst werden.
