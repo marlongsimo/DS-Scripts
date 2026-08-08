@@ -356,8 +356,24 @@
         btn.addEventListener('click', () => openForm(btn.dataset.id));
       });
       tbody.querySelectorAll('[data-action="delete"]').forEach(btn => {
-        btn.addEventListener('click', () => deleteCommand(btn.dataset.id));
+        btn.addEventListener('click', () => armDeleteConfirm(btn));
       });
+    }
+
+    // Eigene Inline-Bestätigung statt window.confirm() - der native Dialog
+    // wird in manchen Browser-Kontexten (v.a. mobil/In-App-Browser) blockiert
+    // und liefert dann sofort "false" zurück, OHNE dass man gefragt wird -
+    // das Löschen bricht dann lautlos ab und wirkt wie ein Bug.
+    function armDeleteConfirm(btn) {
+      const cell = btn.closest('td');
+      const commandId = btn.dataset.id;
+      cell.innerHTML = `
+        <span style="font-size:0.82rem; margin-right:0.3rem;">Wirklich?</span>
+        <button class="btn btn-outline" data-confirm-yes style="color:var(--danger); border-color:var(--danger);">✔</button>
+        <button class="btn btn-outline" data-confirm-no>✖</button>
+      `;
+      cell.querySelector('[data-confirm-yes]').addEventListener('click', () => deleteCommand(commandId));
+      cell.querySelector('[data-confirm-no]').addEventListener('click', () => renderTable());
     }
 
     // ── Speichern (Push nach Firebase) ──────────────────────────────────
@@ -380,13 +396,21 @@
     }
 
     async function deleteCommand(commandId) {
-      if (!confirm('Diesen Befehl wirklich löschen?')) return;
+      const before = currentPlanData.commands.length;
       currentPlanData.commands = currentPlanData.commands.filter(c => String(c.commandId) !== String(commandId));
+      const statusEl = document.getElementById('adbLoadStatus');
+      if (currentPlanData.commands.length === before) {
+        showStatus(statusEl, 'Befehl wurde nicht gefunden (evtl. schon anderswo gelöscht) - lade neu…', 'error');
+        await loadPlan();
+        return;
+      }
       try {
         await pushPlan();
         renderTable();
+        showStatus(statusEl, 'Befehl gelöscht.', 'ok');
       } catch (e) {
-        alert('Fehler beim Löschen: ' + e.message);
+        showStatus(statusEl, 'Fehler beim Löschen: ' + e.message, 'error');
+        await loadPlan(); // Stand neu laden, um sicherzugehen dass Anzeige & Cloud übereinstimmen
       }
     }
 
