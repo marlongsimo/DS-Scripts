@@ -107,17 +107,70 @@
         const input = (typeof window !== 'undefined' && window.prompt)
             ? window.prompt(
                 `Anaboler-Sync\n\n` +
-                `Für den Account "${accountLabel}" ist noch kein Team-Key hinterlegt.\n` +
-                `Bitte den Team-Key eingeben (einmalig pro Browser/Account nötig):`
+                `Team-Key für "${accountLabel}" manuell setzen/überschreiben\n` +
+                `(normalerweise nicht nötig - wird automatisch pro Account erzeugt):`
               )
             : null;
         return (input && input.trim()) ? input.trim() : null;
     }
 
     /**
+     * Leitet einen stabilen Team-Key deterministisch aus der Account-ID ab.
+     * Gleicher Account (Welt + Spieler-ID) => IMMER derselbe Key, egal auf
+     * welchem Browser/PC - genau das brauchen wir, damit du und dein
+     * Team-Kollege ohne manuelle Eingabe automatisch denselben Key bekommen,
+     * andere Accounts (anderes Team) aber automatisch einen anderen.
+     */
+    async function deriveTeamKey(accountId) {
+        if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
+            try {
+                const enc = new TextEncoder().encode('anaboler-sync-team::' + accountId);
+                const digest = await crypto.subtle.digest('SHA-256', enc);
+                const hex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+                return hex.slice(0, 20);
+            } catch (e) { /* Fallback unten */ }
+        }
+        // Fallback ohne SubtleCrypto (z.B. sehr alte Browser): einfacher, aber
+        // ebenfalls deterministischer Hash - Sicherheit ist hier zweitrangig,
+        // Hauptsache "gleicher Account => gleicher Key".
+        let h = 0;
+        for (let i = 0; i < accountId.length; i++) { h = ((h << 5) - h + accountId.charCodeAt(i)) | 0; }
+        return 'acc' + Math.abs(h).toString(36);
+    }
+
+    /**
+     * Stellt sicher, dass unter /teams/<teamKey>/meta bereits Daten existieren.
+     * Ist der Team-Knoten noch leer (erster Kontakt für diesen Account/Team
+     * überhaupt), wird er einmalig mit Basis-Metadaten angelegt. Existieren
+     * dort schon Daten (z.B. weil der Team-Kollege bereits synct hat), wird
+     * NICHTS überschrieben - es werden einfach die vorhandenen Daten genutzt.
+     */
+    async function ensureTeamNodeExists(teamKey, accountId) {
+        try {
+            const url = `${FIREBASE_DB_URL}/teams/${encodeURIComponent(teamKey)}/meta.json`;
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const existing = await res.json();
+            if (existing) return; // Team-Knoten existiert schon - nichts anlegen, vorhandene Daten nutzen
+            await fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    createdAt: Date.now(),
+                    createdByAccount: accountId,
+                    accountLabel: getAccountLabel()
+                })
+            });
+        } catch (e) {
+            console.warn('[AnaboleSync] Team-Knoten konnte nicht initialisiert werden:', e);
+        }
+    }
+
+    /**
      * Liefert den Team-Key für den aktuellen Account.
-     * Fragt per Prompt nach, falls noch keiner hinterlegt ist, und
-     * speichert die Eingabe danach lokal für künftige Aufrufe.
+     * Wird automatisch aus Welt+Spieler-ID abgeleitet (kein Prompt nötig).
+     * Beim allerersten Aufruf für einen neuen Team-Key wird geprüft, ob in
+     * Firebase schon Daten liegen - falls nicht, wird der Knoten angelegt.
      */
     async function ensureTeamKey() {
         const accountId = getAccountId();
@@ -126,9 +179,16 @@
             return null;
         }
         let key = getStoredTeamKey(accountId);
+        let isNewlyDerived = false;
         if (!key) {
-            key = promptForTeamKey(getAccountLabel());
-            if (key) storeTeamKey(accountId, key);
+            key = await deriveTeamKey(accountId);
+            storeTeamKey(accountId, key);
+            isNewlyDerived = true;
+        }
+        // Nur beim ersten Mal pro Browser prüfen/anlegen, um nicht bei jedem
+        // Aufruf einen zusätzlichen Firebase-Request zu verursachen.
+        if (isNewlyDerived) {
+            await ensureTeamNodeExists(key, accountId);
         }
         return key;
     }
@@ -137,7 +197,9 @@
     function setTeamKey(key) {
         const accountId = getAccountId();
         if (!accountId || !key) return false;
-        storeTeamKey(accountId, key.trim());
+        const trimmed = key.trim();
+        storeTeamKey(accountId, trimmed);
+        ensureTeamNodeExists(trimmed, accountId); // fire-and-forget
         return true;
     }
 
@@ -309,10 +371,9 @@
             }
         });
         panel.querySelector('#as-key-change').addEventListener('click', () => {
-            const accountId = getAccountId();
             const newKey = promptForTeamKey(getAccountLabel());
-            if (newKey && accountId) {
-                storeTeamKey(accountId, newKey);
+            if (newKey) {
+                setTeamKey(newKey);
                 refreshPanel(panel);
             }
         });
@@ -329,11 +390,19 @@
         setTimeout(() => { btn.textContent = original; }, 1000);
     }
 
-    function refreshPanel(panel) {
+    async function refreshPanel(panel) {
         const accountId = getAccountId();
         panel.querySelector('#as-account-label').textContent = getAccountLabel();
         const keyInput = panel.querySelector('#as-key-input');
-        keyInput.value = accountId ? (getStoredTeamKey(accountId) || '(kein Key hinterlegt)') : '(Account nicht erkannt)';
+        keyInput.value = '…lädt…';
+        if (!accountId) {
+            keyInput.value = '(Account nicht erkannt)';
+            return;
+        }
+        // ensureTeamKey() leitet den Key automatisch ab (bzw. legt ihn beim
+        // allerersten Mal an), falls noch keiner lokal gespeichert ist.
+        const key = await ensureTeamKey();
+        keyInput.value = key || '(Key konnte nicht ermittelt werden)';
     }
 
     function buildFloatingIcon() {
