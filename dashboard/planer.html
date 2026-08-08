@@ -229,7 +229,7 @@
 
     // ── Firebase REST-Helfer ────────────────────────────────────────────
     async function fbGet(path) {
-      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`);
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return await res.json();
     }
@@ -237,6 +237,7 @@
       const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify(value)
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
