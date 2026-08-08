@@ -285,6 +285,23 @@
       document.getElementById('adbKeyInput').value = teamKey || '';
     });
 
+    // Wandelt Firebase-Rohdaten für "commands" robust in ein echtes JS-Array
+    // um. Firebase liefert Arrays beim Lesen nur dann als JSON-Array zurück,
+    // wenn die internen Schlüssel lückenlos bei 0 beginnen - wird die Liste
+    // leer (letzter Befehl gelöscht) oder entstehen Lücken, kommt stattdessen
+    // ein Objekt oder gar nichts (undefined) zurück. Ein einfaches
+    // "Array.isArray(...)" würde die Daten dann fälschlich verwerfen/auf []
+    // zurücksetzen - diese Funktion fängt alle drei Fälle robust ab.
+    function normalizeCommands(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') {
+        return Object.keys(raw)
+          .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
+          .map(k => raw[k]);
+      }
+      return [];
+    }
+
     // ── Plan laden & rendern ────────────────────────────────────────────
     async function loadPlan() {
       const loadStatusEl = document.getElementById('adbLoadStatus');
@@ -294,7 +311,7 @@
       try {
         const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/planer/plan`);
         currentPlanData = data || { updatedAt: Date.now(), commands: [] };
-        if (!Array.isArray(currentPlanData.commands)) currentPlanData.commands = [];
+        currentPlanData.commands = normalizeCommands(currentPlanData.commands);
         renderTable();
       } catch (e) {
         showStatus(loadStatusEl, 'Fehler beim Laden: ' + e.message, 'error');
