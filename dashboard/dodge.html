@@ -16,7 +16,7 @@
     .adb-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
     .adb-toggle-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.8rem 0; }
     .adb-toggle-row input[type="checkbox"] { accent-color: var(--accent); width: 17px; height: 17px; cursor: pointer; }
-    .adb-target-row { display: grid; grid-template-columns: 90px 90px 130px 90px auto; gap: 0.6rem; align-items: end; margin-bottom: 0.7rem; }
+    .adb-target-row { display: grid; grid-template-columns: 130px 90px 90px 130px 90px auto; gap: 0.6rem; align-items: end; margin-bottom: 0.7rem; }
     @media (max-width: 720px) { .adb-target-row { grid-template-columns: 1fr 1fr; } }
     .adb-target-row .field { margin-bottom: 0; }
     .adb-remove-target { background: none; border: 1px solid var(--border); color: var(--danger); border-radius: 6px; padding: 0.5rem 0.7rem; cursor: pointer; height: fit-content; }
@@ -92,12 +92,13 @@
               <input type="number" id="adbCheckInterval" min="5" value="30">
             </div>
             <div class="field">
-              <label>Gruppe für Automatik</label>
-              <div id="adbAutoGroupDisplay" style="color:var(--text-muted); font-size:0.9rem;">–</div>
+              <label for="adbAutoGroup">Gruppe für Automatik</label>
+              <select id="adbAutoGroup">
+                <option value="0">alle</option>
+              </select>
               <div class="note" style="margin-top:0.5rem;">
-                Die Gruppen-Auswahl braucht Zugriff auf deine echten Ingame-Gruppen
-                und kann daher nur im Spiel selbst geändert werden (Dodge-Panel →
-                Settings). Hier nur zur Info angezeigt.
+                Gruppenliste wird direkt aus dem Spiel synchronisiert (aktualisiert
+                sich automatisch, sobald jemand Dodge im Spiel geöffnet hat).
               </div>
             </div>
           </div>
@@ -236,18 +237,35 @@
     });
     document.getElementById('adbRefreshBtn').addEventListener('click', loadSettingsFromCloud);
 
+    async function loadGroupsFromCloud() {
+      try {
+        // Gemeinsamer "shared"-Namensraum (nicht dodge-spezifisch), siehe
+        // Kommentar in Anaboler_Dodge.js - so können später auch andere
+        // Dashboard-Seiten dieselbe Gruppenliste mitnutzen.
+        const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/shared/groups`);
+        const groups = normalizeArray(data && data.groups);
+        if (groups.length) groupsList = groups;
+      } catch (e) {
+        console.warn('Gruppen konnten nicht geladen werden:', e);
+      }
+    }
+
     async function loadSettingsFromCloud() {
       const loadStatusEl = document.getElementById('adbLoadStatus');
       loadStatusEl.textContent = ''; loadStatusEl.className = 'status';
       try {
+        await loadGroupsFromCloud();
         const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/dodge/settings`);
         currentData = (data && data.settings) ? data : { updatedAt: Date.now(), settings: defaultSettings() };
+        const loadedTargets = normalizeArray(currentData.settings && currentData.settings.targets);
         currentData.settings = Object.assign(defaultSettings(), currentData.settings, {
           keepUnits: Object.assign(Object.fromEntries(UNIT_TYPES.map(u => [u, 0])), (currentData.settings || {}).keepUnits || {}),
-          targets: (currentData.settings && currentData.settings.targets && currentData.settings.targets.length)
-            ? currentData.settings.targets
-            : defaultSettings().targets,
+          targets: loadedTargets.length ? loadedTargets : defaultSettings().targets,
         });
+        if (!groupsList.length) {
+          loadStatusEl.textContent = 'Noch keine Gruppen synchronisiert - im Spiel einmal Dodge öffnen, dann hier neu laden.';
+          loadStatusEl.className = 'status err';
+        }
         populateForm(currentData.settings);
       } catch (e) {
         loadStatusEl.textContent = 'Fehler beim Laden: ' + e.message;
@@ -258,7 +276,7 @@
     function populateForm(s) {
       document.getElementById('adbAutomaticActive').checked = !!s.automaticActive;
       document.getElementById('adbCheckInterval').value = s.checkInterval;
-      document.getElementById('adbAutoGroupDisplay').textContent = s.autoGroupName || 'alle';
+      renderAutoGroupSelect(s.autoGroupId || '0');
       document.getElementById('adbGlobalAutoBarb').checked = !!s.globalAutoBarb;
       document.getElementById('adbCancelAfter').value = s.cancelAfterSeconds;
       document.getElementById('adbLeadTime').value = s.leadTimeSeconds;
@@ -266,6 +284,30 @@
 
       renderTargets(s.targets);
       renderKeepUnits(s.keepUnits);
+    }
+
+    // Siehe Anaboler_Planer_1_7_2.js für die ausführliche Erklärung: Firebase
+    // liefert Arrays beim Lesen nur als echtes JSON-Array zurück, wenn die
+    // internen Schlüssel lückenlos bei 0 beginnen - sonst als Objekt oder gar
+    // nicht. Diese Funktion wandelt beides robust in ein echtes Array um.
+    function normalizeArray(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') {
+        return Object.keys(raw)
+          .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
+          .map(k => raw[k]);
+      }
+      return [];
+    }
+
+    let groupsList = [{ id: '0', name: 'alle' }]; // wird aus Firebase geladen
+
+    function groupOptionsHtml(selectedId) {
+      return groupsList.map(g => `<option value="${g.id}"${String(g.id) === String(selectedId) ? ' selected' : ''}>${g.name}</option>`).join('');
+    }
+
+    function renderAutoGroupSelect(selectedId) {
+      document.getElementById('adbAutoGroup').innerHTML = groupOptionsHtml(selectedId);
     }
 
     function renderTargets(targets) {
@@ -278,6 +320,10 @@
         row.className = 'adb-target-row';
         row.dataset.idx = idx;
         row.innerHTML = `
+          <div class="field">
+            <label>Gruppe</label>
+            <select class="adb-target-group">${groupOptionsHtml(t.groupId)}</select>
+          </div>
           <div class="field">
             <label>X</label>
             <input type="text" class="adb-target-x" value="${t.x || ''}" ${globallyLocked || t.auto ? 'disabled' : ''} placeholder="${globallyLocked || t.auto ? 'auto' : 'X'}">
@@ -331,14 +377,19 @@
 
     function collectTargetsFromForm() {
       const rows = Array.from(document.getElementById('adbTargetsContainer').children);
-      return rows.map((row, idx) => ({
-        groupId: (currentData.settings.targets[idx] && currentData.settings.targets[idx].groupId) || '0',
-        groupName: (currentData.settings.targets[idx] && currentData.settings.targets[idx].groupName) || 'alle',
-        x: row.querySelector('.adb-target-x').value,
-        y: row.querySelector('.adb-target-y').value,
-        type: row.querySelector('.adb-target-type').value,
-        auto: row.querySelector('.adb-target-auto').checked,
-      }));
+      return rows.map((row) => {
+        const groupSelect = row.querySelector('.adb-target-group');
+        const groupId = groupSelect.value;
+        const group = groupsList.find(g => String(g.id) === String(groupId));
+        return {
+          groupId,
+          groupName: group ? group.name : 'alle',
+          x: row.querySelector('.adb-target-x').value,
+          y: row.querySelector('.adb-target-y').value,
+          type: row.querySelector('.adb-target-type').value,
+          auto: row.querySelector('.adb-target-auto').checked,
+        };
+      });
     }
 
     function renderKeepUnits(keepUnits) {
@@ -364,17 +415,20 @@
         keepUnits[unit] = parseInt(document.getElementById(`adbKeep_${unit}`).value) || 0;
       });
 
+      const selectedGroupId = document.getElementById('adbAutoGroup').value;
+      const selectedGroup = groupsList.find(g => String(g.id) === String(selectedGroupId));
+
       const newSettings = Object.assign({}, currentData.settings, {
         automaticActive: document.getElementById('adbAutomaticActive').checked,
         checkInterval: Math.max(5, parseInt(document.getElementById('adbCheckInterval').value) || 30),
+        autoGroupId: selectedGroupId,
+        autoGroupName: selectedGroup ? selectedGroup.name : 'alle',
         globalAutoBarb: document.getElementById('adbGlobalAutoBarb').checked,
         targets: collectTargetsFromForm(),
         cancelAfterSeconds: Math.max(0, parseInt(document.getElementById('adbCancelAfter').value) || 0),
         leadTimeSeconds: Math.max(0, parseInt(document.getElementById('adbLeadTime').value) || 0),
         lockPaddingSeconds: Math.max(0, parseInt(document.getElementById('adbLockPadding').value) || 0),
         keepUnits,
-        // autoGroupId/autoGroupName bewusst unverändert übernommen - nur im
-        // Spiel änderbar (siehe Hinweis im Formular)
       });
 
       currentData = { updatedAt: Date.now(), settings: newSettings };
