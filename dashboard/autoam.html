@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoAM – Anaboles Dashboard – DS-Scripts</title>
+  <meta name="description" content="Anaboles Dashboard für Anaboler AutoAM – Gebäude-, Truppen- und Forschungs-Jobs je Gruppe einsehen und bearbeiten, synct automatisch mit dem Tampermonkey-Script.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <style>
+    .adb-hidden { display: none !important; }
+    .adb-key-box { max-width: 420px; margin: 0 auto; }
+    .adb-key-display { font-family: monospace; font-size: 0.85rem; color: var(--text-muted); }
+    .adb-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
+    .adb-toggle-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.8rem 0; }
+    .adb-toggle-row input[type="checkbox"] { accent-color: var(--accent); width: 17px; height: 17px; cursor: pointer; }
+    .adb-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; flex-wrap: wrap; }
+    .adb-tab { padding: 0.4rem 0.9rem; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text-muted); cursor: pointer; font-size: 0.85rem; }
+    .adb-tab.active { background: rgba(211,163,90,0.15); border-color: var(--accent-strong); color: var(--accent-strong); font-weight: 600; }
+    .adb-add-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.2rem; }
+    .adb-add-row .field { flex: 1 1 180px; min-width: 180px; margin-bottom: 0; }
+    .adb-job { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem;
+      margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.8rem; }
+    .adb-job-info { flex: 1; min-width: 0; }
+    .adb-job-info strong { display: block; font-size: 0.92rem; }
+    .adb-job-info span { display: block; font-size: 0.78rem; color: var(--text-muted); }
+    .adb-job-actions { display: flex; gap: 0.35rem; flex: 0 0 auto; }
+    .adb-job-actions button { background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+      color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0.3rem 0.55rem; }
+    .adb-job-actions button:hover { border-color: var(--accent); color: var(--text); }
+    .adb-empty { color: var(--text-muted); font-style: italic; font-size: 0.85rem; padding: 0.8rem 0; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="../scripts/index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a href="index.html" data-nav="dashboard">Anaboles Dashboard</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Anaboles Dashboard</a> / AutoAM</p>
+        <h2>🤖 AutoAM</h2>
+        <p>
+          Gebäude-, Truppen- und Forschungs-Jobs (Gruppe + Vorlage) einsehen und
+          bearbeiten – synct automatisch mit dem <code>Anaboler AutoAM</code>-Script.
+        </p>
+
+        <!-- ── Key-Eingabe (Fallback, falls direkt aufgerufen) ─────────── -->
+        <div id="adbKeyScreen" class="panel adb-key-box">
+          <h3>Team-Key</h3>
+          <p style="font-size:0.88rem;">Den Key findest du im Spiel im „!“-Panel des Sync-Moduls.</p>
+          <div class="field">
+            <label for="adbKeyInput">Team-Key</label>
+            <input type="text" id="adbKeyInput" placeholder="z.B. 60bf2e8b859746f620d4">
+          </div>
+          <button class="btn btn-primary" id="adbKeySubmit" type="button">Verbinden</button>
+          <div id="adbKeyStatus" class="status"></div>
+        </div>
+
+        <!-- ── Hauptansicht ─────────────────────────────────────────── -->
+        <div id="adbMain" class="adb-hidden">
+          <div class="adb-toolbar">
+            <span class="adb-key-display">Team-Key: <span id="adbKeyLabel"></span> &nbsp;
+              <a href="#" id="adbChangeKey">(ändern)</a>
+            </span>
+            <button class="btn btn-outline" id="adbRefreshBtn" type="button">🔄 Aktualisieren</button>
+          </div>
+
+          <div id="adbLoadStatus" class="status"></div>
+
+          <div class="panel" style="margin-bottom:1.2rem;">
+            <div class="adb-toggle-row">
+              <input type="checkbox" id="adbEnabled">
+              <label for="adbEnabled">Automatik aktiv</label>
+            </div>
+            <div class="field" style="max-width:220px;">
+              <label for="adbInterval">Erneut alle X Minuten</label>
+              <input type="number" id="adbInterval" min="5" step="5" value="45">
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="adb-tabs" id="adbTabs">
+              <div class="adb-tab active" data-bereich="gebaeude">🏛️ Gebäude</div>
+              <div class="adb-tab" data-bereich="truppen">⚔️ Truppen</div>
+              <div class="adb-tab" data-bereich="forschung">🧪 Forschung</div>
+            </div>
+
+            <div class="adb-add-row">
+              <div class="field">
+                <label for="adbGroupSelect">Gruppe</label>
+                <select id="adbGroupSelect"><option value="">Lädt…</option></select>
+              </div>
+              <div class="field">
+                <label for="adbTemplateSelect">Vorlage</label>
+                <select id="adbTemplateSelect"><option value="">Lädt…</option></select>
+              </div>
+              <button class="btn btn-primary" id="adbAddJob" type="button">➕ Hinzufügen</button>
+            </div>
+
+            <div id="adbJobList"></div>
+          </div>
+
+          <button class="btn btn-primary" id="adbSaveBtn" type="button" style="margin-top:1.2rem;">Speichern</button>
+          <div id="adbSaveStatus" class="status"></div>
+
+          <div class="note" style="margin-top:1rem;">
+            "Jetzt alle anwenden" ist nur im Spiel selbst möglich (braucht eine
+            aktive Session) - Änderungen hier landen aber automatisch im
+            Script, sobald jemand als Nächstes eingeloggt ist bzw. innerhalb
+            von 60 Sekunden, falls schon jemand aktiv ist.
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const FIREBASE_DB_URL = 'https://anaboler-sync-default-rtdb.europe-west1.firebasedatabase.app';
+    const KEY_STORAGE = 'anaboleDashboardTeamKey';
+    const BEREICH_LABELS = { gebaeude: { icon: '🏛️', label: 'Gebäude' }, truppen: { icon: '⚔️', label: 'Truppen' }, forschung: { icon: '🧪', label: 'Forschung' } };
+
+    let teamKey = null;
+    let currentConfig = { jobs: [], intervalMinutes: 45, enabled: true };
+    let groupsList = [{ id: '0', name: 'alle' }];
+    let templatesByBereich = { gebaeude: [], truppen: [], forschung: [] };
+    let activeBereich = 'gebaeude';
+
+    function normalizeArray(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') {
+        return Object.keys(raw).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).map(k => raw[k]);
+      }
+      return [];
+    }
+
+    async function fbGet(path) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+    async function fbPut(path, value) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: JSON.stringify(value)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+
+    function loadStoredKey() { try { return localStorage.getItem(KEY_STORAGE); } catch (e) { return null; } }
+    function storeKey(key) { try { localStorage.setItem(KEY_STORAGE, key); } catch (e) { /* ignorieren */ } }
+
+    function connectWithKey(key) {
+      teamKey = key.trim();
+      storeKey(teamKey);
+      document.getElementById('adbKeyLabel').textContent = teamKey;
+      document.getElementById('adbKeyScreen').classList.add('adb-hidden');
+      document.getElementById('adbMain').classList.remove('adb-hidden');
+      loadAll();
+    }
+
+    document.getElementById('adbKeySubmit').addEventListener('click', () => {
+      const val = document.getElementById('adbKeyInput').value.trim();
+      const statusEl = document.getElementById('adbKeyStatus');
+      if (!val) { statusEl.textContent = 'Bitte einen Team-Key eingeben.'; statusEl.className = 'status err'; return; }
+      statusEl.textContent = ''; statusEl.className = 'status';
+      connectWithKey(val);
+    });
+    document.getElementById('adbChangeKey').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('adbMain').classList.add('adb-hidden');
+      document.getElementById('adbKeyScreen').classList.remove('adb-hidden');
+      document.getElementById('adbKeyInput').value = teamKey || '';
+    });
+    document.getElementById('adbRefreshBtn').addEventListener('click', loadAll);
+
+    async function loadAll() {
+      const loadStatusEl = document.getElementById('adbLoadStatus');
+      loadStatusEl.textContent = ''; loadStatusEl.className = 'status';
+      try {
+        const [groupsData, configData, gebaeudeT, truppenT, forschungT] = await Promise.all([
+          fbGet(`teams/${encodeURIComponent(teamKey)}/shared/groups`).catch(() => null),
+          fbGet(`teams/${encodeURIComponent(teamKey)}/autoam/config`).catch(() => null),
+          fbGet(`teams/${encodeURIComponent(teamKey)}/autoam/templates/gebaeude`).catch(() => null),
+          fbGet(`teams/${encodeURIComponent(teamKey)}/autoam/templates/truppen`).catch(() => null),
+          fbGet(`teams/${encodeURIComponent(teamKey)}/autoam/templates/forschung`).catch(() => null),
+        ]);
+
+        const groups = normalizeArray(groupsData && groupsData.groups);
+        if (groups.length) groupsList = groups;
+
+        templatesByBereich = {
+          gebaeude: normalizeArray(gebaeudeT && gebaeudeT.templates),
+          truppen: normalizeArray(truppenT && truppenT.templates),
+          forschung: normalizeArray(forschungT && forschungT.templates),
+        };
+
+        if (configData && configData.config) {
+          currentConfig = {
+            jobs: normalizeArray(configData.config.jobs),
+            intervalMinutes: configData.config.intervalMinutes || 45,
+            enabled: !!configData.config.enabled,
+          };
+        } else {
+          currentConfig = { jobs: [], intervalMinutes: 45, enabled: true };
+        }
+
+        if (!groupsList.length || !Object.values(templatesByBereich).some(arr => arr.length)) {
+          loadStatusEl.textContent = 'Noch keine Gruppen/Vorlagen synchronisiert - im Spiel einmal die AutoAM-Seite (Profil) öffnen, dann hier neu laden.';
+          loadStatusEl.className = 'status err';
+        }
+
+        populateForm();
+      } catch (e) {
+        loadStatusEl.textContent = 'Fehler beim Laden: ' + e.message;
+        loadStatusEl.className = 'status err';
+      }
+    }
+
+    function populateForm() {
+      document.getElementById('adbEnabled').checked = currentConfig.enabled;
+      document.getElementById('adbInterval').value = currentConfig.intervalMinutes;
+      renderAddRowOptions();
+      renderJobList();
+    }
+
+    document.querySelectorAll('.adb-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        activeBereich = tab.dataset.bereich;
+        document.querySelectorAll('.adb-tab').forEach(t => t.classList.toggle('active', t === tab));
+        renderAddRowOptions();
+        renderJobList();
+      });
+    });
+
+    function renderAddRowOptions() {
+      const groupSelect = document.getElementById('adbGroupSelect');
+      groupSelect.innerHTML = groupsList.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+      const templates = templatesByBereich[activeBereich] || [];
+      const templateSelect = document.getElementById('adbTemplateSelect');
+      if (!templates.length) {
+        templateSelect.innerHTML = '<option value="">Keine Vorlagen synchronisiert</option>';
+        return;
+      }
+      templateSelect.innerHTML = templates.map(t => {
+        const label = activeBereich === 'truppen' ? t.template : t.name;
+        return `<option value="${t.id}">${label}</option>`;
+      }).join('');
+    }
+
+    document.getElementById('adbAddJob').addEventListener('click', () => {
+      const groupSelect = document.getElementById('adbGroupSelect');
+      const templateSelect = document.getElementById('adbTemplateSelect');
+      const groupId = groupSelect.value;
+      const templateId = templateSelect.value;
+      if (!groupId || !templateId) { alert('Bitte Gruppe und Vorlage auswählen.'); return; }
+
+      const groupName = groupSelect.options[groupSelect.selectedIndex].textContent;
+      const templateName = templateSelect.options[templateSelect.selectedIndex].textContent;
+
+      currentConfig.jobs.push({
+        id: 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        bereich: activeBereich,
+        groupId, groupName,
+        templateId, templateName,
+      });
+      renderJobList();
+    });
+
+    function renderJobList() {
+      const container = document.getElementById('adbJobList');
+      const entries = currentConfig.jobs
+        .map((job, index) => ({ job, index }))
+        .filter(entry => entry.job.bereich === activeBereich);
+
+      if (!entries.length) {
+        container.innerHTML = `<div class="adb-empty">Noch keine Jobs für ${BEREICH_LABELS[activeBereich].label} angelegt.</div>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      entries.forEach(entry => {
+        const job = entry.job;
+        const row = document.createElement('div');
+        row.className = 'adb-job';
+        row.innerHTML = `
+          <span style="font-size:1.1rem;">${BEREICH_LABELS[job.bereich].icon}</span>
+          <div class="adb-job-info">
+            <strong>${job.groupName}</strong>
+            <span>${BEREICH_LABELS[job.bereich].label}: ${job.templateName}</span>
+          </div>
+          <div class="adb-job-actions">
+            <button type="button" data-action="up">↑</button>
+            <button type="button" data-action="down">↓</button>
+            <button type="button" data-action="del">🗑️</button>
+          </div>
+        `;
+        row.querySelector('[data-action="up"]').addEventListener('click', () => moveJob(entry.index, -1));
+        row.querySelector('[data-action="down"]').addEventListener('click', () => moveJob(entry.index, 1));
+        row.querySelector('[data-action="del"]').addEventListener('click', () => removeJob(job.id));
+        container.appendChild(row);
+      });
+    }
+
+    function moveJob(overallIndex, delta) {
+      const sameBereichIndices = currentConfig.jobs
+        .map((j, i) => ({ j, i }))
+        .filter(entry => entry.j.bereich === activeBereich)
+        .map(entry => entry.i);
+      const posInSubset = sameBereichIndices.indexOf(overallIndex);
+      const newPos = posInSubset + delta;
+      if (posInSubset === -1 || newPos < 0 || newPos >= sameBereichIndices.length) return;
+      const targetIndex = sameBereichIndices[newPos];
+      const tmp = currentConfig.jobs[overallIndex];
+      currentConfig.jobs[overallIndex] = currentConfig.jobs[targetIndex];
+      currentConfig.jobs[targetIndex] = tmp;
+      renderJobList();
+    }
+
+    function removeJob(jobId) {
+      currentConfig.jobs = currentConfig.jobs.filter(j => j.id !== jobId);
+      renderJobList();
+    }
+
+    document.getElementById('adbSaveBtn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbSaveStatus');
+      currentConfig.enabled = document.getElementById('adbEnabled').checked;
+      currentConfig.intervalMinutes = Math.max(5, parseInt(document.getElementById('adbInterval').value) || 45);
+      try {
+        await fbPut(`teams/${encodeURIComponent(teamKey)}/autoam/config`, { updatedAt: Date.now(), config: currentConfig });
+        statusEl.textContent = 'Gespeichert.';
+        statusEl.className = 'status ok';
+      } catch (e) {
+        statusEl.textContent = 'Fehler beim Speichern: ' + e.message;
+        statusEl.className = 'status err';
+      }
+    });
+
+    // ── Start ───────────────────────────────────────────────────────────
+    const stored = loadStoredKey();
+    if (stored) connectWithKey(stored);
+  })();
+  </script>
+</body>
+</html>
