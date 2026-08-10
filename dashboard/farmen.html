@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Farmen – Anaboles Dashboard – DS-Scripts</title>
+  <meta name="description" content="Anaboles Dashboard für Anaboles Farmen – FarmGod-, Rammen- und Katta&Spy-Einstellungen einsehen und bearbeiten, synct automatisch mit dem Tampermonkey-Script.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <style>
+    .adb-hidden { display: none !important; }
+    .adb-key-box { max-width: 420px; margin: 0 auto; }
+    .adb-key-display { font-family: monospace; font-size: 0.85rem; color: var(--text-muted); }
+    .adb-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
+    .adb-toggle-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.9rem; }
+    .adb-toggle-row input[type="checkbox"] { accent-color: var(--accent); width: 17px; height: 17px; cursor: pointer; }
+    .adb-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; flex-wrap: wrap; }
+    .adb-tab { padding: 0.4rem 0.9rem; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text-muted); cursor: pointer; font-size: 0.85rem; }
+    .adb-tab.active { background: rgba(211,163,90,0.15); border-color: var(--accent-strong); color: var(--accent-strong); font-weight: 600; }
+    .adb-tabpanel { display: none; }
+    .adb-tabpanel.active { display: block; }
+    .adb-section { font-size: 0.8rem; color: var(--accent-strong); font-weight: 600; margin: 1.1rem 0 0.6rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .adb-section:first-child { margin-top: 0; }
+    .adb-hint { font-size: 0.75rem; color: var(--text-muted); margin: -0.4rem 0 0.7rem; }
+    .adb-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.7rem; }
+    .adb-row .field { margin-bottom: 0; }
+    .adb-row input[type="number"] { width: 90px; }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="../scripts/index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a href="index.html" data-nav="dashboard">Anaboles Dashboard</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Anaboles Dashboard</a> / Farmen</p>
+        <h2>🌾 Anaboles Farmen</h2>
+        <p>
+          FarmGod-, Rammen- und Katta&amp;Spy-Einstellungen einsehen und
+          bearbeiten – synct automatisch mit dem <code>Anaboles Farmen</code>-Script.
+        </p>
+
+        <!-- ── Key-Eingabe (Fallback, falls direkt aufgerufen) ─────────── -->
+        <div id="adbKeyScreen" class="panel adb-key-box">
+          <h3>Team-Key</h3>
+          <p style="font-size:0.88rem;">Den Key findest du im Spiel im „!“-Panel des Sync-Moduls.</p>
+          <div class="field">
+            <label for="adbKeyInput">Team-Key</label>
+            <input type="text" id="adbKeyInput" placeholder="z.B. 60bf2e8b859746f620d4">
+          </div>
+          <button class="btn btn-primary" id="adbKeySubmit" type="button">Verbinden</button>
+          <div id="adbKeyStatus" class="status"></div>
+        </div>
+
+        <!-- ── Hauptansicht ─────────────────────────────────────────── -->
+        <div id="adbMain" class="adb-hidden">
+          <div class="adb-toolbar">
+            <span class="adb-key-display">Team-Key: <span id="adbKeyLabel"></span> &nbsp;
+              <a href="#" id="adbChangeKey">(ändern)</a>
+            </span>
+            <button class="btn btn-outline" id="adbRefreshBtn" type="button">🔄 Aktualisieren</button>
+          </div>
+
+          <div id="adbLoadStatus" class="status"></div>
+
+          <div class="panel">
+            <div class="adb-tabs" id="adbTabs">
+              <div class="adb-tab active" data-tab="settings">⚙ FarmGod</div>
+              <div class="adb-tab" data-tab="ram">⚒ Rammen</div>
+              <div class="adb-tab" data-tab="katta">💣 Katta&amp;Spy</div>
+            </div>
+
+            <!-- ── FarmGod ─────────────────────────────────────────── -->
+            <div class="adb-tabpanel active" id="adbPanel-settings">
+              <div class="adb-toggle-row"><input type="checkbox" id="fg-enabled"><label for="fg-enabled">FarmGod aktivieren</label></div>
+              <div class="adb-hint">Steuert nur den klassischen Farm-Loop. Rammen, Späher und Katta laufen unabhängig davon weiter.</div>
+
+              <div class="field" style="max-width:260px;"><label for="fg-group">Gruppe</label><select id="fg-group"></select></div>
+
+              <div class="adb-row"><div class="field"><label for="fg-distance">Standard-Reichweite (Felder)</label><input type="number" id="fg-distance" min="1"></div></div>
+              <div class="adb-row"><div class="field"><label for="fg-time">Mindestzeit zwischen Farms (min)</label><input type="number" id="fg-time" min="0"></div></div>
+              <div class="adb-toggle-row"><input type="checkbox" id="fg-losses"><label for="fg-losses">Farms mit Teilverlusten senden</label></div>
+              <div class="adb-toggle-row"><input type="checkbox" id="fg-maxloot"><label for="fg-maxloot">B-Farm bei vollem Loot senden</label></div>
+
+              <div class="adb-row">
+                <div class="adb-toggle-row" style="margin-bottom:0;"><input type="checkbox" id="fg-use-c"><label for="fg-use-c">C-Farm nutzen (Vorrang vor B) bis</label></div>
+                <input type="number" id="fg-max-distance-c" min="0"><span style="color:var(--text-muted); font-size:0.85rem;">Felder</span>
+              </div>
+              <div class="adb-hint">Nur falls Vorlage C im Spiel konfiguriert ist, sonst wird ignoriert.</div>
+
+              <div class="adb-toggle-row"><input type="checkbox" id="fg-newbarbs"><label for="fg-newbarbs">Neue Barbarendörfer hinzufügen</label></div>
+
+              <div class="adb-row">
+                <div class="field"><label for="fg-max-wall">Max. Wall für Angriffe</label><input type="number" id="fg-max-wall" min="-1"></div>
+                <div class="adb-toggle-row" style="margin-bottom:0;"><input type="checkbox" id="fg-wall-unknown"><label for="fg-wall-unknown">"?" (unbekannt) einschließen</label></div>
+              </div>
+              <div class="adb-hint">-1 = unbegrenzt, 0 = nur Wall 0. "Unbekannt" = kein Späher-Bericht vorhanden.</div>
+
+              <div class="adb-section">⌨️ Enter-Einstellungen</div>
+              <div class="adb-row">
+                <div class="field"><label for="fg-reload-min">Reload-Intervall (Sek.)</label><input type="number" id="fg-reload-min" min="10"></div>
+                <span style="color:var(--text-muted);">–</span>
+                <div class="field"><label>&nbsp;</label><input type="number" id="fg-reload-max" min="10"></div>
+              </div>
+
+              <div class="adb-section">🔔 Discord</div>
+              <div class="field"><label for="fg-webhook">Webhook URL</label><input type="text" id="fg-webhook" placeholder="https://discord.com/api/webhooks/..."></div>
+            </div>
+
+            <!-- ── Rammen ──────────────────────────────────────────── -->
+            <div class="adb-tabpanel" id="adbPanel-ram">
+              <div class="adb-section">🔨 Rammen bei roten/gelben Berichten</div>
+              <div class="adb-toggle-row"><input type="checkbox" id="ram-enabled"><label for="ram-enabled">Rammen aktivieren</label></div>
+              <div class="adb-row"><div class="field"><label for="ram-max-distance">Max. Reichweite (Felder)</label><input type="number" id="ram-max-distance" min="0"></div></div>
+              <div class="adb-hint">0 = unbegrenzt</div>
+              <div class="adb-toggle-row"><input type="checkbox" id="ram-on-red"><label for="ram-on-red">Bei roten Berichten</label></div>
+              <div class="adb-toggle-row"><input type="checkbox" id="ram-on-yellow"><label for="ram-on-yellow">Bei gelben Berichten</label></div>
+
+              <div class="adb-section">🏘️ Angreifende Gruppe</div>
+              <div class="field" style="max-width:260px;"><select id="ram-group"></select></div>
+
+              <div class="adb-section">⚔️ Truppenanzahl</div>
+              <div class="adb-row"><div class="field"><label for="ram-axe">Axtkämpfer</label><input type="number" id="ram-axe" min="0"></div></div>
+              <div class="adb-row"><div class="field"><label for="ram-ram">Rammbock</label><input type="number" id="ram-ram" min="0"></div></div>
+              <div class="adb-row"><div class="field"><label for="ram-spy">Späher</label><input type="number" id="ram-spy" min="0"></div></div>
+            </div>
+
+            <!-- ── Katta & Spy ─────────────────────────────────────── -->
+            <div class="adb-tabpanel" id="adbPanel-katta">
+              <div class="adb-section">🔭 Auto-Späher &amp; Berichte-Einsortierung</div>
+              <div class="adb-toggle-row"><input type="checkbox" id="spy-enabled"><label for="spy-enabled">Auto-Späher aktivieren</label></div>
+              <div class="adb-row"><div class="field"><label for="spy-interval">Alle wie viele Stunden spähen</label><input type="number" id="spy-interval" min="1"></div></div>
+              <div class="adb-row"><div class="field"><label for="spy-max-distance">Max. Reichweite (Felder)</label><input type="number" id="spy-max-distance" min="0"></div></div>
+              <div class="adb-row"><div class="field"><label for="spy-count">Späher pro Ziel</label><input type="number" id="spy-count" min="1"></div></div>
+
+              <div class="adb-section">🏘️ Angreifende Gruppe</div>
+              <div class="field" style="max-width:260px;"><select id="spy-group"></select></div>
+
+              <div class="adb-section">📁 Berichte automatisch einsortieren</div>
+              <div class="adb-hint">Läuft automatisch mit, sobald der Auto-Späher oben aktiviert ist.</div>
+              <div class="adb-row"><div class="field"><label for="repo-folder-id">Ziel-Ordner-ID</label><input type="number" id="repo-folder-id" min="0"></div></div>
+
+              <div class="adb-section">💣 Katta-Angriffe — Ziel-Stufen</div>
+              <div class="adb-toggle-row"><input type="checkbox" id="katta-attack-enabled"><label for="katta-attack-enabled">Katta-Angriffe aktivieren</label></div>
+              <div class="adb-toggle-row"><input type="checkbox" id="katta-safe-mode"><label for="katta-safe-mode">Safe Katta (gescoutete Stufe +1 rechnen)</label></div>
+              <div class="adb-row"><div class="field"><label for="katta-target-main">Hauptgebäude auf Stufe</label><input type="number" id="katta-target-main" min="0"></div></div>
+              <div class="adb-row"><div class="field"><label for="katta-target-barracks">Kaserne auf Stufe</label><input type="number" id="katta-target-barracks" min="0"></div></div>
+
+              <div class="adb-section">🏘️ Angreifende Gruppe &amp; Reichweite</div>
+              <div class="field" style="max-width:260px;"><select id="katta-group"></select></div>
+              <div class="adb-row" style="margin-top:0.7rem;"><div class="field"><label for="katta-max-distance">Max. Reichweite (Felder)</label><input type="number" id="katta-max-distance" min="0"></div></div>
+              <div class="adb-hint">0 = unbegrenzt.</div>
+
+              <div class="adb-section">⚔️ Begleit-Truppen pro Katta-Angriff</div>
+              <div class="adb-toggle-row"><input type="checkbox" id="katta-use-deff"><label for="katta-use-deff">Speer/Schwert als Begleitung erlauben</label></div>
+              <div class="adb-toggle-row"><input type="checkbox" id="katta-use-off"><label for="katta-use-off">Axt als Begleitung erlauben</label></div>
+              <div class="adb-row"><div class="field"><label for="katta-escort-count">Begleit-Truppen (Anzahl)</label><input type="number" id="katta-escort-count" min="0"></div></div>
+              <div class="adb-row"><div class="field"><label for="katta-spy-count">Späher pro Angriff</label><input type="number" id="katta-spy-count" min="0"></div></div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="adbSaveBtn" type="button" style="margin-top:1.2rem;">Speichern</button>
+          <div id="adbSaveStatus" class="status"></div>
+
+          <div class="note" style="margin-top:1rem;">
+            Nicht enthalten: Pro-Dorf-Feinjustierung (nur im Spiel möglich,
+            braucht die live geladene Dorfliste), Nachtmodus/Zufallspausen
+            (aktuell ungenutzter Tab) und das Aktivitäts-Log (reine lokale Historie).
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const FIREBASE_DB_URL = 'https://anaboler-sync-default-rtdb.europe-west1.firebasedatabase.app';
+    const KEY_STORAGE = 'anaboleDashboardTeamKey';
+
+    let teamKey = null;
+    let groupsList = [{ id: '0', name: 'alle' }];
+    let currentSettings = {};
+
+    function normalizeArray(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') {
+        return Object.keys(raw).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).map(k => raw[k]);
+      }
+      return [];
+    }
+
+    async function fbGet(path) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+    async function fbPut(path, value) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: JSON.stringify(value)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+
+    function loadStoredKey() { try { return localStorage.getItem(KEY_STORAGE); } catch (e) { return null; } }
+    function storeKey(key) { try { localStorage.setItem(KEY_STORAGE, key); } catch (e) { /* ignorieren */ } }
+
+    function connectWithKey(key) {
+      teamKey = key.trim();
+      storeKey(teamKey);
+      document.getElementById('adbKeyLabel').textContent = teamKey;
+      document.getElementById('adbKeyScreen').classList.add('adb-hidden');
+      document.getElementById('adbMain').classList.remove('adb-hidden');
+      loadAll();
+    }
+
+    document.getElementById('adbKeySubmit').addEventListener('click', () => {
+      const val = document.getElementById('adbKeyInput').value.trim();
+      const statusEl = document.getElementById('adbKeyStatus');
+      if (!val) { statusEl.textContent = 'Bitte einen Team-Key eingeben.'; statusEl.className = 'status err'; return; }
+      statusEl.textContent = ''; statusEl.className = 'status';
+      connectWithKey(val);
+    });
+    document.getElementById('adbChangeKey').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('adbMain').classList.add('adb-hidden');
+      document.getElementById('adbKeyScreen').classList.remove('adb-hidden');
+      document.getElementById('adbKeyInput').value = teamKey || '';
+    });
+    document.getElementById('adbRefreshBtn').addEventListener('click', loadAll);
+
+    document.querySelectorAll('.adb-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.adb-tab').forEach(t => t.classList.toggle('active', t === tab));
+        document.querySelectorAll('.adb-tabpanel').forEach(p => p.classList.toggle('active', p.id === 'adbPanel-' + tab.dataset.tab));
+      });
+    });
+
+    async function loadAll() {
+      const loadStatusEl = document.getElementById('adbLoadStatus');
+      loadStatusEl.textContent = ''; loadStatusEl.className = 'status';
+      try {
+        const [groupsData, settingsData] = await Promise.all([
+          fbGet(`teams/${encodeURIComponent(teamKey)}/shared/groups`).catch(() => null),
+          fbGet(`teams/${encodeURIComponent(teamKey)}/farmen/settings`).catch(() => null),
+        ]);
+
+        const groups = normalizeArray(groupsData && groupsData.groups);
+        if (groups.length) groupsList = groups;
+
+        currentSettings = (settingsData && settingsData.settings) ? settingsData.settings : {};
+
+        if (!groupsList.length || groupsList.length === 1) {
+          loadStatusEl.textContent = 'Noch keine Gruppen synchronisiert - im Spiel einmal die Farmen-Seite öffnen, dann hier neu laden.';
+          loadStatusEl.className = 'status err';
+        }
+
+        populateForm();
+      } catch (e) {
+        loadStatusEl.textContent = 'Fehler beim Laden: ' + e.message;
+        loadStatusEl.className = 'status err';
+      }
+    }
+
+    function groupOptionsHtml(selectedId) {
+      return groupsList.map(g => `<option value="${g.id}"${String(g.id) === String(selectedId) ? ' selected' : ''}>${g.name}</option>`).join('');
+    }
+
+    function populateForm() {
+      const s = currentSettings;
+
+      // FarmGod
+      document.getElementById('fg-enabled').checked = !!s.farmGodEnabled;
+      document.getElementById('fg-group').innerHTML = groupOptionsHtml(s.optionGroup);
+      document.getElementById('fg-distance').value = s.optionDistance ?? 25;
+      document.getElementById('fg-time').value = s.optionTime ?? 10;
+      document.getElementById('fg-losses').checked = !!s.optionLosses;
+      document.getElementById('fg-maxloot').checked = s.optionMaxloot !== false;
+      document.getElementById('fg-use-c').checked = !!s.optionUseC;
+      document.getElementById('fg-max-distance-c').value = s.optionMaxDistanceC ?? 5;
+      document.getElementById('fg-newbarbs').checked = s.optionNewbarbs !== false;
+      document.getElementById('fg-max-wall').value = s.optionMaxWall ?? -1;
+      document.getElementById('fg-wall-unknown').checked = s.optionIncludeUnknownWall !== false;
+      document.getElementById('fg-reload-min').value = s.reloadMin ?? 600;
+      document.getElementById('fg-reload-max').value = s.reloadMax ?? 900;
+      document.getElementById('fg-webhook').value = s.webhookUrl || '';
+
+      // Rammen
+      document.getElementById('ram-enabled').checked = !!s.ramEnabled;
+      document.getElementById('ram-max-distance').value = s.ramMaxDistance ?? 0;
+      document.getElementById('ram-on-red').checked = s.ramOnRed !== false;
+      document.getElementById('ram-on-yellow').checked = !!s.ramOnYellow;
+      document.getElementById('ram-group').innerHTML = groupOptionsHtml(s.ramGroup);
+      document.getElementById('ram-axe').value = s.ramAxe ?? 0;
+      document.getElementById('ram-ram').value = s.ramRam ?? 0;
+      document.getElementById('ram-spy').value = s.ramSpy ?? 0;
+
+      // Katta & Spy
+      document.getElementById('spy-enabled').checked = !!s.spyEnabled;
+      document.getElementById('spy-interval').value = s.spyIntervalHours ?? 8;
+      document.getElementById('spy-max-distance').value = s.spyMaxDistance ?? 20;
+      document.getElementById('spy-count').value = s.spyCount ?? 1;
+      document.getElementById('spy-group').innerHTML = groupOptionsHtml(s.spyGroup);
+      document.getElementById('repo-folder-id').value = s.repoFolderId ?? 0;
+      document.getElementById('katta-attack-enabled').checked = !!s.kattaAttackEnabled;
+      document.getElementById('katta-safe-mode').checked = !!s.kattaSafeMode;
+      document.getElementById('katta-target-main').value = s.kattaTargetMain ?? 0;
+      document.getElementById('katta-target-barracks').value = s.kattaTargetBarracks ?? 0;
+      document.getElementById('katta-group').innerHTML = groupOptionsHtml(s.kattaGroup);
+      document.getElementById('katta-max-distance').value = s.kattaMaxDistance ?? 0;
+      document.getElementById('katta-use-deff').checked = s.kattaUseDeff !== false;
+      document.getElementById('katta-use-off').checked = s.kattaUseOff !== false;
+      document.getElementById('katta-escort-count').value = s.kattaEscortCount ?? 4;
+      document.getElementById('katta-spy-count').value = s.kattaSpyCount ?? 1;
+    }
+
+    document.getElementById('adbSaveBtn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbSaveStatus');
+      const gid = id => document.getElementById(id).value;
+      const gnum = id => parseInt(document.getElementById(id).value) || 0;
+      const gchk = id => document.getElementById(id).checked;
+
+      const newSettings = Object.assign({}, currentSettings, {
+        farmGodEnabled: gchk('fg-enabled'),
+        optionGroup: gid('fg-group'),
+        optionDistance: Math.max(1, gnum('fg-distance')),
+        optionTime: Math.max(0, gnum('fg-time')),
+        optionLosses: gchk('fg-losses'),
+        optionMaxloot: gchk('fg-maxloot'),
+        optionUseC: gchk('fg-use-c'),
+        optionMaxDistanceC: Math.max(0, gnum('fg-max-distance-c')),
+        optionNewbarbs: gchk('fg-newbarbs'),
+        optionMaxWall: Math.max(-1, parseInt(document.getElementById('fg-max-wall').value) || -1),
+        optionIncludeUnknownWall: gchk('fg-wall-unknown'),
+        reloadMin: Math.max(10, gnum('fg-reload-min')),
+        reloadMax: Math.max(10, gnum('fg-reload-max')),
+        webhookUrl: document.getElementById('fg-webhook').value.trim(),
+
+        ramEnabled: gchk('ram-enabled'),
+        ramOnRed: gchk('ram-on-red'),
+        ramOnYellow: gchk('ram-on-yellow'),
+        ramGroup: gid('ram-group'),
+        ramAxe: gnum('ram-axe'),
+        ramRam: gnum('ram-ram'),
+        ramSpy: gnum('ram-spy'),
+        ramMaxDistance: Math.max(0, gnum('ram-max-distance')),
+
+        spyEnabled: gchk('spy-enabled'),
+        spyIntervalHours: Math.max(1, gnum('spy-interval')),
+        spyMaxDistance: Math.max(0, gnum('spy-max-distance')),
+        spyCount: Math.max(1, gnum('spy-count')),
+        spyGroup: gid('spy-group'),
+        repoFolderId: Math.max(0, gnum('repo-folder-id')),
+
+        kattaAttackEnabled: gchk('katta-attack-enabled'),
+        kattaSafeMode: gchk('katta-safe-mode'),
+        kattaTargetMain: Math.max(0, gnum('katta-target-main')),
+        kattaTargetBarracks: Math.max(0, gnum('katta-target-barracks')),
+        kattaGroup: gid('katta-group'),
+        kattaMaxDistance: Math.max(0, gnum('katta-max-distance')),
+        kattaUseDeff: gchk('katta-use-deff'),
+        kattaUseOff: gchk('katta-use-off'),
+        kattaEscortCount: Math.max(0, gnum('katta-escort-count')),
+        kattaSpyCount: Math.max(0, gnum('katta-spy-count')),
+      });
+
+      if (newSettings.reloadMin > newSettings.reloadMax) {
+        [newSettings.reloadMin, newSettings.reloadMax] = [newSettings.reloadMax, newSettings.reloadMin];
+      }
+
+      currentSettings = newSettings;
+
+      try {
+        await fbPut(`teams/${encodeURIComponent(teamKey)}/farmen/settings`, { updatedAt: Date.now(), settings: newSettings });
+        statusEl.textContent = 'Gespeichert.';
+        statusEl.className = 'status ok';
+      } catch (e) {
+        statusEl.textContent = 'Fehler beim Speichern: ' + e.message;
+        statusEl.className = 'status err';
+      }
+    });
+
+    // ── Start ───────────────────────────────────────────────────────────
+    const stored = loadStoredKey();
+    if (stored) connectWithKey(stored);
+  })();
+  </script>
+</body>
+</html>
