@@ -392,6 +392,7 @@ declare global {
     confirmAddVillageBooster:(target:number) => void;
     removeVillageBooster:(event:Event,target:number) => void;
     confirmRemoveVillageBooster:(target:number) => void;
+    setColorTag:(event:Event,target:number,color:'green'|'red'|'orange') => void;
   }
 
   interface launchDialog {
@@ -450,7 +451,8 @@ declare global {
       launchers:launcher[],
       isOpen:boolean,
       isSelected:boolean,
-      info:targetInfo
+      info:targetInfo,
+      colorTag:'green'|'red'|'orange'|null
   }
 
   type targetInfo = {

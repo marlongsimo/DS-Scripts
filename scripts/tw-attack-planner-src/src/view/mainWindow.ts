@@ -337,6 +337,34 @@ export const mainWindow = ()=>{
                 flex-grow: 1;
             }
 
+            .target-color-tags{
+                display:inline-flex;
+                gap:4px;
+                margin-right:8px;
+            }
+            .target-color-dot{
+                display:inline-block;
+                width:12px;
+                height:12px;
+                border-radius:50%;
+                border:1px solid #6c4824;
+                cursor:pointer;
+            }
+            .target-color-dot.active{
+                border:2px solid #603000;
+            }
+            .target-color-dot.color-green{ background-color:#3fb950; }
+            .target-color-dot.color-red{ background-color:#e5534b; }
+            .target-color-dot.color-orange{ background-color:#e69138; }
+
+            .target-header.target-tag-green{ background-color:#d9f2d9; }
+            .target-header.target-tag-red{ background-color:#f8d7d7; }
+            .target-header.target-tag-orange{ background-color:#fbe4c8; }
+
+            .assigner-row.target-tag-green{ background-color:#d9f2d9; }
+            .assigner-row.target-tag-red{ background-color:#f8d7d7; }
+            .assigner-row.target-tag-orange{ background-color:#fbe4c8; }
+
             .target-launchers{
                 display:none;
                 width:100%;

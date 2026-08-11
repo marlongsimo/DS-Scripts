@@ -10,11 +10,16 @@ export const targetItem = (target:target)=>{
 
     return /* html */`
     <div id="${target.village.id}" class="target-item">
-        <div class="target-header" onclick="targetItem.selectTargetItem(event,${target.village.id})">
+        <div class="target-header ${target.colorTag? `target-tag-${target.colorTag}`:''}" onclick="targetItem.selectTargetItem(event,${target.village.id})">
             <div class="target-radio"><input value="${target.village.id}" onclick="targetItem.selectTargetItem(event,${target.village.id})" type="radio" name="target" ${target.isSelected? `checked`:``}/></div>
             <div onclick="targetItem.toggleTargetItem(event,${target.village.id})" class="indicator ${target.isOpen? 'indicator-open':''}"><span >▶<span></div>
             <div class="target-village-name"><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${target.village.id}">${target.village.name} (${target.village.coord.text}) K${target.village.kontinent}</a>${(target.village.owner as owner).name? ` (${(target.village.owner as owner).name})`:'' }</div>
             <div class="target-extras">
+                <div class="target-color-tags">
+                    <a class="target-color-dot color-green ${target.colorTag=='green'?'active':''}" onclick="targetItem.setColorTag(event,${target.village.id},'green')"></a>
+                    <a class="target-color-dot color-red ${target.colorTag=='red'?'active':''}" onclick="targetItem.setColorTag(event,${target.village.id},'red')"></a>
+                    <a class="target-color-dot color-orange ${target.colorTag=='orange'?'active':''}" onclick="targetItem.setColorTag(event,${target.village.id},'orange')"></a>
+                </div>
                 ${target.booster>0 ? /* html */`
                 <div class="booster-button">( ${target.booster}% <img height="15" src="${AssetName}/graphic/items/3005.png">) <a class="del-boost" onclick="targetItem.removeVillageBooster(event,${target.village.id})"></a></div>
                 `
@@ -244,6 +249,17 @@ window.targetItem = {
         }
         window.attackPlan.targetPool[targetIndex].booster=0;
         window.closeModal();
+        window.targetPoolQuery.partialRender([window.attackPlan.targetPool[targetIndex]],"village.id");
+        savePlan()
+    },
+    setColorTag:(event:Event,target:number,color:'green'|'red'|'orange')=>{
+        event.stopPropagation();
+        let targetIndex=window.attackPlan.targetPool.findIndex((tp)=>{return tp.village.id==target})
+        if(targetIndex<-1){
+            return;
+        }
+        let current=window.attackPlan.targetPool[targetIndex].colorTag;
+        window.attackPlan.targetPool[targetIndex].colorTag = current==color? null : color;
         window.targetPoolQuery.partialRender([window.attackPlan.targetPool[targetIndex]],"village.id");
         savePlan()
     },

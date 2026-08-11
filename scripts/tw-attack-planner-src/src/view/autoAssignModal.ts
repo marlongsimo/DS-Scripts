@@ -135,7 +135,7 @@ export const autoAssignModal = ()=>{
         <div class="assigner-target-villages">
             ${window.attackPlan.targetPool.map((target:target)=>{
             return /* html */`
-                <div class="assigner-row" id="assigner-row-${target.village.id}">
+                <div class="assigner-row ${target.colorTag? `target-tag-${target.colorTag}`:''}" id="assigner-row-${target.village.id}">
                     <div class="item"><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${target.village.id}">${target.village.name}(${target.village.coord.text}) K${target.village.kontinent}</a></div>
                     <div class="item checkbox">
                         <input class="assigner-target-check" value="${target.village.id}" type="checkbox">
