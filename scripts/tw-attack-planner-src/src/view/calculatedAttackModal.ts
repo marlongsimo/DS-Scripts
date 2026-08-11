@@ -1,0 +1,171 @@
+import { AssetName, coordDistance, formatDateTime, game } from "../core/Api";
+import { Lang } from "../core/Language";
+import QRCode from "qrcode";
+
+export const calculatedAttackModal = (diff:string)=>{ 
+    const addTimeFrags = diff.split(':');
+
+    const addTime = (addTimeFrags[0]=='-'? -1:1) * parseInt(addTimeFrags[1])*1000*60*60+parseInt(addTimeFrags[2])*1000*60+parseInt(addTimeFrags[3])*1000
+
+    const unitCode=['spear','sword','axe','archer','spy','light','marcher','heavy','ram','catapult','knight','snob'];
+    async function calculate(){
+        let attacks:attack[]=[];
+        window.attackPlan.targetPool.forEach((target:target)=>{
+            let boostIndx=window.attackPlan.boosters.findIndex((booster:boost)=>{return booster.playerId==(target.village.owner as owner).id});
+            target.launchers.forEach((launcher:launcher)=>{
+                let boost:number=1
+    
+                if(boostIndx>-1){
+                    target.booster=window.attackPlan.boosters[boostIndx].value;
+                }
+                
+                if(!launcher.isAttack){
+                    boost+=target.booster/100;        
+                }
+
+                const speed:number=launcher.unitSpeed.value;
+                const distance = coordDistance(launcher.village,target.village)
+                const miliseconds = Math.round(distance * (speed*60))*1000;
+                const attackDate = new Date(launcher.arrival);
+                const launch = new Date(attackDate.valueOf() + addTime - miliseconds);
+                const launchtext = formatDateTime(launch)
+
+                let smartlink=``;
+                let qrlink=``;
+                Object.keys(window.unitConfig).forEach((key,index)=>{
+                    if(!launcher.village.unitsContain.hasOwnProperty(key)) return;
+                    if(launcher.village.unitsContain[key as keyof unitConfig]>0){
+                        smartlink+=`&${key}=${launcher.village.unitsContain[key as keyof unitConfig]}`;
+                        qrlink+=`${unitCode.indexOf(key).toString(16)}:${launcher.village.unitsContain[key as keyof unitConfig].toString(16)},`;
+                    }
+                }); 
+    
+                attacks.push({
+                    launchDate:launchtext,
+                    launchLink:`https://${window.location.host}/game.php?village=${launcher.village.id}&screen=place&target=${target.village.id}${smartlink}`,
+                    qrdata:`${launcher.isAttack? 1:0},`+
+                    `${unitCode.indexOf(launcher.unitSpeed.key).toString(16)},`+
+                    `${new Date(launchtext).getTime().toString(16)},`+
+                    `${launcher.village.id.toString(16)},`+
+                    `${target.village.id.toString(16)},`+
+                    `${sanitizeQRtext(target.village.name)},`+
+                    `${qrlink.slice(0,-1)};`,
+                    unitSpeed:launcher.unitSpeed,
+                    villageFrom:launcher.village,
+                    villageTo:target.village,
+                    note:launcher.notes,
+                    isAttack:launcher.isAttack
+                })
+            })
+        })
+        attacks.sort((attack1,attack2)=>{return attack1.launchDate>attack2.launchDate ? 1:-1});
+        let {bbcode,html,QRhtml} = await generateLaunchText(attacks);
+
+        $('.bb-field').html(bbcode);
+        $('.inApp-field').html(html);
+        $('.qr-field').html(QRhtml);
+        
+        
+        $('#dialog-loading').hide();
+        $('.modal-input-inline').show();
+       
+    }
+
+    setTimeout(()=>{calculate()}, 2000);
+   
+    return /* html */`
+    <div id="dialog-loading">
+            <img style="height:25px" src="${AssetName}/graphic/loading.gif"><span style="padding:5px">${Lang('calculaing')}...</span>
+    </div>
+    <div class="modal-input-inline" style="display:none">
+        <label for="bb">${Lang('bbCode')}:</label>
+        <input onclick="window.changeDisplayType()" type="radio" id="bb" value="bb" name="showType" >
+        <label for="inapp">In-app:</label>
+        <input onclick="window.changeDisplayType()" type="radio" id="inapp" value="inapp" name="showType" checked>
+        <label for="inapp">mobile-app:</label>
+        <input onclick="window.changeDisplayType()" type="radio" id="mobile" value="mobile" name="showType" >
+        <div class="bb-field" style="display:none;max-height:600px; overflow-y: auto;"></div>
+        <div class="inApp-field" style="max-height:600px; overflow-y: auto;"></div>
+        <div class="qr-field" style="display:none;max-height:650px; overflow-y: auto;"></div>
+    </div>
+    `
+}
+
+export async function generateLaunchText(attacks:attack[]):Promise<{bbcode:string,html:string,QRhtml:string}>{
+    let maxChar=60000;
+    let currentChar=0;
+    let pageCnt=1;
+    let header=`<textarea style="resize:none;overflow: hidden;height:100px;width:400px;">[table][**] [||][building]barracks[/building][||]${Lang('launch')}[||]${Lang('from')}[||]${Lang('target')}[||]${Lang('command')}[||]${Lang('note')}[/**]`;
+    let closing='[/table]</textarea><br>';
+    let bbcode='';
+    let QRhtml='';
+    let QRPage=1;
+    let QR=`twla://${QRPage.toString(16)}:-pageCnt-,${window.location.hostname},${sanitizeQRtext(window.attackPlan.name)}/`;
+    let html=`<table class="vis"><tr><th></th><th></th><th>${Lang('launch')}</th><th>${Lang('from')}</th><th>${Lang('target')}</th><th>${Lang('command')}</th><th>${Lang('note')}</th></tr>`;
+    for (let i = 0; i < attacks.length; i++) {
+        let temp=`[*]#${i+1}[|][unit]${attacks[i].unitSpeed.key}[/unit][|][b]${attacks[i].launchDate}[/b]`
+        +`[|] ${attacks[i].villageFrom.coord.text} [|] ${attacks[i].villageTo.coord.text} [|][url=${attacks[i].launchLink}]${attacks[i].isAttack ? Lang('attack'):Lang('support')}[/url][|]${attacks[i].note}`;
+        if(currentChar+temp.length+closing.length>=maxChar){
+            currentChar=0;
+            pageCnt++;
+            bbcode+=closing;
+        }
+        if(currentChar==0){
+            bbcode+=`${pageCnt}.${Lang('page')}<br>`+header
+            currentChar+=header.length;
+        }
+
+        if(QR.length+attacks[i].qrdata.length>1000){
+            let QRurl = await QRCode.toDataURL(QR);
+            QRhtml+=`<h3>${QRPage}.${Lang('page')}</h3><div><p><img src="${QRurl}"></p></div>`;
+            QRPage++;
+            QR=`twla://${QRPage.toString(16)}/`;
+        }
+
+        QR+=attacks[i].qrdata;
+
+        if(i == attacks.length-1){
+            let QRurl = await QRCode.toDataURL(QR);
+            QRhtml+=`<h3>${QRPage}.Oldal</h3><div><p><img src="${QRurl}"></p></div>`;
+        }
+
+        bbcode+=temp;
+        currentChar+=temp.length;
+       
+        html+=`<tr><td>#${i+1}</td><td><img src="/graphic/unit/unit_${attacks[i].unitSpeed.key}.png"></td><td>${attacks[i].launchDate}</td>`+
+        `<td><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${attacks[i].villageFrom.id}">${attacks[i].villageFrom.name} (${attacks[i].villageFrom.coord.text}) </a></td><td><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${attacks[i].villageTo.id}">${attacks[i].villageTo.name} (${attacks[i].villageTo.coord.text}) </a></td><td><a href="${attacks[i].launchLink}">${attacks[i].isAttack ? Lang('attack'):Lang('support')}</a></td><td>${attacks[i].note}</td></tr>`
+    }
+    html+='</table>'
+    
+    QRhtml = QRhtml.replace('-pageCnt-',QRPage.toString(16));
+
+    return {bbcode,html,QRhtml}
+}
+
+window.changeDisplayType = () => {
+    let val=$('input[name=showType]:checked').val();
+    $('.inApp-field').hide();
+    $('.bb-field').hide();
+    $('.qr-field').hide();
+    switch(val){
+        case 'bb':
+            $('.bb-field').show();
+        break;
+        case 'inapp':
+            $('.inApp-field').show();
+        break;
+        case 'mobile':
+            $('.qr-field').show();
+            $( ".qr-field").accordion();
+        break;
+    }
+}
+
+function sanitizeQRtext(text:string):string{
+    const list=[';','/',',',':'];
+    list.forEach((item)=>{
+        text=text.replaceAll(item,' ');
+    })
+
+    return text;
+}

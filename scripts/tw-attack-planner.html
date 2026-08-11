@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TW Attack Planner – DS-Scripts</title>
+  <meta name="description" content="In-Game-Adelsangriffsplaner: Ziele, Startdörfer und Vorlagen verwalten, Angriffe automatisch zuteilen und mit einem Klick berechnen.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a href="../dashboard/index.html" data-nav="dashboard">Anaboles Dashboard</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Scripts</a> / TW Attack Planner</p>
+
+        <div class="script-detail">
+          <div class="tag-row" style="margin-bottom:0.8rem;">
+            <span class="badge">v2.0 - public (gepatcht)</span>
+            <span class="badge">Adelsangriffe</span>
+            <span class="badge">Massenplanung</span>
+          </div>
+          <h2>⚔️ TW Attack Planner</h2>
+          <p>
+            Vollwertiger In-Game-Angriffsplaner für den Massenversand von
+            Adelsangriffen. Lädt eure Dörfer direkt aus einer Spielgruppe,
+            Ziele werden per Koordinatenliste eingefügt. Angriffe lassen
+            sich per Klick manuell zuteilen oder über Vorlagen (Truppen-
+            zusammensetzung je Ziel-Kategorie) automatisch zuordnen – nach
+            Entfernung und verfügbaren Truppen. Ein Klick berechnet daraus
+            alle Abschickzeiten; das Ergebnis lässt sich als BB-Code
+            exportieren oder per Autofill-Link direkt im Kommandoscreen
+            eintragen. Mehrere Angriffspläne lassen sich parallel anlegen,
+            speichern und wieder laden.
+          </p>
+
+          <div class="script-meta">
+            <div>
+              <span class="label">Version</span>
+              <span class="value">v2.0 - public (gepatcht)</span>
+            </div>
+            <div>
+              <span class="label">Autor</span>
+              <span class="value">Bence Kincses (toldi26)</span>
+            </div>
+            <div>
+              <span class="label">Mod</span>
+              <span class="value">DS-Scripts – Absturz auf Welten ohne Adelsgeschlecht (Paladin) behoben: <code>window.unitConfig[einheit]</code>-Zugriffe waren nur für Bogenschütze/Reiter gegen fehlende Welt-Einheiten abgesichert, für Paladin fehlte das komplett und der Script crashte beim Einlesen der Dörfer. Jetzt generisch für jede Einheit abgesichert.</span>
+            </div>
+            <div>
+              <span class="label">Original-Repo</span>
+              <span class="value"><a href="https://github.com/KincsesBence/TW-attack-planner" target="_blank" rel="noopener">KincsesBence/TW-attack-planner ↗</a></span>
+            </div>
+            <div>
+              <span class="label">Lizenz</span>
+              <span class="value">Custom Redistribution &amp; Attribution License des Originalautors – Nutzung/Kopie/Modifikation/Weiterverbreitung erlaubt, Namensnennung muss erhalten bleiben (siehe Lizenzkommentar im Quellcode).</span>
+            </div>
+            <div>
+              <span class="label">Voraussetzung</span>
+              <span class="value">Beliebiger Screen im Spiel; zum Laden der Dörfer wird eine bestehende Spielgruppe benötigt</span>
+            </div>
+            <div>
+              <span class="label">Ausgabeformat</span>
+              <span class="value">Eigenes Overlay-Fenster im Spiel; Export als BB-Code bzw. Autofill-Link je Angriff</span>
+            </div>
+          </div>
+
+          <h3>Installation (Desktop)</h3>
+          <div class="install-box">
+            <p style="margin-bottom:0.8rem;">
+              Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach
+              das Spiel und klicke auf das Lesezeichen, um das Script zu
+              starten.
+            </p>
+            <a class="bookmarklet"
+               href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/twAttackPlanner.js');"
+               onclick="return false;"
+               title="In die Lesezeichenleiste ziehen">
+              ⚔️ TW Attack Planner starten
+            </a>
+          </div>
+
+          <h3>Installation (Handy: iPhone/Android)</h3>
+          <p>
+            Auf dem Handy lässt sich das Bookmarklet nicht per Drag &amp; Drop
+            in die Lesezeichen-/Favoritenleiste ziehen. Stattdessen legst du
+            zuerst ein ganz normales Lesezeichen an und ersetzt dessen Adresse
+            danach durch den folgenden Code:
+          </p>
+          <pre><code id="console-snippet">javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/twAttackPlanner.js');</code></pre>
+          <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
+
+          <p style="margin-top:1rem;"><strong>iPhone (Safari):</strong></p>
+          <ol style="margin:0 0 1rem 1.2rem; padding:0;">
+            <li>Diese Seite (oder eine beliebige andere) über das Teilen-Symbol als Lesezeichen speichern.</li>
+            <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
+            <li>Das Adressfeld leeren und den oben kopierten Code einfügen. Als Namen z.B. „TW Attack Planner“ eintragen und speichern.</li>
+            <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben – es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
+            <li>Im Spiel einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
+          </ol>
+
+          <p><strong>Android (Chrome):</strong></p>
+          <ol style="margin:0 0 0 1.2rem; padding:0;">
+            <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
+            <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben kopierten Code ersetzen, Namen anpassen und speichern.</li>
+            <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
+            <li>Im Spiel das Lesezeichen aus der Leiste antippen.</li>
+          </ol>
+
+          <h3 style="margin-top:1.6rem;">Quellcode</h3>
+          <p>
+            <a href="https://github.com/marlongsimo/DS-Scripts/blob/main/scripts/twAttackPlanner.js" target="_blank" rel="noopener">
+              scripts/twAttackPlanner.js (fertig gebaut, wird geladen) auf GitHub ansehen ↗
+            </a><br>
+            <a href="https://github.com/marlongsimo/DS-Scripts/tree/main/scripts/tw-attack-planner-src" target="_blank" rel="noopener">
+              scripts/tw-attack-planner-src (TypeScript-Quellcode des Forks inkl. Patch) auf GitHub ansehen ↗
+            </a>
+          </p>
+
+          <div class="note warn" style="margin-top:1.4rem;">
+            Nutzung auf eigene Verantwortung. Es handelt sich um einen
+            externen, umfangreichen In-Game-Script mit eigener
+            Speicherverwaltung (IndexedDB) – bitte vor dem produktiven
+            Einsatz mit den eigenen Angriffsplänen vertraut machen und
+            vorab die Regeln deines Servers zu Skripten/Bookmarklets prüfen.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+    document.getElementById('copy-snippet').addEventListener('click', function () {
+      var text = document.getElementById('console-snippet').textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copy-snippet');
+        var original = btn.textContent;
+        btn.textContent = '✅ Kopiert!';
+        setTimeout(function () { btn.textContent = original; }, 1800);
+      });
+    });
+  </script>
+</body>
+</html>
