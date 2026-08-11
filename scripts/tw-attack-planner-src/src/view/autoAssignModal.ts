@@ -112,6 +112,15 @@ export const autoAssignModal = ()=>{
             
             <button class="btn" onclick="autoAssign.addAssignment()">+ ${Lang('add')}</button>
         </div>
+        <div class="add-assignment-input">
+            <label>${Lang('targetGroups')}:</label>
+            <select id="assigner-group-filter" onchange="autoAssign.filterTargetsByGroup()">
+                <option value="">${Lang('allGroups')}</option>
+                ${window.attackPlan.targetGroups.map((group)=>{
+                    return /* html */`<option value="${group.name}">${group.name}</option>`
+                }).join('')}
+            </select>
+        </div>
         <div class="assigner-header">
             <div class="assigner-row assigner-date">
                     <div class="item"></div>
@@ -318,6 +327,21 @@ window.autoAssign = {
         let ind=window.autoAssign.assignTypes.findIndex((assign)=>{return assign.id==id.toString()})
         window.autoAssign.assignTypes[ind].required=cntr;
         $(`.assigner-counter .ar-${id} .cnt-actual`).text(cntr);
+    },
+    // Blendet Ziel-Zeilen abhängig von der gewählten Gruppe ein/aus, statt
+    // sie neu aufzubauen - ein Rebuild würde die bereits pro Zeile durch
+    // addAssignment() eingefügten Mengen-Eingabefelder der laufenden
+    // Zuteilungs-Konfiguration zerstören. Rein darstellend: die eigentlichen
+    // Zuteilungs-Algorithmen werten weiterhin die vollständige targetPool aus
+    // (ausgeblendete Zeilen haben schlicht keine eingetragenen Mengen).
+    filterTargetsByGroup:() => {
+        let groupName=$('#assigner-group-filter').val().toString();
+        let group=groupName? window.attackPlan.targetGroups.find((g)=>{return g.name==groupName}) : null;
+        $('.assigner-target-villages .assigner-row').get().forEach((row)=>{
+            let id=parseInt($(row).attr('id').replace('assigner-row-',''));
+            let show=!group || group.villageIds.includes(id);
+            $(row).toggle(show);
+        })
     },
 }
 

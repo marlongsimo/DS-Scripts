@@ -286,6 +286,7 @@ declare global {
     Players:player[],
     templateModal:templateModal
     editTargetModal:editTargetModal,
+    editTargetGroupsModal:editTargetGroupsModal,
     editPlanNameModal:editPlanNameModal
     editArrivalsModal:editArrivalsModal
     editLaunchVillagesModal:editLaunchVillagesModal
@@ -307,7 +308,11 @@ declare global {
     renderTargetVillages:()=>void;
     targetItem:targetItem,
     editTargets:()=>void;
+    editTargetGroups:()=>void;
     addTargets:()=>void;
+    targetGroupFilterValue:string;
+    targetGroupFilterChange:()=>void;
+    refreshTargetGroupFilterOptions:()=>void;
     editTemplates:()=>void;
     editPlayerBoosts:()=>void;
     addPlayerBoost:()=>void;
@@ -334,6 +339,7 @@ declare global {
     checkAll:() => void;
     startAssignment:() => void;
     updateCount:(id:Number) => void;
+    filterTargetsByGroup:() => void;
     assignTypes:assignType[];
     launchPoolCopy:village[];
   }
@@ -511,5 +517,17 @@ declare global {
     arrivals:string[];
     boosters:boost[];
     templates:template[]
+    targetGroups:targetGroup[]
+  }
+
+  type targetGroup = {
+    name:string,
+    villageIds:number[]
+  }
+
+  interface editTargetGroupsModal{
+    addGroup:() => void;
+    removeGroup:() => void;
+    targetsRef:target[];
   }
 }
