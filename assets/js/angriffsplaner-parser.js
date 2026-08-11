@@ -23,7 +23,7 @@ AP.parser.extractVillageName = function (line, hit) {
 // Zahlen nach der Koordinate - toleriert Tab-/Leerzeichen-Trennung sowie
 // deutsche Tausenderpunkte/-kommas ("1.234" -> 1234).
 AP.parser.extractNumberTokens = function (line, hit) {
-  var after = line.slice(hit.index + hit.length);
+  var after = line.slice(hit.index + hit.length).replace(/\bK\d{1,3}\b/gi, '');
   var found = after.match(/\d[\d.,]*/g) || [];
   return found.map(function (t) { return parseInt(t.replace(/[.,]/g, ''), 10) || 0; });
 };

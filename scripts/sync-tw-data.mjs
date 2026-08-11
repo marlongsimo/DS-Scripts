@@ -92,6 +92,29 @@ function extractUnitBlock(xml, unit) {
   return match ? match[1] : null;
 }
 
+// Liest die Reihenfolge der Einheiten-Tags direkt aus der get_unit_info-XML
+// in Dokumentreihenfolge aus (statt der festen UNIT_TYPES-Array-Reihenfolge)
+// - get_unit_info liefert nur die auf der jeweiligen Welt tatsächlich
+// vorhandenen Einheiten, vermutlich in derselben Reihenfolge wie die
+// Truppenübersicht-Tabelle im Spiel. Funktioniert ohne echten XML-Parser:
+// die Eigenschafts-Tags innerhalb eines Einheiten-Blocks (build_time/pop/
+// speed/attack/...) kollidieren mit keinem Einheiten-Namen, daher bleiben
+// nur die Top-Level-Einheiten-Tags übrig.
+function extractUnitOrder(xml) {
+  const order = [];
+  const seen = new Set();
+  const regex = /<([a-z_]+)>/gi;
+  let match;
+  while ((match = regex.exec(xml))) {
+    const tag = match[1].toLowerCase();
+    if (UNIT_TYPES.includes(tag) && !seen.has(tag)) {
+      seen.add(tag);
+      order.push(tag);
+    }
+  }
+  return order;
+}
+
 function parseVillageLine(line) {
   const [id, name, x, y, playerId, points] = line.split(',');
   return {
@@ -156,7 +179,8 @@ async function syncWorldConfig(world) {
     updatedAt: new Date().toISOString(),
     speed: speed ?? 1,
     unitSpeed: unitSpeed ?? 1,
-    units
+    units,
+    unitOrder: extractUnitOrder(unitXml)
   }, null, 0));
 }
 

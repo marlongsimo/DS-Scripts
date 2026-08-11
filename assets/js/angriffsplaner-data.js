@@ -152,13 +152,13 @@ AP.coordDist = function (c1, c2) {
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-// travelMs für eine gegebene Einheit: Basisgeschwindigkeit (Min/Feld) der
-// aktuellen Welt (AP.state.unitSpeed, sonst AP.BASE_SPEED-Fallback) geteilt
-// durch Welt-/Einheitengeschwindigkeits-Multiplikator.
+// travelMs für eine gegebene Einheit: Minuten/Feld der aktuellen Welt
+// (AP.state.unitSpeed, sonst AP.BASE_SPEED-Fallback). Der gesyncte
+// unitSpeed-Wert (aus get_unit_info) enthält laut offizieller Doku bereits
+// Welt- UND Einheitengeschwindigkeit - keine zusätzliche Division nötig.
 AP.calcTravelMs = function (unit, dist) {
   var perField = (AP.state.unitSpeed && AP.state.unitSpeed[unit]) || AP.BASE_SPEED[unit] || 30;
-  var wSpeed = AP.state.worldSpeed || 1;
-  return (dist * perField) / wSpeed * 60 * 1000;
+  return dist * perField * 60 * 1000;
 };
 
 // Langsamste Einheit einer Vorlage (bestimmt die Marschgeschwindigkeit einer
