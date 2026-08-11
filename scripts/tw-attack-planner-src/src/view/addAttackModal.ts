@@ -1,4 +1,4 @@
-import { TroopTransaction, calcTargetInfo, calcUnitPop, getSlowestUnit, savePlan } from "../core/Api"
+import { TroopTransaction, calcTargetInfo, calcUnitPop, coordDistance, getSlowestUnit, resolveArrival, savePlan } from "../core/Api"
 import { Lang } from "../core/Language"
 
 export const addAttackModal = ()=>{
@@ -110,11 +110,14 @@ window.addLauncher = (indTarget: number, indLanucher: number,trans:units,operati
         window.attackPlan.launchPool[indLanucher].popSize=calcUnitPop(window.attackPlan.launchPool[indLanucher].unitsContain);
 
         if(newVillage.popSize>0){
+            const unitSpeed=getSlowestUnit(newVillage.unitsContain,operation=='attack');
+            const dist=coordDistance(newVillage,window.attackPlan.targetPool[indTarget].village);
+            const travelMs=Math.round(dist*(unitSpeed.value*60))*1000;
             window.attackPlan.targetPool[indTarget].launchers.push({
-                arrival:arrival,
+                arrival:resolveArrival(arrival,travelMs),
                 isAttack:operation=='attack',
                 notes:notes,
-                unitSpeed:getSlowestUnit(newVillage.unitsContain,operation=='attack'),
+                unitSpeed:unitSpeed,
                 village:newVillage,
             })
         }

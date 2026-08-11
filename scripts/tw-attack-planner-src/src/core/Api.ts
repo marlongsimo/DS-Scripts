@@ -406,6 +406,51 @@ export async function savePlan(){
     await window.DB.setData('plans',window.attackPlan)
 }
 
+// ── Ankunfts-Zeitfenster ("von - bis" statt fixer Zeit) ──────────────────
+// Ein arrival-String ist entweder eine fixe Zeit ("YYYY-MM-DD HH:MM:SS", wie
+// bisher) oder ein Zeitfenster aus zwei solchen Zeiten, getrennt durch " - ".
+// resolveArrival() wandelt ein Zeitfenster - abhaengig von der individuellen
+// Laufzeit des jeweiligen Angreifers - einmalig in eine konkrete, zufaellige
+// Landezeit um (moeglichst mit "krummer", nicht auf :00 endender Sekunde);
+// fixe Zeiten werden unveraendert durchgereicht.
+function pad(n:number){ return String(n).padStart(2,'0'); }
+
+function toArrivalString(d:Date):string{
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+}
+
+export function parseArrivalWindow(arrival:string):{from:Date,to:Date}|null{
+    if(!arrival.includes(' - ')) return null;
+    const [fromStr,toStr] = arrival.split(' - ');
+    const from = new Date(fromStr);
+    const to = new Date(toStr);
+    if(isNaN(from.getTime()) || isNaN(to.getTime())) return null;
+    return {from,to};
+}
+
+export function resolveArrival(arrival:string, travelMs:number):string{
+    const parsedWindow = parseArrivalWindow(arrival);
+    if(!parsedWindow) return arrival;
+
+    const earliest = new Date(Math.max(parsedWindow.from.getTime(), Date.now()+travelMs));
+    const latest = parsedWindow.to;
+    const rangeMs = latest.getTime()-earliest.getTime();
+
+    let candidate = rangeMs>0 ? new Date(earliest.getTime()+Math.floor(Math.random()*rangeMs)) : earliest;
+
+    if(candidate.getSeconds()==0){
+        const jitterMs = (1+Math.floor(Math.random()*58))*1000;
+        if(candidate.getTime()+jitterMs<=latest.getTime()){
+            candidate = new Date(candidate.getTime()+jitterMs);
+        }else if(candidate.getTime()-jitterMs>=earliest.getTime()){
+            candidate = new Date(candidate.getTime()-jitterMs);
+        }
+        // Fenster zu eng fuer Jitter (< 1s Spielraum) - runde Sekunde bleibt als bestmoegliches Ergebnis.
+    }
+
+    return toArrivalString(candidate);
+}
+
 export function formatDateTime(date:Date | number){
     const dateName = getLangFormat()
     return new Intl.DateTimeFormat(dateName,{
