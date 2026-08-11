@@ -435,9 +435,6 @@ declare global {
     qrdata:string;
     isAttack:boolean;
     note:string;
-    distance:number;
-    travelMs:number;
-    sendDate:Date;
     arrivalDate:Date;
   }
 
