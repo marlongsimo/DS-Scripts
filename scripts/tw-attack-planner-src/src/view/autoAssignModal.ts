@@ -406,8 +406,29 @@ function oneByOneClosest(){
     }
 }
 
+// Liest alle "wie viele pro Ziel/Vorlage"-Inputs einmalig aus dem DOM in ein
+// In-Memory-Lookup (statt sie in den Zuteilungs-Algorithmen bei jeder
+// Kombination aus Ziel x Angreiferdorf x Vorlage per jQuery-Selektor neu
+// abzufragen - diese Werte ändern sich während eines Laufs ohnehin nicht).
+// Bei 1000+ Dörfern/Zielen war das sonst eine sehr hohe Zahl teurer
+// DOM-Lookups in verschachtelten Schleifen und ließ den Tab (spürbar bis hin
+// zur "Seite reagiert nicht mehr"-Warnung des Browsers) einfrieren.
+function buildAssignmentCountLookup():Record<string,Record<string,number>>{
+    let lookup:Record<string,Record<string,number>> = {};
+    window.attackPlan.targetPool.forEach((target)=>{
+        let byAssign:Record<string,number> = {};
+        window.autoAssign.assignTypes.forEach((assignType)=>{
+            let val = $(`#assigner-row-${target.village.id} .ar-${assignType.id} .ass-inp`).val();
+            byAssign[assignType.id] = parseInt(val.toString());
+        });
+        lookup[target.village.id] = byAssign;
+    });
+    return lookup;
+}
+
 function closestToTarget(){
     let assigned:assignmentCount[]=[];
+    let countLookup = buildAssignmentCountLookup();
     for (let indAssign = 0; indAssign <  window.autoAssign.assignTypes.length; indAssign++) {
         const assignType = window.autoAssign.assignTypes[indAssign];
         if(assignType.filtered.length==0) continue;
@@ -420,9 +441,8 @@ function closestToTarget(){
                 let assInd=assigned.findIndex((assign)=>{return assign.id==target.village.id});
                 let cnt=0;
                 for (let i = 0; i < indAssign+1; i++) {
-                    cnt+=parseInt($(`#assigner-row-${target.village.id} .ar-${window.autoAssign.assignTypes[i].id} .ass-inp`).val().toString());
+                    cnt+=countLookup[target.village.id][window.autoAssign.assignTypes[i].id];
                 }
-                console.log(cnt);
                 if(assInd>-1){
                     if(assigned[assInd].cnt>=cnt) continue;
                 }
@@ -452,16 +472,23 @@ function closestToTarget(){
 }
 
 function evenDistributeClosest(){
-    window.autoAssign.assignTypes.forEach((assignType,index) => { 
+    let countLookup = buildAssignmentCountLookup();
+    window.autoAssign.assignTypes.forEach((assignType,index) => {
         let filled=0;
        while (assignType.filtered.length>0 && assignType.required>filled) {
+        // Merkt sich, ob in diesem kompletten Durchlauf über alle Ziele
+        // überhaupt ein Angriff zugeteilt werden konnte. Ohne diese Prüfung
+        // dreht die while-Schleife sich unendlich weiter, sobald kein Ziel
+        // mehr zuteilbar ist (z.B. weil bereits alle Ziele ihre gewünschte
+        // Anzahl haben), obwohl "required" noch nicht erreicht ist - genau
+        // das führte zum Einfrieren der Seite.
+        let progressedThisPass=false;
         for (let indTarget = 0; indTarget < window.attackPlan.targetPool.length; indTarget++) {
             const target=window.attackPlan.targetPool[indTarget];
-            let cnt=0;     
+            let cnt=0;
             for (let i = 0; i < index+1; i++) {
-                cnt+=parseInt($(`#assigner-row-${target.village.id} .ar-${window.autoAssign.assignTypes[i].id} .ass-inp`).val().toString());
+                cnt+=countLookup[target.village.id][window.autoAssign.assignTypes[i].id];
             }
-            console.log(cnt);
             if(target.launchers.length<cnt){
                 let choosen=-1;
                 let smallest=999999;
@@ -474,13 +501,15 @@ function evenDistributeClosest(){
                 })
                 if(choosen>-1){
                     filled++;
-                    console.log(filled,assignType.required);
+                    progressedThisPass=true;
                     let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[choosen].id})
                     window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'');
                     assignType.filtered.splice(choosen,1);
+                    if(assignType.filtered.length==0) break;
                 }
             }
         }
+        if(!progressedThisPass) break;
        }
     });
 }
