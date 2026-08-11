@@ -40,6 +40,7 @@ window.editTargetModal = {
                     village:village,
                     isOpen:false,
                     isSelected:false,
+                    colorTag:null,
                     info:{
                         snob:0,
                         small:0,
