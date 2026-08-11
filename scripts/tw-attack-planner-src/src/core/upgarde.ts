@@ -22,6 +22,10 @@ export function upgradePlan(plan:plan){
 }
 
 function emptyVerUpgrade(plan:plan){
+    if(!plan.targetGroups){
+        plan.targetGroups=[];
+    }
+
     plan.targetPool.forEach((target)=>{
         target.info = calcTargetInfo(target.launchers);
         const playerInd=window.Players.findIndex(p=>p.id==target.village.owner as number)

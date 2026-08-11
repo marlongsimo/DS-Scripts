@@ -9,6 +9,7 @@ import { confirmCalculateAttackModal } from "./confirmCalculateAttackModal";
 import { confirmResetAssignmentsModal } from "./confirmResetAssignmentsModal";
 import { editArrivalsModal } from "./editArrivalsModal";
 import { editPlanNameModal } from "./editPlanNameModal";
+import { editTargetGroupsModal } from "./editTargetGroupsModal";
 import { editTargetModal } from "./editTargetModal";
 import { editTemplatesModal } from "./editTemplatesModal";
 import { launchItem } from "./launchItem";
@@ -547,6 +548,9 @@ export const mainWindow = ()=>{
                     <button onclick="window.editTargets()" class="btn">${Lang('editTargets')}</button>
                 </div>
                 <div class="option-item">
+                    <button onclick="window.editTargetGroups()" class="btn">${Lang('editTargetGroups')}</button>
+                </div>
+                <div class="option-item">
                     <button onclick="window.editArrivals()" class="btn">${Lang('editArrivals')}</button>
                 </div>
                 <div class="option-item">
@@ -587,8 +591,14 @@ export const mainWindow = ()=>{
                     <button onclick="window.targetPoolQuery.order('info.sup')" class="btn">                        
                         <img src="${AssetName}/graphic/command/support.png">
                     </button>
+                    <select id="target-group-filter" onchange="window.targetGroupFilterChange()">
+                        <option value="">${Lang('allGroups')}</option>
+                        ${window.attackPlan.targetGroups.map((group)=>{
+                            return /* html */`<option value="${group.name}">${group.name}</option>`
+                        }).join('')}
+                    </select>
                     <input id="target-search-bar" onkeyup="window.targetVillagesSearch()" placeholder="${Lang('search')}" type="text">
-                    <button onclick="window.targetPoolQuery.resetAll()" class="btn">${Lang('reset')}</button>
+                    <button onclick="$('#target-group-filter').val(''); window.targetGroupFilterValue=''; window.targetPoolQuery.resetAll();" class="btn">${Lang('reset')}</button>
                 </div>
                 <div class="target-list">
                 </div>
@@ -678,6 +688,7 @@ window.mainInit = () => {
     window.launchVillagesQuery.render();
     window.targetPoolQuery = new Query(window.attackPlan.targetPool,$('.target-list').get()[0],$('#target-cnt').get()[0],targetItem,'village.name');
     window.targetPoolQuery.render();
+    window.targetGroupFilterValue='';
 }
 
 window.openAddLauncherWindow = () => {
@@ -718,6 +729,10 @@ window.editName = () => {
 
 window.editTargets = () => {
     window.createModal(editTargetModal(window.attackPlan.targetPool),Lang('editTargetsText'));
+}
+
+window.editTargetGroups = () => {
+    window.createModal(editTargetGroupsModal(window.attackPlan.targetPool),Lang('editTargetGroupsText'));
 }
 
 window.editArrivals = () =>{
@@ -766,7 +781,33 @@ window.launchVillagesSearch = () => {
     window.launchVillagesQuery.search((village:village)=>{return `${village.name} (${village.coord.text}) K${village.kontinent}`.includes(val)})
 }
 
+// Kombiniert Textsuche und Gruppen-Filter in einem Query.search()-Aufruf, da
+// Query.search() bei jedem Aufruf wieder von der vollen Liste ausgeht (kein
+// additives Verketten mehrerer search()-Aufrufe möglich) - beide aktuellen
+// Filterwerte werden deshalb hier gemeinsam ausgewertet, egal welcher der
+// beiden Filter sich zuletzt geändert hat.
 window.targetVillagesSearch = () => {
     let val = $('#target-search-bar').val().toString();
-    window.targetPoolQuery.search((target:target)=>{return `${target.village.name} (${target.village.coord.text}) K${target.village.kontinent}${target.village.owner? ` (${(target.village.owner as owner).name})`:'' }`.includes(val)})
+    let groupName = window.targetGroupFilterValue;
+    let group = groupName? window.attackPlan.targetGroups.find((g)=>{return g.name==groupName}) : null;
+    window.targetPoolQuery.search((target:target)=>{
+        if(group && !group.villageIds.includes(target.village.id)) return false;
+        return `${target.village.name} (${target.village.coord.text}) K${target.village.kontinent}${target.village.owner? ` (${(target.village.owner as owner).name})`:'' }`.includes(val)
+    })
+}
+
+window.targetGroupFilterChange = () => {
+    window.targetGroupFilterValue = $('#target-group-filter').val().toString();
+    window.targetVillagesSearch();
+}
+
+window.refreshTargetGroupFilterOptions = () => {
+    let current = $('#target-group-filter').val();
+    $('#target-group-filter').html(/* html */`
+        <option value="">${Lang('allGroups')}</option>
+        ${window.attackPlan.targetGroups.map((group)=>{
+            return /* html */`<option value="${group.name}">${group.name}</option>`
+        }).join('')}
+    `);
+    $('#target-group-filter').val(current);
 }
