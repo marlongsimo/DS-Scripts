@@ -36,6 +36,7 @@ export const hu = {
     noAlgSelected:'Nincs az elosztó algoritmus kiválasztva!',
     noAttackAssigned:'Nincs egy támadás se kiosztva!',
     bbCode:'BB kód',
+    workbench:'Workbench',
     calculaing:'Számolás',
     calculateAttack:'Támadás kiszámítása',
     launch:'Indítás',

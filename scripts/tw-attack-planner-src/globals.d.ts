@@ -434,7 +434,11 @@ declare global {
     launchLink:string;
     qrdata:string;
     isAttack:boolean;
-    note:string
+    note:string;
+    distance:number;
+    travelMs:number;
+    sendDate:Date;
+    arrivalDate:Date;
   }
 
   type boost ={

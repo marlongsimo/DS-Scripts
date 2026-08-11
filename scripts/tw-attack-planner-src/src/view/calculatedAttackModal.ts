@@ -2,7 +2,14 @@ import { AssetName, coordDistance, formatDateTime, game } from "../core/Api";
 import { Lang } from "../core/Language";
 import QRCode from "qrcode";
 
-export const calculatedAttackModal = (diff:string)=>{ 
+// Workbench-CSV-Zeitformate - exakt wie in assets/js/tw-format-konverter.js
+// (dortiges "DS-Ultimate-Workbench-CSV"), damit Exporte aus beiden Tools
+// zueinander passen.
+function pad(n:number){ return String(n).padStart(2,'0'); }
+function gameFormat(d:Date){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+'.'+String(d.getMilliseconds()).padStart(3,'0'); }
+function msToHMSms(ms:number){ const h=Math.floor(ms/3600000); ms-=h*3600000; const m=Math.floor(ms/60000); ms-=m*60000; const s=Math.floor(ms/1000); ms-=s*1000; return pad(h)+':'+pad(m)+':'+pad(s)+'.'+String(Math.round(ms)).padStart(3,'0'); }
+
+export const calculatedAttackModal = (diff:string)=>{
     const addTimeFrags = diff.split(':');
 
     const addTime = (addTimeFrags[0]=='-'? -1:1) * parseInt(addTimeFrags[1])*1000*60*60+parseInt(addTimeFrags[2])*1000*60+parseInt(addTimeFrags[3])*1000
@@ -54,16 +61,21 @@ export const calculatedAttackModal = (diff:string)=>{
                     villageFrom:launcher.village,
                     villageTo:target.village,
                     note:launcher.notes,
-                    isAttack:launcher.isAttack
+                    isAttack:launcher.isAttack,
+                    distance:distance,
+                    travelMs:miliseconds,
+                    sendDate:launch,
+                    arrivalDate:new Date(attackDate.valueOf() + addTime)
                 })
             })
         })
         attacks.sort((attack1,attack2)=>{return attack1.launchDate>attack2.launchDate ? 1:-1});
-        let {bbcode,html,QRhtml} = await generateLaunchText(attacks);
+        let {bbcode,html,QRhtml,wbcode} = await generateLaunchText(attacks);
 
         $('.bb-field').html(bbcode);
         $('.inApp-field').html(html);
         $('.qr-field').html(QRhtml);
+        $('.wb-field').html(`<textarea readonly style="width:100%;height:300px;resize:vertical;">${wbcode}</textarea>`);
         
         
         $('#dialog-loading').hide();
@@ -84,20 +96,24 @@ export const calculatedAttackModal = (diff:string)=>{
         <input onclick="window.changeDisplayType()" type="radio" id="inapp" value="inapp" name="showType" checked>
         <label for="inapp">mobile-app:</label>
         <input onclick="window.changeDisplayType()" type="radio" id="mobile" value="mobile" name="showType" >
+        <label for="wb">${Lang('workbench')}:</label>
+        <input onclick="window.changeDisplayType()" type="radio" id="wb" value="wb" name="showType" >
         <div class="bb-field" style="display:none;max-height:600px; overflow-y: auto;"></div>
         <div class="inApp-field" style="max-height:600px; overflow-y: auto;"></div>
         <div class="qr-field" style="display:none;max-height:650px; overflow-y: auto;"></div>
+        <div class="wb-field" style="display:none;max-height:600px; overflow-y: auto;"></div>
     </div>
     `
 }
 
-export async function generateLaunchText(attacks:attack[]):Promise<{bbcode:string,html:string,QRhtml:string}>{
+export async function generateLaunchText(attacks:attack[]):Promise<{bbcode:string,html:string,QRhtml:string,wbcode:string}>{
     let maxChar=60000;
     let currentChar=0;
     let pageCnt=1;
     let header=`<textarea style="resize:none;overflow: hidden;height:100px;width:400px;">[table][**] [||][building]barracks[/building][||]${Lang('launch')}[||]${Lang('from')}[||]${Lang('target')}[||]${Lang('command')}[||]${Lang('note')}[/**]`;
     let closing='[/table]</textarea><br>';
     let bbcode='';
+    let wbcode='';
     let QRhtml='';
     let QRPage=1;
     let QR=`twla://${QRPage.toString(16)}:-pageCnt-,${window.location.hostname},${sanitizeQRtext(window.attackPlan.name)}/`;
@@ -131,15 +147,17 @@ export async function generateLaunchText(attacks:attack[]):Promise<{bbcode:strin
 
         bbcode+=temp;
         currentChar+=temp.length;
-       
+
+        wbcode+=`${attacks[i].villageFrom.coord.text}->${attacks[i].villageTo.coord.text},${attacks[i].distance.toFixed(2)},${attacks[i].unitSpeed.key},${attacks[i].isAttack?'Attack':'Support'},${gameFormat(attacks[i].arrivalDate)},${msToHMSms(attacks[i].travelMs)},${gameFormat(attacks[i].sendDate)},1\n`;
+
         html+=`<tr><td>#${i+1}</td><td><img src="/graphic/unit/unit_${attacks[i].unitSpeed.key}.png"></td><td>${attacks[i].launchDate}</td>`+
         `<td><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${attacks[i].villageFrom.id}">${attacks[i].villageFrom.name} (${attacks[i].villageFrom.coord.text}) </a></td><td><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${attacks[i].villageTo.id}">${attacks[i].villageTo.name} (${attacks[i].villageTo.coord.text}) </a></td><td><a href="${attacks[i].launchLink}">${attacks[i].isAttack ? Lang('attack'):Lang('support')}</a></td><td>${attacks[i].note}</td></tr>`
     }
     html+='</table>'
-    
+
     QRhtml = QRhtml.replace('-pageCnt-',QRPage.toString(16));
 
-    return {bbcode,html,QRhtml}
+    return {bbcode,html,QRhtml,wbcode}
 }
 
 window.changeDisplayType = () => {
@@ -147,6 +165,7 @@ window.changeDisplayType = () => {
     $('.inApp-field').hide();
     $('.bb-field').hide();
     $('.qr-field').hide();
+    $('.wb-field').hide();
     switch(val){
         case 'bb':
             $('.bb-field').show();
@@ -157,6 +176,9 @@ window.changeDisplayType = () => {
         case 'mobile':
             $('.qr-field').show();
             $( ".qr-field").accordion();
+        break;
+        case 'wb':
+            $('.wb-field').show();
         break;
     }
 }
