@@ -36,6 +36,7 @@ export const en = {
     noAlgSelected:'The distribution algorithm is not selected!',
     noAttackAssigned:'No attack assigned!',
     bbCode:'BB Code',
+    workbench:'Workbench',
     calculaing:'Calculating',
     calculateAttack:'Calculate attack',
     launch:'Launch',
