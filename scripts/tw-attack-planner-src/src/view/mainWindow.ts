@@ -40,10 +40,11 @@ export const mainWindow = ()=>{
         }
         .popup_box_container{
             height:100% !important;
+            overflow-x: auto !important;
         }
         #popup_box_PlannerMainWindow{
             width: 95vw !important;
-            overflow-x: auto;
+            overflow-x: auto !important;
         }
         html{
             overflow: hidden !important;
@@ -57,7 +58,7 @@ export const mainWindow = ()=>{
             grid-template-rows: 30px 3fr [option] 0.1fr;
             gap: 0px 0px;
             grid-auto-flow: row;
-            min-width: 700px;
+            min-width: 700px !important;
         }
         .options-panel, .target-panel, .launch-panel {
             min-width: 0;
