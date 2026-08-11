@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Angriffsplaner – DS-Scripts</title>
+  <meta name="description" content="Umfassender Angriffsplaner: Welt wählen, Verbündete/Feinde einsortieren, Truppen einlesen, Ziele (Bunker/Off/Katta/AG/Fake) definieren und automatisch einen kompletten, nach Spieler sortierten Angriffsplan erzeugen.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <style>
+    /* Seitenspezifische Ergänzungen - nutzt sonst konsequent das bestehende Stylesheet */
+    .ap-step-nav .tab { display: flex; align-items: center; gap: 0.5rem; }
+    .ap-step-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%; font-size: 0.72rem; font-weight: 700;
+      background: var(--bg-alt); border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .ap-step-nav .tab.active .ap-step-badge { background: var(--accent); border-color: var(--accent); color: #1a1512; }
+
+    .ap-list-box { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1.1rem; align-items: start; }
+    @media (max-width: 860px) { .ap-list-box { grid-template-columns: 1fr; } }
+    .ap-buckets { display: flex; flex-direction: column; gap: 1rem; }
+    .ap-bucket-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.5rem; }
+    .ap-bucket-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+      background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.45rem 0.7rem; margin-bottom: 0.4rem; font-size: 0.9rem;
+    }
+    .ap-bucket-item button { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1rem; padding: 0 0.2rem; }
+    .ap-bucket-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
+    .ap-player-row-actions { display: flex; gap: 0.35rem; }
+    .ap-player-row-actions button { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+
+    .ap-village-row td { vertical-align: middle; }
+    .ap-village-row input[type="number"] { width: 80px; }
+    .ap-target-group { margin-bottom: 1.1rem; }
+    .ap-target-group h3 { font-size: 1rem; margin-bottom: 0.6rem; }
+    .ap-radio-row { display: flex; gap: 1.2rem; align-items: center; margin: 0.6rem 0; font-size: 0.9rem; }
+    .ap-radio-row label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; color: var(--text); }
+    .ap-radio-row input[type="radio"] { accent-color: var(--accent); }
+
+    .ap-template-card { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .ap-template-card-head { display: flex; gap: 0.7rem; align-items: end; margin-bottom: 0.8rem; }
+    .ap-template-card-head .field { flex: 1; margin-bottom: 0; }
+    .ap-template-unit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 0.5rem; }
+    .ap-template-unit-grid .field { margin-bottom: 0; }
+    .ap-template-unit-grid label { font-size: 0.72rem; }
+
+    .ap-timewindow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+
+    .ap-plan-player-section { margin-bottom: 1.6rem; }
+    .ap-plan-player-section h3 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+    .ap-warn-list { font-size: 0.85rem; }
+    .ap-warn-list li { margin-bottom: 0.3rem; }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="../scripts/index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a href="../dashboard/index.html" data-nav="dashboard">Anaboles Dashboard</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section style="padding-bottom:0;">
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Rechner</a> / Angriffsplaner</p>
+        <h1>🗺️ Angriffsplaner</h1>
+        <p class="lead" style="max-width:680px;">
+          Welt wählen, Verbündete/Feinde einsortieren, Truppenübersichten einlesen,
+          Ziele (Bunker, Offs, Katta, AG, Fakes) definieren und Limits/Vorlagen
+          festlegen – am Ende erzeugt das Tool automatisch einen kompletten,
+          nach Spieler sortierten Angriffsplan.
+        </p>
+        <div class="note">
+          Alles läuft lokal im Browser – Daten werden nur in diesem Browser
+          gespeichert (kein Cloud-Sync). Über „Export/Import" im letzten Schritt
+          lässt sich der komplette Datenbestand als Text sichern oder auf ein
+          anderes Gerät übertragen.
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="container">
+
+        <div class="tabs ap-step-nav" id="ap-step-nav">
+          <div class="tab active" data-step="1"><span class="ap-step-badge">1</span> Welt</div>
+          <div class="tab" data-step="2"><span class="ap-step-badge">2</span> Spieler</div>
+          <div class="tab" data-step="3"><span class="ap-step-badge">3</span> Truppen</div>
+          <div class="tab" data-step="4"><span class="ap-step-badge">4</span> Ziele</div>
+          <div class="tab" data-step="5"><span class="ap-step-badge">5</span> Einstellungen</div>
+        </div>
+        <p id="ap-step-warning" class="note warn" style="display:none;"></p>
+
+        <!-- ── Schritt 1: Welt ─────────────────────────────────────────── -->
+        <div class="tab-panel active" id="ap-panel-1">
+          <div class="panel">
+            <div class="field" style="max-width:320px;">
+              <label for="ap-world-select">Welt</label>
+              <select id="ap-world-select"><option value="">Lädt…</option></select>
+            </div>
+            <div id="ap-world-speed-info" class="stat-row"></div>
+            <p id="ap-world-config-warning" class="note warn" style="display:none;">
+              Für diese Welt liegen noch keine synchronisierten Truppengeschwindigkeiten vor
+              – es werden generische Standardwerte verwendet. Die Werte werden alle 6h
+              automatisch aktualisiert.
+            </p>
+          </div>
+        </div>
+
+        <!-- ── Schritt 2: Spieler ──────────────────────────────────────── -->
+        <div class="tab-panel" id="ap-panel-2">
+          <div class="ap-list-box">
+            <div class="panel">
+              <div class="checkbox-row" style="margin-top:0;">
+                <input type="checkbox" id="ap-player-view-tribes">
+                <span>Nach Stämmen statt einzelnen Spielern anzeigen</span>
+              </div>
+              <div class="field" style="margin-bottom:0.8rem;">
+                <label for="ap-player-search">Suchen</label>
+                <input type="text" id="ap-player-search" placeholder="Name oder Stamm-Tag …">
+              </div>
+              <div style="overflow-x:auto; max-height:480px; overflow-y:auto;">
+                <table id="ap-player-table">
+                  <thead id="ap-player-table-head">
+                    <tr><th>Name</th><th>Stamm</th><th>Punkte</th><th></th></tr>
+                  </thead>
+                  <tbody id="ap-player-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="ap-buckets">
+              <div class="panel">
+                <div class="ap-bucket-title">🤝 Verbündete (<span id="ap-allies-count">0</span>)</div>
+                <div id="ap-allies-list"></div>
+              </div>
+              <div class="panel">
+                <div class="ap-bucket-title">⚔️ Feinde (<span id="ap-enemies-count">0</span>)</div>
+                <div id="ap-enemies-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Schritt 3: Truppen ──────────────────────────────────────── -->
+        <div class="tab-panel" id="ap-panel-3">
+          <div class="panel" style="margin-bottom:1.1rem;">
+            <div class="field" style="max-width:320px;">
+              <label for="ap-troop-player-select">Verbündeter</label>
+              <select id="ap-troop-player-select"></select>
+            </div>
+            <div class="field">
+              <label for="ap-troop-paste">Truppenübersicht einfügen</label>
+              <textarea id="ap-troop-paste" rows="8" placeholder="Kompletten Text der Truppenübersicht (Screen &quot;Truppen&quot;) hier einfügen …"></textarea>
+            </div>
+            <div class="button-row" style="justify-content:flex-start;">
+              <button type="button" class="btn btn-primary" id="ap-troop-parse-btn">Parsen</button>
+            </div>
+            <div id="ap-troop-status" class="status"></div>
+
+            <div id="ap-column-mapping-box" style="display:none; margin-top:1.1rem;">
+              <h3 style="font-size:0.95rem;">Spalten zuordnen</h3>
+              <p style="font-size:0.85rem;">Bitte einmalig prüfen/korrigieren, welche Spalte zu welcher Einheit gehört. Wird für diese Welt gemerkt.</p>
+              <div id="ap-column-mapping-fields" class="ap-template-unit-grid"></div>
+              <div class="button-row" style="justify-content:flex-start; margin-top:0.8rem;">
+                <button type="button" class="btn btn-outline" id="ap-column-mapping-apply">Zuordnung übernehmen &amp; neu parsen</button>
+              </div>
+            </div>
+
+            <div id="ap-troop-preview-box" style="display:none; margin-top:1.1rem;">
+              <h3 style="font-size:0.95rem;">Vorschau (bitte prüfen, erst „Übernehmen" speichert)</h3>
+              <div style="overflow-x:auto;">
+                <table>
+                  <thead><tr><th>Dorf</th><th>Koordinate</th><th colspan="12">Einheiten</th></tr></thead>
+                  <tbody id="ap-troop-preview-body"></tbody>
+                </table>
+              </div>
+              <details style="margin-top:0.8rem;">
+                <summary id="ap-troop-skipped-summary" style="cursor:pointer; color:var(--text-muted); font-size:0.85rem;">Übersprungene Zeilen</summary>
+                <pre id="ap-troop-skipped-lines" style="margin-top:0.5rem; font-size:0.8rem;"></pre>
+              </details>
+              <div class="button-row" style="justify-content:flex-start; margin-top:0.8rem;">
+                <button type="button" class="btn btn-primary" id="ap-troop-commit-btn">Übernehmen</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="field" style="margin-bottom:0;">
+              <label for="ap-unavailable-offs">Nicht verfügbare Offs (Koordinaten, werden von der Planung ausgeschlossen)</label>
+              <textarea id="ap-unavailable-offs" rows="4" placeholder="500|500 510|512 ..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Schritt 4: Ziele ────────────────────────────────────────── -->
+        <div class="tab-panel" id="ap-panel-4">
+          <div class="panel ap-target-group">
+            <h3>🛡️ Bunker</h3>
+            <div class="field" style="margin-bottom:0;">
+              <label for="ap-bunker-coords">Koordinaten</label>
+              <textarea id="ap-bunker-coords" rows="4" placeholder="480|470 481|472 ..."></textarea>
+            </div>
+            <div class="ap-radio-row">
+              <label><input type="radio" name="ap-bunker-mode" value="blast"> Sprengen</label>
+              <label><input type="radio" name="ap-bunker-mode" value="fake"> Nur faken</label>
+            </div>
+            <div class="field" style="max-width:220px; margin-bottom:0;">
+              <label for="ap-bunker-offs-per">Offs pro Bunker</label>
+              <input type="number" id="ap-bunker-offs-per" min="1" value="2">
+            </div>
+            <p class="note" style="margin-top:0.8rem;">
+              Bunker werden in der eingegebenen Reihenfolge abgearbeitet. Reichen
+              die verfügbaren Offs/Fakes nicht für alle, bleiben die hinteren
+              Bunker unzugeteilt (im Ergebnis als Warnung sichtbar).
+            </p>
+          </div>
+
+          <div class="panel ap-target-group">
+            <h3>⚔️ Komplette Offs</h3>
+            <div class="field" style="margin-bottom:0;">
+              <label for="ap-off-coords">Koordinaten</label>
+              <textarea id="ap-off-coords" rows="4" placeholder="490|480 491|481 ..."></textarea>
+            </div>
+          </div>
+
+          <div class="panel ap-target-group">
+            <h3>💣 Kattern</h3>
+            <div class="field" style="margin-bottom:0;">
+              <label for="ap-katta-coords">Koordinaten</label>
+              <textarea id="ap-katta-coords" rows="4" placeholder="492|482 ..."></textarea>
+            </div>
+          </div>
+
+          <div class="panel ap-target-group">
+            <h3>👑 AG-Ziele</h3>
+            <div class="field" style="margin-bottom:0;">
+              <label for="ap-ag-coords">Koordinaten</label>
+              <textarea id="ap-ag-coords" rows="4" placeholder="493|483 ..."></textarea>
+            </div>
+            <p class="note" style="margin-top:0.8rem;">
+              Ein AG-Angriff (4 Adelsgeschlecht) pro Ziel, landet zur exakt
+              gleichen Sekunde wie der letzte geplante Off-Angriff auf dasselbe
+              Dorf. Ohne passenden Off-Angriff kann ein AG-Ziel nicht
+              zugeteilt werden.
+            </p>
+          </div>
+
+          <div class="panel ap-target-group">
+            <h3>🎭 Fake-Ziele</h3>
+            <div class="field" style="margin-bottom:0.8rem;">
+              <label for="ap-fake-coords">Koordinaten (leer = keine expliziten Fake-Ziele)</label>
+              <textarea id="ap-fake-coords" rows="4" placeholder="494|484 ..."></textarea>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="ap-fake-remaining">
+              <span id="ap-fake-remaining-label">Restliche Dörfer der Feinde zusätzlich faken</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Schritt 5: Einstellungen & Vorlagen ─────────────────────── -->
+        <div class="tab-panel" id="ap-panel-5">
+          <div class="tabs" id="ap-settings-tabs">
+            <div class="tab active" data-settings-tab="limits">Limits</div>
+            <div class="tab" data-settings-tab="windows">Zeitfenster</div>
+            <div class="tab" data-settings-tab="fake">Fake-Vorlagen</div>
+            <div class="tab" data-settings-tab="katta">Katta-Vorlagen</div>
+            <div class="tab" data-settings-tab="off">Off-Vorlagen</div>
+          </div>
+
+          <div class="tab-panel active" id="ap-settings-panel-limits">
+            <div class="panel">
+              <div class="field-row">
+                <div class="field">
+                  <label for="ap-max-fakes">Max. Fakes pro Off-/Deff-Dorf</label>
+                  <input type="number" id="ap-max-fakes" min="0" value="5">
+                </div>
+                <div class="field">
+                  <label for="ap-max-incs">Max. Incs pro Gegner-Dorf</label>
+                  <input type="number" id="ap-max-incs" min="1" value="8">
+                </div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="ap-avoid-round" checked>
+                <span>Glatte Ankunftszeiten vermeiden (z.B. nicht 9:00:00)</span>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="ap-fakegrenze-enabled">
+                <span>Fakegrenze aktivieren</span>
+              </div>
+              <div class="field" style="max-width:220px;">
+                <label for="ap-fakegrenze-percent">Fake-Bevölkerung mind. X% der Herkunfts-Dorfpunkte</label>
+                <input type="number" id="ap-fakegrenze-percent" min="0" max="100" value="10">
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="ap-settings-panel-windows">
+            <div class="panel">
+              <p style="font-size:0.85rem;">Ohne Zeitfenster wird so früh wie möglich abgeschickt. Alle Felder optional.</p>
+              <div class="ap-timewindow-grid" id="ap-timewindow-grid"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="ap-settings-panel-fake">
+            <div class="panel">
+              <div id="ap-templates-fake"></div>
+              <div class="button-row" style="justify-content:flex-start;">
+                <button type="button" class="btn btn-outline" data-add-template="fake">➕ Neue Fake-Vorlage</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="ap-settings-panel-katta">
+            <div class="panel">
+              <div id="ap-templates-katta"></div>
+              <div class="button-row" style="justify-content:flex-start;">
+                <button type="button" class="btn btn-outline" data-add-template="katta">➕ Neue Katta-Vorlage</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="ap-settings-panel-off">
+            <div class="panel">
+              <div id="ap-templates-off"></div>
+              <div class="button-row" style="justify-content:flex-start;">
+                <button type="button" class="btn btn-outline" data-add-template="off">➕ Neue Off-Vorlage</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:1.1rem;">
+            <h3 style="font-size:0.95rem;">⇅ Export / Import</h3>
+            <p style="font-size:0.85rem;">Kompletter Datenbestand als Text – zum Sichern oder Übertragen auf ein anderes Gerät (kein Cloud-Sync vorhanden).</p>
+            <div class="button-row" style="justify-content:flex-start; margin-bottom:0.8rem;">
+              <button type="button" class="btn btn-outline" id="ap-export-btn">Exportieren</button>
+              <button type="button" class="btn btn-outline" id="ap-export-copy-btn">📋 Kopieren</button>
+            </div>
+            <textarea id="ap-export-output" rows="4" readonly style="font-family:monospace; font-size:0.8rem;"></textarea>
+            <div class="field" style="margin-top:0.8rem; margin-bottom:0.4rem;">
+              <label for="ap-import-input">Import (JSON hier einfügen)</label>
+              <textarea id="ap-import-input" rows="4" style="font-family:monospace; font-size:0.8rem;"></textarea>
+            </div>
+            <button type="button" class="btn btn-outline" id="ap-import-btn">Importieren</button>
+            <div id="ap-export-import-status" class="status"></div>
+          </div>
+        </div>
+
+        <div class="button-row" style="justify-content:flex-start; margin:1.6rem 0 0.6rem;">
+          <button type="button" class="btn btn-primary" id="ap-plan-btn" style="font-size:1.05rem; padding:0.9rem 1.8rem;">🗺️ Planen</button>
+        </div>
+        <p class="note">
+          Die Zuteilung erfolgt nach einer Prioritäts-Heuristik (Bunker → Off →
+          Katta → AG → Fake), kein global optimaler Solver – Ergebnis danach
+          bitte manuell prüfen.
+        </p>
+
+        <div id="ap-plan-result" style="display:none; margin-top:1.4rem;">
+          <div class="result-box">
+            <div class="stat-row" id="ap-plan-stats"></div>
+          </div>
+          <div id="ap-plan-warnings" style="display:none; margin-bottom:1.2rem;">
+            <div class="note warn">
+              <strong>Nicht zugeteilt:</strong>
+              <ul class="ap-warn-list" id="ap-plan-unassigned"></ul>
+            </div>
+          </div>
+          <div id="ap-plan-groups"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/angriffsplaner-data.js"></script>
+  <script src="../assets/js/angriffsplaner-parser.js"></script>
+  <script src="../assets/js/angriffsplaner-plan.js"></script>
+  <script src="../assets/js/angriffsplaner-v2.js"></script>
+</body>
+</html>

@@ -78,6 +78,20 @@ function parsePlayerLine(line) {
   };
 }
 
+// Gleiche Einheiten-Reihenfolge/-Namen wie im Frontend (siehe dashboard/planer.html
+// UNIT_TYPES) - hier nur zum gezielten Auslesen der jeweiligen XML-Blöcke gebraucht.
+const UNIT_TYPES = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult', 'knight', 'snob'];
+
+function extractTag(xml, tag) {
+  const match = xml.match(new RegExp(`<${tag}>([^<]*)<\\/${tag}>`));
+  return match ? parseFloat(match[1]) : null;
+}
+
+function extractUnitBlock(xml, unit) {
+  const match = xml.match(new RegExp(`<${unit}>([\\s\\S]*?)<\\/${unit}>`));
+  return match ? match[1] : null;
+}
+
 function parseVillageLine(line) {
   const [id, name, x, y, playerId, points] = line.split(',');
   return {
@@ -110,6 +124,40 @@ async function syncVillages(world) {
 
   const outPath = path.join(DATA_DIR, `${world.code}-villages.json`);
   await writeFile(outPath, JSON.stringify(byPlayer, null, 0));
+}
+
+// Lädt Weltgeschwindigkeit + Einheitengeschwindigkeiten (interface.php?func=
+// get_config bzw. func=get_unit_info). Beide Endpunkte liefern einfaches,
+// flaches XML ohne Attribute - eine echte XML-Parser-Dependency ist dafür
+// nicht nötig, Regex-Extraktion genügt (gleicher Stil wie die CSV-Zeilen-
+// Parser oben). Wird für den neuen Angriffsplaner (rechner/angriffsplaner.html)
+// gebraucht, der Truppengeschwindigkeiten sonst nicht CORS-frei laden könnte.
+async function syncWorldConfig(world) {
+  const base = `https://${world.code}.die-staemme.de`;
+  const [configXml, unitXml] = await Promise.all([
+    fetchText(`${base}/interface.php?func=get_config`),
+    fetchText(`${base}/interface.php?func=get_unit_info`)
+  ]);
+
+  const speed = extractTag(configXml, 'speed');
+  const unitSpeed = extractTag(configXml, 'unit_speed');
+
+  const units = {};
+  for (const unit of UNIT_TYPES) {
+    const block = extractUnitBlock(unitXml, unit);
+    if (!block) continue;
+    const unitBaseSpeed = extractTag(block, 'speed');
+    if (unitBaseSpeed !== null) units[unit] = { speed: unitBaseSpeed };
+  }
+
+  const outPath = path.join(DATA_DIR, `${world.code}-config.json`);
+  await writeFile(outPath, JSON.stringify({
+    world: world.code,
+    updatedAt: new Date().toISOString(),
+    speed: speed ?? 1,
+    unitSpeed: unitSpeed ?? 1,
+    units
+  }, null, 0));
 }
 
 // Versucht, eine Welt zu synchronisieren. Wirft, wenn die Welt nicht
@@ -147,6 +195,14 @@ async function syncWorld(world) {
     console.warn(`⚠ ${world.code}: Dörfer konnten nicht geladen werden (${err.message})`);
   }
 
+  // Ebenfalls optional, gleiches Prinzip wie bei den Dörfern.
+  try {
+    await syncWorldConfig(world);
+    console.log(`✓ ${world.code}: Welt-/Einheitengeschwindigkeiten ok`);
+  } catch (err) {
+    console.warn(`⚠ ${world.code}: Welt-/Einheitengeschwindigkeiten konnten nicht geladen werden (${err.message})`);
+  }
+
   return { code: world.code, label: world.label, updatedAt };
 }
 
@@ -179,7 +235,7 @@ async function pruneInactiveWorldFiles(activeCodes) {
   const activeSet = new Set(activeCodes);
   const files = await readdir(DATA_DIR);
   for (const file of files) {
-    const match = file.match(/^(de\d+)(-villages)?\.json$/);
+    const match = file.match(/^(de\d+)(-villages|-config)?\.json$/);
     if (!match || activeSet.has(match[1])) continue;
     await unlink(path.join(DATA_DIR, file));
     console.log(`✗ entfernt (nicht mehr aktiv): ${file}`);
