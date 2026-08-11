@@ -382,7 +382,7 @@ function oneByOneQ(){
                 })
                 if(choosen>-1){
                     let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[choosen].id})
-                    window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'');
+                    window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
                     assignType.filtered.splice(choosen,1);
                 }
             }
@@ -399,7 +399,7 @@ function oneByOneClosest(){
             let cnt=parseInt($(`#assigner-row-${target.village.id} .ar-${assignType.id} .ass-inp`).val().toString());
             for (let i = 0; i < cnt; i++) {
                 let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[0].id})
-                window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'');
+                window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
                 assignType.filtered.splice(0,1);
             }
         }
@@ -464,7 +464,7 @@ function closestToTarget(){
                     assigned[assInd].cnt++;
                 }
                 let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[indLanucher].id})
-                window.addLauncher(choosen,realInd,assignType.template.units,'attack',assignType.arrival,'');
+                window.addLauncher(choosen,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
                 assignType.filtered.splice(indLanucher,1);
             }
         }
@@ -503,7 +503,7 @@ function evenDistributeClosest(){
                     filled++;
                     progressedThisPass=true;
                     let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[choosen].id})
-                    window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'');
+                    window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
                     assignType.filtered.splice(choosen,1);
                     if(assignType.filtered.length==0) break;
                 }

@@ -63,6 +63,8 @@ window.addAttackConfirm = () => {
     let indTarget= window.attackPlan.targetPool.findIndex((target)=>{return target.village.id==targetID})    
     let indPlan= window.attackPlan.templates.findIndex((template)=>{return template.name==templateName})
 
+    let templateWbType = indPlan>-1? window.attackPlan.templates[indPlan].wbType : null;
+
     $('.launch-list').find("input:checked").get().forEach((input:any)=>{
         let launcherID = parseInt($(input).val().toString());
         let indLanucher = window.attackPlan.launchPool.findIndex((vill:village)=>{return vill.id==launcherID;})
@@ -74,7 +76,7 @@ window.addAttackConfirm = () => {
             template=window.attackPlan.launchPool[indLanucher].unitsContain
         }
         let villageId=window.attackPlan.launchPool[indLanucher].id;
-        let isDel = window.addLauncher(indTarget,indLanucher,template,operation,arrival,notes)
+        let isDel = window.addLauncher(indTarget,indLanucher,template,operation,arrival,notes,templateWbType)
         
         if(!isDel){
             launchers.push(window.attackPlan.launchPool[indLanucher]);
@@ -94,7 +96,7 @@ window.addAttackConfirm = () => {
     savePlan()
 }
 
-window.addLauncher = (indTarget: number, indLanucher: number,trans:units,operation:string,arrival:string,notes:string) => { 
+window.addLauncher = (indTarget: number, indLanucher: number,trans:units,operation:string,arrival:string,notes:string,templateWbType:number|null=null) => {
       
     let newVillage={...window.attackPlan.launchPool[indLanucher]};
         newVillage.unitsContain={spear:0,sword:0,axe:0,archer:0,spy:0,light:0,marcher:0,heavy:0,ram:0,catapult:0,knight:0,snob:0};
@@ -119,6 +121,7 @@ window.addLauncher = (indTarget: number, indLanucher: number,trans:units,operati
                 notes:notes,
                 unitSpeed:unitSpeed,
                 village:newVillage,
+                templateWbType:templateWbType,
             })
         }
 

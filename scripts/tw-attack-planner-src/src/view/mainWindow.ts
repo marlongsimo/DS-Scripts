@@ -43,6 +43,7 @@ export const mainWindow = ()=>{
         }
         #popup_box_PlannerMainWindow{
             width: 95vw !important;
+            overflow-x: auto;
         }
         html{
             overflow: hidden !important;
@@ -56,6 +57,10 @@ export const mainWindow = ()=>{
             grid-template-rows: 30px 3fr [option] 0.1fr;
             gap: 0px 0px;
             grid-auto-flow: row;
+            min-width: 700px;
+        }
+        .options-panel, .target-panel, .launch-panel {
+            min-width: 0;
         }
 
         .options-title { 

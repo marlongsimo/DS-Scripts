@@ -60,7 +60,8 @@ export const calculatedAttackModal = (diff:string)=>{
                     villageTo:target.village,
                     note:launcher.notes,
                     isAttack:launcher.isAttack,
-                    arrivalDate:new Date(attackDate.valueOf() + addTime)
+                    arrivalDate:new Date(attackDate.valueOf() + addTime),
+                    templateWbType:launcher.templateWbType
                 })
             })
         })
@@ -182,9 +183,12 @@ window.changeDisplayType = () => {
 // erwartet (convertWBPlanToArray dort): 8 durch "&" getrennte Felder
 // (Ursprungsdorf-ID, Zieldorf-ID, langsamste Einheit, Ankunfts-Zeitstempel in
 // ms inkl. Typ-Offset, Typ/Icon, drawIn, sent, Einheiten) - die Einheiten
-// selbst als "einheit=base64(anzahl)", durch "/" getrennt.
+// selbst als "einheit=base64(anzahl)", durch "/" getrennt. Der Typ/Icon-Wert
+// kommt von der Vorlage (template.wbType, manuell im Vorlagen-Editor gesetzt,
+// volle DS-Ultimate-Palette 0-46), falls dort hinterlegt - sonst weiterhin
+// automatisch aus der langsamsten Einheit bzw. dem Unterstützungs-Icon.
 function buildWorkbenchLine(attack:attack):string{
-    const type = attack.isAttack ? unitCode.indexOf(attack.unitSpeed.key) : WB_SUPPORT_TYPE;
+    const type = attack.templateWbType!=null ? attack.templateWbType : (attack.isAttack ? unitCode.indexOf(attack.unitSpeed.key) : WB_SUPPORT_TYPE);
     const arrivalMs = attack.arrivalDate.getTime() + type;
     const unitsField = Object.entries(attack.villageFrom.unitsContain)
         .map(([unit,amount])=>`${unit}=${btoa(String(amount))}`)
