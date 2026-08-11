@@ -14,6 +14,8 @@ export const editArrivalsModal = (arrivals:string[])=>{
         }).join('')}
         </select>
         <input id="plan_arrivals_input" type="datetime-local" type="text" step="1"/>
+        <label for="plan_arrivals_input_to">${Lang('to')}:</label>
+        <input id="plan_arrivals_input_to" type="time" step="1"/>
     </div>
     <div class="modal-input-inline">
         <button class="btn" onclick="editArrivalsModal.addArrival()" >${Lang('add')}</button>
@@ -23,12 +25,28 @@ export const editArrivalsModal = (arrivals:string[])=>{
 }
 window.editArrivalsModal = {
     addArrival:()=> {
-        let val = $('#plan_arrivals_input').val().toString().replace('T',' ');
+        let fromRaw = $('#plan_arrivals_input').val().toString();
+        let toRaw = $('#plan_arrivals_input_to').val().toString();
 
-        if(val==""){
+        if(fromRaw==""){
             return;
         }
-        
+
+        let val = fromRaw.replace('T',' ');
+
+        // "bis"-Zeit optional - wenn gesetzt, wird aus der Fixzeit ein
+        // Ankunfts-Zeitfenster (gleiches Datum wie "von", siehe resolveArrival
+        // in Api.ts, das daraus je Angreifer eine zufaellige, "krumme" Landezeit
+        // auslost statt einer fixen).
+        if(toRaw!==""){
+            let toFull = fromRaw.split('T')[0]+' '+toRaw;
+            if(toFull<=val){
+                window.UI.ErrorMessage(Lang('invalidArrivalWindow'));
+                return;
+            }
+            val = val+' - '+toFull;
+        }
+
         if(! window.editArrivalsModal.arrivalsRef.includes(val)){
             window.editArrivalsModal.arrivalsRef.push(val);
         }
@@ -41,6 +59,7 @@ window.editArrivalsModal = {
             select+=`<option value="${arrival}">${arrival}</option>`;
         });
         $('#plan_arrivals_select').html(select);
+        $('#plan_arrivals_input_to').val('');
         if($('.mainWindow').get().length==1){
             savePlan()
         }else{

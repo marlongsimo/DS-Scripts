@@ -37,6 +37,8 @@ export const hu = {
     noAttackAssigned:'Nincs egy támadás se kiosztva!',
     bbCode:'BB kód',
     workbench:'Workbench',
+    to:'Meddig',
+    invalidArrivalWindow:'A "meddig" időnek később kell lennie, mint a "mettől"!',
     calculaing:'Számolás',
     calculateAttack:'Támadás kiszámítása',
     launch:'Indítás',

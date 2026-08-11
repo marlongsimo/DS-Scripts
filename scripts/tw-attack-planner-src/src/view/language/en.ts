@@ -37,6 +37,8 @@ export const en = {
     noAttackAssigned:'No attack assigned!',
     bbCode:'BB Code',
     workbench:'Workbench',
+    to:'To',
+    invalidArrivalWindow:'The "to" time must be after the "from" time!',
     calculaing:'Calculating',
     calculateAttack:'Calculate attack',
     launch:'Launch',
