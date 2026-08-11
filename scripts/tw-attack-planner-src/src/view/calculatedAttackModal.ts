@@ -2,19 +2,17 @@ import { AssetName, coordDistance, formatDateTime, game } from "../core/Api";
 import { Lang } from "../core/Language";
 import QRCode from "qrcode";
 
-// Workbench-CSV-Zeitformate - exakt wie in assets/js/tw-format-konverter.js
-// (dortiges "DS-Ultimate-Workbench-CSV"), damit Exporte aus beiden Tools
-// zueinander passen.
-function pad(n:number){ return String(n).padStart(2,'0'); }
-function gameFormat(d:Date){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+'.'+String(d.getMilliseconds()).padStart(3,'0'); }
-function msToHMSms(ms:number){ const h=Math.floor(ms/3600000); ms-=h*3600000; const m=Math.floor(ms/60000); ms-=m*60000; const s=Math.floor(ms/1000); ms-=s*1000; return pad(h)+':'+pad(m)+':'+pad(s)+'.'+String(Math.round(ms)).padStart(3,'0'); }
+// Reihenfolge entspricht der Icon-Zuordnung 0-11 der DS-Ultimate-Werkbank
+// (siehe commandTypeToImageLink im Anaboler-Planer-Script - Index 15 dort ist
+// das "Unterstützung"-Icon), auch fuer den Workbench-Export unten gebraucht.
+const unitCode=['spear','sword','axe','archer','spy','light','marcher','heavy','ram','catapult','knight','snob'];
+const WB_SUPPORT_TYPE=15;
 
 export const calculatedAttackModal = (diff:string)=>{
     const addTimeFrags = diff.split(':');
 
     const addTime = (addTimeFrags[0]=='-'? -1:1) * parseInt(addTimeFrags[1])*1000*60*60+parseInt(addTimeFrags[2])*1000*60+parseInt(addTimeFrags[3])*1000
 
-    const unitCode=['spear','sword','axe','archer','spy','light','marcher','heavy','ram','catapult','knight','snob'];
     async function calculate(){
         let attacks:attack[]=[];
         window.attackPlan.targetPool.forEach((target:target)=>{
@@ -62,9 +60,6 @@ export const calculatedAttackModal = (diff:string)=>{
                     villageTo:target.village,
                     note:launcher.notes,
                     isAttack:launcher.isAttack,
-                    distance:distance,
-                    travelMs:miliseconds,
-                    sendDate:launch,
                     arrivalDate:new Date(attackDate.valueOf() + addTime)
                 })
             })
@@ -148,7 +143,7 @@ export async function generateLaunchText(attacks:attack[]):Promise<{bbcode:strin
         bbcode+=temp;
         currentChar+=temp.length;
 
-        wbcode+=`${attacks[i].villageFrom.coord.text}->${attacks[i].villageTo.coord.text},${attacks[i].distance.toFixed(2)},${attacks[i].unitSpeed.key},${attacks[i].isAttack?'Attack':'Support'},${gameFormat(attacks[i].arrivalDate)},${msToHMSms(attacks[i].travelMs)},${gameFormat(attacks[i].sendDate)},1\n`;
+        wbcode+=buildWorkbenchLine(attacks[i]);
 
         html+=`<tr><td>#${i+1}</td><td><img src="/graphic/unit/unit_${attacks[i].unitSpeed.key}.png"></td><td>${attacks[i].launchDate}</td>`+
         `<td><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${attacks[i].villageFrom.id}">${attacks[i].villageFrom.name} (${attacks[i].villageFrom.coord.text}) </a></td><td><a target="_blank" href="/game.php?village=${game.village.id}&screen=info_village&id=${attacks[i].villageTo.id}">${attacks[i].villageTo.name} (${attacks[i].villageTo.coord.text}) </a></td><td><a href="${attacks[i].launchLink}">${attacks[i].isAttack ? Lang('attack'):Lang('support')}</a></td><td>${attacks[i].note}</td></tr>`
@@ -181,6 +176,20 @@ window.changeDisplayType = () => {
             $('.wb-field').show();
         break;
     }
+}
+
+// Baut eine Zeile im Werkbank-Format, das der Anaboler-Planer beim Import
+// erwartet (convertWBPlanToArray dort): 8 durch "&" getrennte Felder
+// (Ursprungsdorf-ID, Zieldorf-ID, langsamste Einheit, Ankunfts-Zeitstempel in
+// ms inkl. Typ-Offset, Typ/Icon, drawIn, sent, Einheiten) - die Einheiten
+// selbst als "einheit=base64(anzahl)", durch "/" getrennt.
+function buildWorkbenchLine(attack:attack):string{
+    const type = attack.isAttack ? unitCode.indexOf(attack.unitSpeed.key) : WB_SUPPORT_TYPE;
+    const arrivalMs = attack.arrivalDate.getTime() + type;
+    const unitsField = Object.entries(attack.villageFrom.unitsContain)
+        .map(([unit,amount])=>`${unit}=${btoa(String(amount))}`)
+        .join('/');
+    return `${attack.villageFrom.id}&${attack.villageTo.id}&${attack.unitSpeed.key}&${arrivalMs}&${type}&true&false&${unitsField}\n`;
 }
 
 function sanitizeQRtext(text:string):string{
