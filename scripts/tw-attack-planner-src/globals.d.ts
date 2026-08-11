@@ -298,7 +298,7 @@ declare global {
     partialRender:(launchers:village[],targets:target[])=> void;
     openAddLauncherWindow:() => void;
     openAutoAssignModal:() => void;
-    addLauncher:(indTarget: number, indLanucher: number,trans:units,operation:string,arrival:string,notes:string) => boolean;
+    addLauncher:(indTarget: number, indLanucher: number,trans:units,operation:string,arrival:string,notes:string,templateWbType?:number|null) => boolean;
     addAttackConfirm:() => void;
     closeModal:() => void;
     createModal:(content:string,header:string) => void;
@@ -353,9 +353,11 @@ declare global {
 
   interface templateModal{
     addTemplate:()=>void;
-    removeTemplate:()=>void; 
-    selectTemplate:()=>void; 
+    removeTemplate:()=>void;
+    selectTemplate:()=>void;
     selectAll:(unit:string)=>void;
+    updateAutoIconPreview:()=>void;
+    updateWbTypePreview:()=>void;
     templateRef:template[];
   }
 
@@ -437,6 +439,7 @@ declare global {
     isAttack:boolean;
     note:string;
     arrivalDate:Date;
+    templateWbType:number|null;
   }
 
   type boost ={
@@ -469,6 +472,7 @@ declare global {
     isAttack:boolean;
     unitSpeed:speed;
     notes:string;
+    templateWbType:number|null;
   }
 
 
@@ -494,7 +498,8 @@ declare global {
 
   type template ={
     name:string,
-    units:units
+    units:units,
+    wbType:number|null
   }
 
   type plan = {
