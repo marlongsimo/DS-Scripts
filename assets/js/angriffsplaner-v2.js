@@ -98,11 +98,13 @@
         });
         AP.state.unitSpeed = unitSpeed;
         AP.state.worldConfigFetchedAt = configData.updatedAt;
+        AP.runtime.worldUnitOrder = configData.unitOrder || null;
         document.getElementById('ap-world-config-warning').style.display = 'none';
       } else {
         AP.state.worldSpeed = 1;
         AP.state.unitSpeed = Object.assign({}, AP.BASE_SPEED);
         AP.state.worldConfigFetchedAt = null;
+        AP.runtime.worldUnitOrder = null;
         document.getElementById('ap-world-config-warning').style.display = 'block';
       }
       AP.persist();
@@ -247,7 +249,9 @@
     if (!mapping) {
       var count = AP.parser.detectColumnCount(raw);
       if (!count) { showStatus(statusEl, 'Konnte keine Dorf-Zeilen erkennen (keine Koordinaten im Text gefunden).', 'error'); return; }
-      showColumnMappingBox(AP.parser.guessColumnMapping(count), raw);
+      var worldOrder = AP.runtime.worldUnitOrder;
+      var suggestion = (worldOrder && worldOrder.length === count) ? worldOrder.slice() : AP.parser.guessColumnMapping(count);
+      showColumnMappingBox(suggestion, raw);
       return;
     }
     runParseAndPreview(raw, mapping);
