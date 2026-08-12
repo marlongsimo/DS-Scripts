@@ -19,8 +19,6 @@ document.addEventListener('DOMContentLoaded', function () {
     section = 'scripts';
   } else if (path.indexOf('welt-daten.html') !== -1) {
     section = 'welt-daten';
-  } else if (path.indexOf('/dashboard/') !== -1) {
-    section = 'dashboard';
   }
 
   document.querySelectorAll('.nav-links a[data-nav]').forEach(function (link) {
