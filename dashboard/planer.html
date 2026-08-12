@@ -24,6 +24,9 @@
     .adb-actions-cell button { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
     .adb-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
     .adb-key-display { font-family: monospace; font-size: 0.85rem; color: var(--text-muted); }
+    th.adb-sort-th { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.adb-sort-th:hover { color: var(--accent-strong); }
+    .adb-sort-arrow { font-size: 0.7em; opacity: 0.7; }
   </style>
 </head>
 <body>
@@ -114,21 +117,22 @@
 
           <div class="panel" style="overflow-x:auto;">
             <table>
-              <thead>
+              <thead id="adbTableHead">
                 <tr>
-                  <th>Status</th>
-                  <th>Von</th>
-                  <th>Ziel</th>
-                  <th>Art</th>
-                  <th>Einheit</th>
-                  <th>Type</th>
-                  <th>Ankunft</th>
-                  <th>Einheiten</th>
+                  <th class="adb-sort-th" data-sort="status">Status<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="origin">Von<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="target">Ziel<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="art">Art<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="unit">Einheit<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="type">Type<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="send">Abschickzeit<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="arrival">Ankunft<span class="adb-sort-arrow"></span></th>
+                  <th class="adb-sort-th" data-sort="units">Einheiten<span class="adb-sort-arrow"></span></th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="adbTableBody">
-                <tr><td colspan="9" style="color:var(--text-muted);">Lädt…</td></tr>
+                <tr><td colspan="10" style="color:var(--text-muted);">Lädt…</td></tr>
               </tbody>
             </table>
           </div>
@@ -139,6 +143,13 @@
             automatisch in Dorf-IDs aufgelöst) – danach wechselt der Status auf
             <strong>„offen“</strong>. Erst dann kann das Script den Befehl auch
             tatsächlich abschicken.
+            <br><br>
+            Die <strong>Abschickzeit</strong> ist eine Näherung aus Koordinaten-Distanz
+            und Welt-Feldgeschwindigkeit (ohne Sigil-Bonus-Korrektur, die kennt nur
+            das Live-Spiel) – für Befehle ohne Koordinaten (z.B. frisch importiert,
+            noch nicht vom Script aufgelöst) erscheint „–“. Auf einen
+            <strong>Spaltenkopf klicken</strong> sortiert danach, nochmal klicken kehrt
+            die Reihenfolge um.
           </div>
         </div>
 
@@ -225,9 +236,16 @@
       knight: 'Adelsg.', snob: 'Adliger'
     };
 
+    // Generische Fallback-Geschwindigkeiten (Minuten/Feld), falls für die Welt
+    // noch keine data/{welt}-config.json existiert oder die Welt nicht ermittelt
+    // werden konnte - identisch zu AP.BASE_SPEED (assets/js/angriffsplaner-data.js).
+    const BASE_SPEED = { spear: 18, sword: 22, axe: 18, archer: 18, spy: 9, light: 10, marcher: 10, heavy: 11, ram: 30, catapult: 30, knight: 10, snob: 35 };
+
     let teamKey = null;
     let currentPlanData = null; // { updatedAt, commands }
     let editingCommandId = null;
+    let unitSpeedMap = null; // aus data/{welt}-config.json geladen, sonst BASE_SPEED-Fallback
+    let sortState = { key: null, dir: 1 }; // dir: 1 = aufsteigend, -1 = absteigend
 
     // ── Firebase REST-Helfer ────────────────────────────────────────────
     async function fbGet(path) {
@@ -269,7 +287,70 @@
       document.getElementById('adbKeyLabel').textContent = teamKey;
       document.getElementById('adbKeyScreen').classList.add('adb-hidden');
       document.getElementById('adbMain').classList.remove('adb-hidden');
+      loadWorldConfig();
       loadPlan();
+    }
+
+    // ── Weltgeschwindigkeit (für die Abschickzeit-Spalte) ───────────────
+    // Die Welt steht nicht direkt im Plan, sondern im "meta"-Knoten des Teams
+    // (von anaboler-sync.js beim ersten Kontakt angelegt): createdByAccount
+    // hat das Format "<welt>_<spielerId>", z.B. "de250_1234567".
+    async function resolveWorldCode() {
+      try {
+        const meta = await fbGet(`teams/${encodeURIComponent(teamKey)}/meta`);
+        const account = meta && meta.createdByAccount;
+        const match = account && /^([a-z]+\d+)_/.exec(account);
+        return match ? match[1] : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Lädt data/{welt}-config.json (serverseitig alle 6h gesynct, siehe
+    // scripts/sync-tw-data.mjs - kein CORS-Problem, gleicher Mechanismus wie
+    // beim bestehenden Angriffsplaner). Bei Fehler bleibt unitSpeedMap null,
+    // computeSendTimestamp() fällt dann automatisch auf BASE_SPEED zurück.
+    async function loadWorldConfig() {
+      const worldCode = await resolveWorldCode();
+      if (!worldCode) return;
+      try {
+        const res = await fetch(`../data/${worldCode}-config.json?v=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const speedMap = Object.assign({}, BASE_SPEED);
+        Object.keys(data.units || {}).forEach((u) => {
+          if (data.units[u] && data.units[u].speed) speedMap[u] = data.units[u].speed;
+        });
+        unitSpeedMap = speedMap;
+        if (currentPlanData) renderTable(); // ggf. bereits gerenderte Näherungswerte (BASE_SPEED) aktualisieren
+      } catch (e) {
+        // unitSpeedMap bleibt null -> BASE_SPEED-Fallback
+      }
+    }
+
+    function parseCoordPair(str) {
+      const match = str && /^(\d{1,3})\|(\d{1,3})$/.exec(str.trim());
+      return match ? [parseInt(match[1], 10), parseInt(match[2], 10)] : null;
+    }
+
+    function fieldDistance(a, b) {
+      const dx = a[0] - b[0], dy = a[1] - b[1];
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Näherung ohne Sigil-Bonus-Korrektur (die kennt nur das Live-Spiel) -
+    // Distanz aus den Koordinaten × Feld-Minuten der langsamsten Einheit.
+    // Braucht origin-/targetCoord (bei frisch importierten, noch nicht vom
+    // Script aufgelösten Befehlen sind die null -> Ergebnis dann null).
+    function computeSendTimestamp(command) {
+      if (!command.arrivalTimestamp || !command.slowestUnit) return null;
+      const origin = parseCoordPair(command.originCoord);
+      const target = parseCoordPair(command.targetCoord);
+      if (!origin || !target) return null;
+      const perField = (unitSpeedMap && unitSpeedMap[command.slowestUnit]) || BASE_SPEED[command.slowestUnit];
+      if (!perField) return null;
+      const travelMs = fieldDistance(origin, target) * perField * 60 * 1000;
+      return command.arrivalTimestamp - travelMs;
     }
 
     document.getElementById('adbKeySubmit').addEventListener('click', () => {
@@ -308,7 +389,7 @@
     async function loadPlan() {
       const loadStatusEl = document.getElementById('adbLoadStatus');
       const tbody = document.getElementById('adbTableBody');
-      tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted);">Lädt…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" style="color:var(--text-muted);">Lädt…</td></tr>';
       clearStatus(loadStatusEl);
       try {
         const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/planer/plan`);
@@ -317,7 +398,7 @@
         renderTable();
       } catch (e) {
         showStatus(loadStatusEl, 'Fehler beim Laden: ' + e.message, 'error');
-        tbody.innerHTML = '<tr><td colspan="9" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
       }
     }
 
@@ -369,13 +450,77 @@
       return baseURL + (imageMap[type] || imageMap[8]);
     }
 
+    function unitsTotal(command) {
+      const all = Object.assign({}, command.units || {});
+      (command.trains || []).forEach(row => {
+        for (const u in row) all[u] = (all[u] || 0) + (parseInt(row[u]) || 0);
+      });
+      return Object.keys(all).reduce((sum, u) => sum + (parseInt(all[u]) || 0), 0);
+    }
+
+    // Ein Accessor pro sortierbarer Spalte, liefert einen vergleichbaren Wert
+    // (Zahl oder String) oder null/undefined, falls (noch) nicht ermittelbar -
+    // solche Zeilen landen beim Sortieren immer am Ende, siehe compareBy().
+    const SORT_ACCESSORS = {
+      status: c => c.sent ? 2 : (c.needsResolve ? 1 : 0),
+      origin: c => String(c.originCoord || c.originVillageId || ''),
+      target: c => String(c.targetCoord || c.targetVillageId || ''),
+      art: c => c.attackKind === 'support' ? 1 : 0,
+      unit: c => c.slowestUnit || null,
+      type: c => (c.type === undefined || c.type === null) ? null : parseInt(c.type),
+      send: c => computeSendTimestamp(c),
+      arrival: c => c.arrivalTimestamp || null,
+      units: c => unitsTotal(c) || null
+    };
+
+    function isEmptyValue(v) {
+      return v === null || v === undefined || v === '';
+    }
+
+    function compareBy(key, dir) {
+      const accessor = SORT_ACCESSORS[key];
+      return (a, b) => {
+        const va = accessor(a), vb = accessor(b);
+        const aEmpty = isEmptyValue(va), bEmpty = isEmptyValue(vb);
+        if (aEmpty && bEmpty) return 0;
+        if (aEmpty) return 1; // Zeilen ohne Wert immer ans Ende, unabhängig von dir
+        if (bEmpty) return -1;
+        if (va < vb) return -1 * dir;
+        if (va > vb) return 1 * dir;
+        return 0;
+      };
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll('#adbTableHead th[data-sort]').forEach((th) => {
+        const arrow = th.querySelector('.adb-sort-arrow');
+        if (!arrow) return;
+        arrow.textContent = (th.dataset.sort === sortState.key) ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+      });
+    }
+
+    document.querySelectorAll('#adbTableHead th[data-sort]').forEach((th) => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        if (sortState.key === key) {
+          sortState.dir *= -1;
+        } else {
+          sortState.key = key;
+          sortState.dir = 1;
+        }
+        updateSortIndicators();
+        if (currentPlanData) renderTable();
+      });
+    });
+
     function renderTable() {
       const tbody = document.getElementById('adbTableBody');
-      const commands = currentPlanData.commands || [];
+      const commands = (currentPlanData.commands || []).slice();
       if (!commands.length) {
-        tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
         return;
       }
+      if (sortState.key) commands.sort(compareBy(sortState.key, sortState.dir));
       tbody.innerHTML = '';
       const UNIT_ICON_BASE = 'https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_';
       commands.forEach((command) => {
@@ -391,6 +536,7 @@
           ? `<img src="${UNIT_ICON_BASE}${command.slowestUnit}.webp" title="${command.slowestUnit}" alt="${command.slowestUnit}" width="20">`
           : '–';
         const typeIcon = `<img src="${commandTypeToImageLink(parseInt(command.type))}" title="Type ${command.type}" alt="Type ${command.type}" width="20">`;
+        const sendTimestamp = computeSendTimestamp(command);
         tr.innerHTML = `
           <td>${statusBadge(command)}</td>
           <td>${originLabel}</td>
@@ -398,6 +544,7 @@
           <td>${artIcon}</td>
           <td>${unitIcon}</td>
           <td>${typeIcon}</td>
+          <td>${sendTimestamp ? formatArrival(sendTimestamp) : '–'}</td>
           <td>${formatArrival(command.arrivalTimestamp)}</td>
           <td>${unitsSummary(command)}</td>
           <td class="adb-actions-cell">
@@ -582,7 +729,10 @@
     document.getElementById('adbCancelCommand').addEventListener('click', () => {
       document.getElementById('adbFormPanel').classList.add('adb-hidden');
     });
-    document.getElementById('adbRefreshBtn').addEventListener('click', loadPlan);
+    document.getElementById('adbRefreshBtn').addEventListener('click', () => {
+      loadWorldConfig();
+      loadPlan();
+    });
 
     // ── Import / Export (Workbench-Format) ──────────────────────────────
     // Identischer Algorithmus wie exportWorkbench()/convertWBPlanToArray()
