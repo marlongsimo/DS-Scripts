@@ -120,13 +120,15 @@
                   <th>Von</th>
                   <th>Ziel</th>
                   <th>Art</th>
+                  <th>Einheit</th>
+                  <th>Type</th>
                   <th>Ankunft</th>
                   <th>Einheiten</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="adbTableBody">
-                <tr><td colspan="7" style="color:var(--text-muted);">Lädt…</td></tr>
+                <tr><td colspan="9" style="color:var(--text-muted);">Lädt…</td></tr>
               </tbody>
             </table>
           </div>
@@ -306,7 +308,7 @@
     async function loadPlan() {
       const loadStatusEl = document.getElementById('adbLoadStatus');
       const tbody = document.getElementById('adbTableBody');
-      tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);">Lädt…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted);">Lädt…</td></tr>';
       clearStatus(loadStatusEl);
       try {
         const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/planer/plan`);
@@ -315,7 +317,7 @@
         renderTable();
       } catch (e) {
         showStatus(loadStatusEl, 'Fehler beim Laden: ' + e.message, 'error');
-        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
       }
     }
 
@@ -343,23 +345,59 @@
       return parts.length ? parts.join(', ') : '–';
     }
 
+    // Identische Icon-Zuordnung wie commandTypeToImageLink() im Planer-Script -
+    // "type" ist unabhängig von attackKind (bei neu angelegten Befehlen immer
+    // 16 = "move_out", andere Werte kommen nur bei importierten Workbench-Plänen vor).
+    function commandTypeToImageLink(type) {
+      const baseURL = 'https://ds-ultimate.de/images/ds_images/';
+      const imageMap = {
+        0: 'unit/spear.png', 1: 'unit/sword.png', 2: 'unit/axe.png', 3: 'unit/archer.png',
+        4: 'unit/spy.png', 5: 'unit/light.png', 6: 'unit/marcher.png', 7: 'unit/heavy.png',
+        8: 'unit/ram.png', 9: 'unit/catapult.png', 10: 'unit/knight.png', 11: 'unit/snob.png',
+        12: 'wb/def_cav.png', 13: 'wb/def_archer.png', 14: 'wb/fake.png', 15: 'wb/ally.png',
+        16: 'wb/move_out.png', 17: 'wb/move_in.png', 18: 'wb/bullet_ball_blue.png',
+        19: 'wb/bullet_ball_green.png', 20: 'wb/bullet_ball_yellow.png', 21: 'wb/bullet_ball_red.png',
+        22: 'wb/bullet_ball_grey.png', 23: 'wb/warning.png', 24: 'wb/die.png', 25: 'wb/add.png',
+        26: 'wb/remove.png', 27: 'wb/checkbox.png', 28: 'wb/eye.png', 29: 'wb/eye_forbidden.png',
+        30: 'buildings/small/main.png', 31: 'buildings/small/barracks.png', 32: 'buildings/small/stable.png',
+        33: 'buildings/small/garage.png', 34: 'buildings/small/church.png', 35: 'buildings/small/snob.png',
+        36: 'buildings/small/smith.png', 37: 'buildings/small/place.png', 38: 'buildings/small/statue.png',
+        39: 'buildings/small/market.png', 40: 'buildings/small/wood.png', 41: 'buildings/small/stone.png',
+        42: 'buildings/small/iron.png', 43: 'buildings/small/farm.png', 44: 'buildings/small/storage.png',
+        45: 'buildings/small/wall.png', 46: 'wb/def_fake.png'
+      };
+      return baseURL + (imageMap[type] || imageMap[8]);
+    }
+
     function renderTable() {
       const tbody = document.getElementById('adbTableBody');
       const commands = currentPlanData.commands || [];
       if (!commands.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
         return;
       }
       tbody.innerHTML = '';
+      const UNIT_ICON_BASE = 'https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_';
       commands.forEach((command) => {
         const tr = document.createElement('tr');
         const originLabel = command.originCoord || command.originVillageId || '–';
         const targetLabel = command.targetCoord || command.targetVillageId || '–';
+        // Gleiche Icons wie im Planer selbst (unit_spear/unit_axe für Art,
+        // unit_<slowestUnit> für die Einheit-Spalte).
+        const artIcon = command.attackKind === 'support'
+          ? `<img src="${UNIT_ICON_BASE}spear.webp" title="Unterstützung" alt="Unterstützung" width="20">`
+          : `<img src="${UNIT_ICON_BASE}axe.webp" title="Angriff" alt="Angriff" width="20">`;
+        const unitIcon = command.slowestUnit
+          ? `<img src="${UNIT_ICON_BASE}${command.slowestUnit}.webp" title="${command.slowestUnit}" alt="${command.slowestUnit}" width="20">`
+          : '–';
+        const typeIcon = `<img src="${commandTypeToImageLink(parseInt(command.type))}" title="Type ${command.type}" alt="Type ${command.type}" width="20">`;
         tr.innerHTML = `
           <td>${statusBadge(command)}</td>
           <td>${originLabel}</td>
           <td>${targetLabel}</td>
-          <td>${command.attackKind === 'support' ? 'Unterstützung' : 'Angriff'}</td>
+          <td>${artIcon}</td>
+          <td>${unitIcon}</td>
+          <td>${typeIcon}</td>
           <td>${formatArrival(command.arrivalTimestamp)}</td>
           <td>${unitsSummary(command)}</td>
           <td class="adb-actions-cell">
