@@ -120,13 +120,14 @@
                   <th>Von</th>
                   <th>Ziel</th>
                   <th>Art</th>
+                  <th>Einheit</th>
                   <th>Ankunft</th>
                   <th>Einheiten</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="adbTableBody">
-                <tr><td colspan="7" style="color:var(--text-muted);">Lädt…</td></tr>
+                <tr><td colspan="8" style="color:var(--text-muted);">Lädt…</td></tr>
               </tbody>
             </table>
           </div>
@@ -306,7 +307,7 @@
     async function loadPlan() {
       const loadStatusEl = document.getElementById('adbLoadStatus');
       const tbody = document.getElementById('adbTableBody');
-      tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);">Lädt…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--text-muted);">Lädt…</td></tr>';
       clearStatus(loadStatusEl);
       try {
         const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/planer/plan`);
@@ -315,7 +316,7 @@
         renderTable();
       } catch (e) {
         showStatus(loadStatusEl, 'Fehler beim Laden: ' + e.message, 'error');
-        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
       }
     }
 
@@ -347,19 +348,29 @@
       const tbody = document.getElementById('adbTableBody');
       const commands = currentPlanData.commands || [];
       if (!commands.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
         return;
       }
       tbody.innerHTML = '';
+      const UNIT_ICON_BASE = 'https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_';
       commands.forEach((command) => {
         const tr = document.createElement('tr');
         const originLabel = command.originCoord || command.originVillageId || '–';
         const targetLabel = command.targetCoord || command.targetVillageId || '–';
+        // Gleiche Icons wie im Planer selbst (unit_spear/unit_axe für Art,
+        // unit_<slowestUnit> für die Einheit-Spalte).
+        const artIcon = command.attackKind === 'support'
+          ? `<img src="${UNIT_ICON_BASE}spear.webp" title="Unterstützung" alt="Unterstützung" width="20">`
+          : `<img src="${UNIT_ICON_BASE}axe.webp" title="Angriff" alt="Angriff" width="20">`;
+        const unitIcon = command.slowestUnit
+          ? `<img src="${UNIT_ICON_BASE}${command.slowestUnit}.webp" title="${command.slowestUnit}" alt="${command.slowestUnit}" width="20">`
+          : '–';
         tr.innerHTML = `
           <td>${statusBadge(command)}</td>
           <td>${originLabel}</td>
           <td>${targetLabel}</td>
-          <td>${command.attackKind === 'support' ? 'Unterstützung' : 'Angriff'}</td>
+          <td>${artIcon}</td>
+          <td>${unitIcon}</td>
           <td>${formatArrival(command.arrivalTimestamp)}</td>
           <td>${unitsSummary(command)}</td>
           <td class="adb-actions-cell">
