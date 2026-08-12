@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planer – Team-Dashboard – DS-Scripts</title>
+  <meta name="description" content="Team-Dashboard für den Anaboler Planer – geplante Angriffe/Snipes einsehen, hinzufügen und bearbeiten, synct automatisch mit dem Tampermonkey-Script.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <style>
+    /* Seitenspezifische Ergänzungen - nutzt sonst konsequent das bestehende Stylesheet */
+    .adb-hidden { display: none !important; }
+    .adb-key-box { max-width: 420px; margin: 0 auto; }
+    .adb-status-badge { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid; }
+    .adb-status-open { color: var(--accent-2); border-color: rgba(124,148,115,0.4); background: rgba(124,148,115,0.12); }
+    .adb-status-pending { color: var(--accent-strong); border-color: rgba(211,163,90,0.4); background: rgba(211,163,90,0.12); }
+    .adb-status-sent { color: var(--text-muted); border-color: var(--border); background: var(--bg-alt); }
+    .adb-unit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+    .adb-unit-field label { font-size: 0.78rem; }
+    .adb-actions-cell { display: flex; gap: 0.4rem; }
+    .adb-actions-cell button { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+    .adb-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
+    .adb-key-display { font-family: monospace; font-size: 0.85rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="../scripts/index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a href="index.html" data-nav="dashboard">Team-Dashboard</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Team-Dashboard</a> / Planer</p>
+        <h2>🗡️ Planer</h2>
+        <p>
+          Geplante Angriffe/Snipes eures Teams einsehen, hinzufügen und bearbeiten –
+          synct automatisch mit dem <code>Anaboler Planer</code>-Script, sobald jemand
+          im Spiel angemeldet ist. Abgeschickt wird ausschließlich vom Script selbst.
+        </p>
+
+        <!-- ── Key-Eingabe ─────────────────────────────────────────── -->
+        <div id="adbKeyScreen" class="panel adb-key-box">
+          <h3>Team-Key</h3>
+          <p style="font-size:0.88rem;">
+            Den Key findest du im Spiel im „!“-Panel des Sync-Moduls (Icon unten
+            links, oberhalb des Defensive-Schilds). Einmal hier einfügen – wird
+            danach in diesem Browser gemerkt.
+          </p>
+          <div class="field">
+            <label for="adbKeyInput">Team-Key</label>
+            <input type="text" id="adbKeyInput" placeholder="z.B. 60bf2e8b859746f620d4">
+          </div>
+          <button class="btn btn-primary" id="adbKeySubmit" type="button">Verbinden</button>
+          <div id="adbKeyStatus" class="status"></div>
+        </div>
+
+        <!-- ── Hauptansicht (erst sichtbar nach Key-Eingabe) ──────────── -->
+        <div id="adbMain" class="adb-hidden">
+          <div class="adb-toolbar">
+            <span class="adb-key-display">Team-Key: <span id="adbKeyLabel"></span> &nbsp;
+              <a href="#" id="adbChangeKey">(ändern)</a>
+            </span>
+            <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+              <button class="btn btn-outline" id="adbRefreshBtn" type="button">🔄 Aktualisieren</button>
+              <button class="btn btn-outline" id="adbImportExportBtn" type="button">⇅ Import/Export</button>
+              <button class="btn btn-primary" id="adbNewCommandBtn" type="button">➕ Neuer Befehl</button>
+            </div>
+          </div>
+
+          <div id="adbLoadStatus" class="status"></div>
+
+          <!-- ── Import / Export (Workbench-Format, identisch zum Script) ── -->
+          <div id="adbImportExportPanel" class="panel adb-hidden" style="margin-bottom:1.2rem;">
+            <h3>⇅ Import / Export (Workbench-Format)</h3>
+            <p style="font-size:0.85rem;">
+              Gleiches Textformat wie „Export"/„Import" im Planer-Script selbst
+              - ihr könnt Pläne also 1:1 zwischen Script und Dashboard hin- und
+              herkopieren. <strong>Hinweis:</strong> Dieses Format kennt nur
+              eine Angriffswelle pro Befehl (kein Mehrwellen-Support) und
+              braucht bereits aufgelöste Dorf-IDs (kein Koordinaten-Format).
+            </p>
+
+            <label style="display:block; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.4rem;">Export</label>
+            <textarea id="adbExportOutput" rows="4" readonly style="font-family:monospace; font-size:0.8rem;"></textarea>
+            <div style="display:flex; gap:0.6rem; margin:0.6rem 0 1.4rem;">
+              <button class="btn btn-outline" id="adbExportBtn" type="button">Exportieren</button>
+              <button class="btn btn-outline" id="adbExportCopyBtn" type="button">📋 Kopieren</button>
+            </div>
+
+            <label style="display:block; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.4rem;">Import</label>
+            <textarea id="adbImportInput" rows="4" placeholder="Hier Workbench-Text einfügen…" style="font-family:monospace; font-size:0.8rem;"></textarea>
+            <div style="margin-top:0.6rem;">
+              <button class="btn btn-primary" id="adbImportBtn" type="button">Importieren</button>
+            </div>
+            <div id="adbImportExportStatus" class="status"></div>
+          </div>
+
+          <div class="panel" style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Von</th>
+                  <th>Ziel</th>
+                  <th>Art</th>
+                  <th>Einheit</th>
+                  <th>Ankunft</th>
+                  <th>Einheiten</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="adbTableBody">
+                <tr><td colspan="8" style="color:var(--text-muted);">Lädt…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="note" style="margin-top:1rem;">
+            Neu angelegte Befehle zeigen den Status <strong>„wartet auf Sync“</strong>,
+            bis sich als nächstes jemand im Spiel anmeldet (Koordinaten werden dann
+            automatisch in Dorf-IDs aufgelöst) – danach wechselt der Status auf
+            <strong>„offen“</strong>. Erst dann kann das Script den Befehl auch
+            tatsächlich abschicken.
+          </div>
+        </div>
+
+        <!-- ── Formular: Neuer/Bearbeiten-Befehl (Modal-artig, einfach als Panel) ── -->
+        <div id="adbFormPanel" class="panel adb-hidden" style="margin-top:1.2rem;">
+          <h3 id="adbFormTitle">Neuer Befehl</h3>
+          <div class="field-row">
+            <div class="field">
+              <label for="adbOriginCoord">Herkunftsdorf (Koordinate)</label>
+              <input type="text" id="adbOriginCoord" placeholder="z.B. 500|500">
+            </div>
+            <div class="field">
+              <label for="adbTargetCoord">Zieldorf (Koordinate)</label>
+              <input type="text" id="adbTargetCoord" placeholder="z.B. 510|505">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="adbAttackKind">Art</label>
+              <select id="adbAttackKind">
+                <option value="attack">Angriff</option>
+                <option value="support">Unterstützung</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="adbArrival">Gewünschte Ankunftszeit</label>
+              <div style="display:flex; gap:0.5rem; align-items:flex-end;">
+                <input type="datetime-local" id="adbArrival" style="flex:1;">
+                <div style="width:70px;">
+                  <label for="adbArrivalSeconds" style="font-size:0.75rem;">Sek.</label>
+                  <input type="number" id="adbArrivalSeconds" min="0" max="59" value="0">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="field" style="max-width:220px;">
+            <label for="adbWaveCount">Anzahl Angriffswellen (AG-Train)</label>
+            <select id="adbWaveCount">
+              <option value="1">1 (einzelner Angriff)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+
+          <div id="adbWavesContainer"></div>
+
+          <div style="display:flex; gap:0.7rem; margin-top:0.6rem;">
+            <button class="btn btn-primary" id="adbSaveCommand" type="button">Speichern</button>
+            <button class="btn btn-outline" id="adbCancelCommand" type="button">Abbrechen</button>
+          </div>
+          <div id="adbFormStatus" class="status"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    // Muss identisch zur databaseURL in anaboler-sync.js sein.
+    const FIREBASE_DB_URL = 'https://anaboler-sync-default-rtdb.europe-west1.firebasedatabase.app';
+    const KEY_STORAGE = 'anaboleDashboardTeamKey';
+
+    // Gleiche Einheiten-Liste wie im Script (twSDK.unitsFarmSpace) - deckt alle
+    // Standard-Einheitentypen ab. Welten ohne Bogenschütze/Adelsgeschlecht etc.
+    // ignorieren die entsprechenden Felder einfach (bleiben bei 0).
+    const UNIT_TYPES = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult', 'knight', 'snob'];
+    const UNIT_LABELS = {
+      spear: 'Speer', sword: 'Schwert', axe: 'Axt', archer: 'Bogen', spy: 'Späher',
+      light: 'LC', marcher: 'BR', heavy: 'HC', ram: 'Ramme', catapult: 'Kata',
+      knight: 'Adelsg.', snob: 'Adliger'
+    };
+
+    let teamKey = null;
+    let currentPlanData = null; // { updatedAt, commands }
+    let editingCommandId = null;
+
+    // ── Firebase REST-Helfer ────────────────────────────────────────────
+    async function fbGet(path) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+    async function fbPut(path, value) {
+      const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify(value)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+
+    function showStatus(el, message, type) {
+      el.textContent = message;
+      el.className = 'status ' + (type === 'error' ? 'err' : 'ok');
+    }
+    function clearStatus(el) {
+      el.textContent = '';
+      el.className = 'status';
+    }
+
+    // ── Key-Verwaltung ──────────────────────────────────────────────────
+    function loadStoredKey() {
+      try { return localStorage.getItem(KEY_STORAGE); } catch (e) { return null; }
+    }
+    function storeKey(key) {
+      try { localStorage.setItem(KEY_STORAGE, key); } catch (e) { /* ignorieren */ }
+    }
+
+    function connectWithKey(key) {
+      teamKey = key.trim();
+      storeKey(teamKey);
+      document.getElementById('adbKeyLabel').textContent = teamKey;
+      document.getElementById('adbKeyScreen').classList.add('adb-hidden');
+      document.getElementById('adbMain').classList.remove('adb-hidden');
+      loadPlan();
+    }
+
+    document.getElementById('adbKeySubmit').addEventListener('click', () => {
+      const val = document.getElementById('adbKeyInput').value.trim();
+      const statusEl = document.getElementById('adbKeyStatus');
+      if (!val) { showStatus(statusEl, 'Bitte einen Team-Key eingeben.', 'error'); return; }
+      clearStatus(statusEl);
+      connectWithKey(val);
+    });
+
+    document.getElementById('adbChangeKey').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('adbMain').classList.add('adb-hidden');
+      document.getElementById('adbKeyScreen').classList.remove('adb-hidden');
+      document.getElementById('adbKeyInput').value = teamKey || '';
+    });
+
+    // Wandelt Firebase-Rohdaten für "commands" robust in ein echtes JS-Array
+    // um. Firebase liefert Arrays beim Lesen nur dann als JSON-Array zurück,
+    // wenn die internen Schlüssel lückenlos bei 0 beginnen - wird die Liste
+    // leer (letzter Befehl gelöscht) oder entstehen Lücken, kommt stattdessen
+    // ein Objekt oder gar nichts (undefined) zurück. Ein einfaches
+    // "Array.isArray(...)" würde die Daten dann fälschlich verwerfen/auf []
+    // zurücksetzen - diese Funktion fängt alle drei Fälle robust ab.
+    function normalizeCommands(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') {
+        return Object.keys(raw)
+          .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
+          .map(k => raw[k]);
+      }
+      return [];
+    }
+
+    // ── Plan laden & rendern ────────────────────────────────────────────
+    async function loadPlan() {
+      const loadStatusEl = document.getElementById('adbLoadStatus');
+      const tbody = document.getElementById('adbTableBody');
+      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--text-muted);">Lädt…</td></tr>';
+      clearStatus(loadStatusEl);
+      try {
+        const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/planer/plan`);
+        currentPlanData = data || { updatedAt: Date.now(), commands: [] };
+        currentPlanData.commands = normalizeCommands(currentPlanData.commands);
+        renderTable();
+      } catch (e) {
+        showStatus(loadStatusEl, 'Fehler beim Laden: ' + e.message, 'error');
+        tbody.innerHTML = '<tr><td colspan="8" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
+      }
+    }
+
+    function formatArrival(ts) {
+      if (!ts) return '–';
+      const d = new Date(ts);
+      const pad = n => String(n).padStart(2, '0');
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function statusBadge(command) {
+      if (command.sent) return '<span class="adb-status-badge adb-status-sent">gesendet</span>';
+      if (command.needsResolve) return '<span class="adb-status-badge adb-status-pending">wartet auf Sync</span>';
+      return '<span class="adb-status-badge adb-status-open">offen</span>';
+    }
+
+    function unitsSummary(command) {
+      const all = Object.assign({}, command.units || {});
+      (command.trains || []).forEach(row => {
+        for (const u in row) all[u] = (all[u] || 0) + (parseInt(row[u]) || 0);
+      });
+      const parts = UNIT_TYPES
+        .filter(u => all[u])
+        .map(u => `${UNIT_LABELS[u] || u}: ${all[u]}`);
+      return parts.length ? parts.join(', ') : '–';
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('adbTableBody');
+      const commands = currentPlanData.commands || [];
+      if (!commands.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      const UNIT_ICON_BASE = 'https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_';
+      commands.forEach((command) => {
+        const tr = document.createElement('tr');
+        const originLabel = command.originCoord || command.originVillageId || '–';
+        const targetLabel = command.targetCoord || command.targetVillageId || '–';
+        // Gleiche Icons wie im Planer selbst (Zeile mit unit_spear/unit_axe für
+        // Art, unit_<slowestUnit> für die Einheit-Spalte).
+        const artIcon = command.attackKind === 'support'
+          ? `<img src="${UNIT_ICON_BASE}spear.webp" title="Unterstützung" alt="Unterstützung" width="20">`
+          : `<img src="${UNIT_ICON_BASE}axe.webp" title="Angriff" alt="Angriff" width="20">`;
+        const unitIcon = command.slowestUnit
+          ? `<img src="${UNIT_ICON_BASE}${command.slowestUnit}.webp" title="${command.slowestUnit}" alt="${command.slowestUnit}" width="20">`
+          : '–';
+        tr.innerHTML = `
+          <td>${statusBadge(command)}</td>
+          <td>${originLabel}</td>
+          <td>${targetLabel}</td>
+          <td>${artIcon}</td>
+          <td>${unitIcon}</td>
+          <td>${formatArrival(command.arrivalTimestamp)}</td>
+          <td>${unitsSummary(command)}</td>
+          <td class="adb-actions-cell">
+            <button class="btn btn-outline" data-action="edit" data-id="${command.commandId}">✏️</button>
+            <button class="btn btn-outline" data-action="delete" data-id="${command.commandId}">🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('[data-action="edit"]').forEach(btn => {
+        btn.addEventListener('click', () => openForm(btn.dataset.id));
+      });
+      tbody.querySelectorAll('[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', () => armDeleteConfirm(btn));
+      });
+    }
+
+    // Eigene Inline-Bestätigung statt window.confirm() - der native Dialog
+    // wird in manchen Browser-Kontexten (v.a. mobil/In-App-Browser) blockiert
+    // und liefert dann sofort "false" zurück, OHNE dass man gefragt wird -
+    // das Löschen bricht dann lautlos ab und wirkt wie ein Bug.
+    function armDeleteConfirm(btn) {
+      const cell = btn.closest('td');
+      const commandId = btn.dataset.id;
+      cell.innerHTML = `
+        <span style="font-size:0.82rem; margin-right:0.3rem;">Wirklich?</span>
+        <button class="btn btn-outline" data-confirm-yes style="color:var(--danger); border-color:var(--danger);">✔</button>
+        <button class="btn btn-outline" data-confirm-no>✖</button>
+      `;
+      cell.querySelector('[data-confirm-yes]').addEventListener('click', () => deleteCommand(commandId));
+      cell.querySelector('[data-confirm-no]').addEventListener('click', () => renderTable());
+    }
+
+    // ── Speichern (Push nach Firebase) ──────────────────────────────────
+    // Identische Logik wie naNextCommandId() im Script: fortlaufende Zahl (als
+    // String), NICHT plan.length verwenden (Lücken durch Löschungen möglich).
+    // WICHTIG: Der Planer spaltet die commandId beim Edit-Klick an Bindestrichen
+    // auf - die ID darf deshalb KEINE Bindestriche enthalten, nur Ziffern.
+    function nextCommandId(commands) {
+      let max = -1;
+      (commands || []).forEach(c => {
+        const id = parseInt(c.commandId, 10);
+        if (!isNaN(id) && id > max) max = id;
+      });
+      return (max + 1).toString();
+    }
+
+    async function pushPlan() {
+      currentPlanData.updatedAt = Date.now();
+      await fbPut(`teams/${encodeURIComponent(teamKey)}/planer/plan`, currentPlanData);
+    }
+
+    async function deleteCommand(commandId) {
+      const before = currentPlanData.commands.length;
+      currentPlanData.commands = currentPlanData.commands.filter(c => String(c.commandId) !== String(commandId));
+      const statusEl = document.getElementById('adbLoadStatus');
+      if (currentPlanData.commands.length === before) {
+        showStatus(statusEl, 'Befehl wurde nicht gefunden (evtl. schon anderswo gelöscht) - lade neu…', 'error');
+        await loadPlan();
+        return;
+      }
+      try {
+        await pushPlan();
+        renderTable();
+        showStatus(statusEl, 'Befehl gelöscht.', 'ok');
+      } catch (e) {
+        showStatus(statusEl, 'Fehler beim Löschen: ' + e.message, 'error');
+        await loadPlan(); // Stand neu laden, um sicherzugehen dass Anzeige & Cloud übereinstimmen
+      }
+    }
+
+    // ── Formular (Neu / Bearbeiten) ─────────────────────────────────────
+    function buildUnitGrid(existingUnits, waveNumber) {
+      const wrap = document.createElement('div');
+      wrap.className = 'panel';
+      wrap.style.marginBottom = '1rem';
+      wrap.dataset.wave = waveNumber;
+      const heading = document.createElement('label');
+      heading.style.cssText = 'display:block; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.6rem;';
+      heading.textContent = `Angriff #${waveNumber}`;
+      wrap.appendChild(heading);
+      const grid = document.createElement('div');
+      grid.className = 'adb-unit-grid';
+      UNIT_TYPES.forEach(unit => {
+        const field = document.createElement('div');
+        field.className = 'field adb-unit-field';
+        field.innerHTML = `
+          <label for="adbWave${waveNumber}_unit_${unit}">${UNIT_LABELS[unit] || unit}</label>
+          <input type="number" min="0" id="adbWave${waveNumber}_unit_${unit}" value="${(existingUnits && existingUnits[unit]) || 0}">
+        `;
+        grid.appendChild(field);
+      });
+      wrap.appendChild(grid);
+      return wrap;
+    }
+
+    // prefillWaves: Array von Einheiten-Objekten, Index 0 = Welle 1 (units),
+    // Index 1..3 = weitere Wellen (trains[0..3]).
+    function renderWaves(waveCount, prefillWaves) {
+      const container = document.getElementById('adbWavesContainer');
+      container.innerHTML = '';
+      for (let i = 1; i <= waveCount; i++) {
+        const prefill = prefillWaves ? prefillWaves[i - 1] : null;
+        container.appendChild(buildUnitGrid(prefill, i));
+      }
+    }
+
+    document.getElementById('adbWaveCount').addEventListener('change', (e) => {
+      const count = parseInt(e.target.value) || 1;
+      // Bereits eingegebene Werte beim Ändern der Wellenzahl möglichst behalten.
+      const existing = collectWaves(count > (currentWaveCount || 1) ? (currentWaveCount || 1) : count);
+      currentWaveCount = count;
+      renderWaves(count, existing);
+    });
+
+    let currentWaveCount = 1;
+
+    // Liest die aktuell im Formular eingetragenen Wellen aus (bis maxWave, oder
+    // alle vorhandenen, falls maxWave weggelassen wird).
+    function collectWaves(maxWave) {
+      const container = document.getElementById('adbWavesContainer');
+      const waveBlocks = Array.from(container.querySelectorAll('[data-wave]'));
+      const limit = maxWave || waveBlocks.length;
+      const result = [];
+      for (let i = 1; i <= limit; i++) {
+        const block = waveBlocks.find(b => parseInt(b.dataset.wave) === i);
+        const waveUnits = {};
+        if (block) {
+          UNIT_TYPES.forEach(unit => {
+            const input = block.querySelector(`#adbWave${i}_unit_${unit}`);
+            const val = input ? (parseInt(input.value) || 0) : 0;
+            if (val > 0) waveUnits[unit] = val;
+          });
+        }
+        result.push(waveUnits);
+      }
+      return result;
+    }
+
+    function openForm(commandId) {
+      const formPanel = document.getElementById('adbFormPanel');
+      const formTitle = document.getElementById('adbFormTitle');
+      clearStatus(document.getElementById('adbFormStatus'));
+      editingCommandId = commandId || null;
+
+      let command = null;
+      if (editingCommandId) {
+        command = (currentPlanData.commands || []).find(c => String(c.commandId) === String(editingCommandId));
+      }
+
+      formTitle.textContent = editingCommandId ? 'Befehl bearbeiten' : 'Neuer Befehl';
+      document.getElementById('adbOriginCoord').value = command ? (command.originCoord || '') : '';
+      document.getElementById('adbTargetCoord').value = command ? (command.targetCoord || '') : '';
+      document.getElementById('adbAttackKind').value = command ? (command.attackKind || 'attack') : 'attack';
+
+      const arrivalInput = document.getElementById('adbArrival');
+      const arrivalSecondsInput = document.getElementById('adbArrivalSeconds');
+      if (command && command.arrivalTimestamp) {
+        const d = new Date(command.arrivalTimestamp);
+        const pad = n => String(n).padStart(2, '0');
+        arrivalInput.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        arrivalSecondsInput.value = d.getSeconds();
+      } else {
+        arrivalInput.value = '';
+        arrivalSecondsInput.value = 0;
+      }
+
+      // Wellenzahl ermitteln: 1 (nur units) + Anzahl trains, gedeckelt auf 5.
+      const waveCount = command ? Math.min(1 + ((command.trains || []).length), 5) : 1;
+      currentWaveCount = waveCount;
+      document.getElementById('adbWaveCount').value = String(waveCount);
+
+      const prefillWaves = command ? [command.units || {}, ...((command.trains || []))] : null;
+      renderWaves(waveCount, prefillWaves);
+
+      formPanel.classList.remove('adb-hidden');
+      formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.getElementById('adbNewCommandBtn').addEventListener('click', () => openForm(null));
+    document.getElementById('adbCancelCommand').addEventListener('click', () => {
+      document.getElementById('adbFormPanel').classList.add('adb-hidden');
+    });
+    document.getElementById('adbRefreshBtn').addEventListener('click', loadPlan);
+
+    // ── Import / Export (Workbench-Format) ──────────────────────────────
+    // Identischer Algorithmus wie exportWorkbench()/convertWBPlanToArray()
+    // im Planer-Script - Zeile: origin&target&slowestUnit&arrival&type&
+    // drawIn&sent&unit1=base64(qty)/unit2=base64(qty)[&catapultTarget]
+    document.getElementById('adbImportExportBtn').addEventListener('click', () => {
+      document.getElementById('adbImportExportPanel').classList.toggle('adb-hidden');
+    });
+
+    function parseBoolWB(v) {
+      return v === true || v === 'true' || v === '1' || v === 1;
+    }
+
+    function exportWorkbench(commands) {
+      let out = '';
+      (commands || []).forEach(row => {
+        const { originVillageId, targetVillageId, slowestUnit, arrivalTimestamp, type, drawIn, sent, units, catapultTarget } = row;
+        if (!originVillageId || !targetVillageId) return; // noch nicht aufgelöst (Dashboard-Befehl ohne Dorf-ID) - kann nicht exportiert werden
+        const t = type || 16;
+        const arrTimestamp = (arrivalTimestamp || 0) + t;
+        let line = `${originVillageId}&${targetVillageId}&${slowestUnit || ''}&${arrTimestamp}&${t}&${!!drawIn}&${!!sent}&`;
+        const unitsArray = [];
+        for (const unit in (units || {})) {
+          if (units[unit]) unitsArray.push(`${unit}=${btoa(String(units[unit]))}`);
+        }
+        line += unitsArray.join('/');
+        if (catapultTarget) line += `&${catapultTarget}`;
+        out += line + '\n';
+      });
+      return out;
+    }
+
+    function importWorkbench(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '');
+      const imported = [];
+      lines.forEach(line => {
+        const parts = line.split('&');
+        if (parts.length < 8) return; // Zeile unvollständig, überspringen
+        const units = {};
+        (parts[7] || '').split('/').forEach(pair => {
+          if (!pair) return;
+          const [unit, val] = pair.split('=');
+          if (unit === undefined || val === undefined) return;
+          try { units[unit] = parseInt(atob(val)) || 0; } catch (e) { /* ungültiger Wert ignorieren */ }
+        });
+        imported.push({
+          originVillageId: parseInt(parts[0]),
+          targetVillageId: parseInt(parts[1]),
+          slowestUnit: parts[2],
+          arrivalTimestamp: parseInt(parts[3]),
+          type: parseInt(parts[4]) || 16,
+          drawIn: parseBoolWB(parts[5]),
+          sent: parseBoolWB(parts[6]),
+          catapultTarget: (parts[8] || '').trim(),
+          units,
+          originCoord: null, targetCoord: null, // Script trägt Koordinaten beim nächsten Sync automatisch nach
+          needsResolve: false, // Dorf-IDs sind schon da, keine Auflösung nötig
+          source: 'dashboard-import'
+        });
+      });
+      return imported;
+    }
+
+    document.getElementById('adbExportBtn').addEventListener('click', () => {
+      const text = exportWorkbench(currentPlanData.commands || []);
+      document.getElementById('adbExportOutput').value = text;
+      const skipped = (currentPlanData.commands || []).filter(c => !c.originVillageId || !c.targetVillageId).length;
+      const statusEl = document.getElementById('adbImportExportStatus');
+      if (skipped) {
+        statusEl.textContent = `${skipped} Befehl(e) noch nicht exportierbar (warten auf Dorf-ID-Auflösung durch das Script).`;
+        statusEl.className = 'status err';
+      } else {
+        statusEl.textContent = '';
+        statusEl.className = 'status';
+      }
+    });
+
+    document.getElementById('adbExportCopyBtn').addEventListener('click', async () => {
+      const text = document.getElementById('adbExportOutput').value;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        const ta = document.getElementById('adbExportOutput');
+        ta.select();
+        document.execCommand('copy');
+      }
+    });
+
+    document.getElementById('adbImportBtn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbImportExportStatus');
+      const text = document.getElementById('adbImportInput').value;
+      const imported = importWorkbench(text);
+      if (!imported.length) {
+        statusEl.textContent = 'Nichts zu importieren (Text leer oder ungültiges Format).';
+        statusEl.className = 'status err';
+        return;
+      }
+      if (!currentPlanData.commands) currentPlanData.commands = [];
+      imported.forEach(cmd => {
+        cmd.commandId = nextCommandId(currentPlanData.commands);
+        currentPlanData.commands.push(cmd);
+      });
+      try {
+        await pushPlan();
+        renderTable();
+        document.getElementById('adbImportInput').value = '';
+        statusEl.textContent = `${imported.length} Befehl(e) importiert. Landen im Script beim nächsten Sync (Laden der Seite oder automatisches Polling).`;
+        statusEl.className = 'status ok';
+      } catch (e) {
+        statusEl.textContent = 'Fehler beim Speichern: ' + e.message;
+        statusEl.className = 'status err';
+      }
+    });
+
+    document.getElementById('adbSaveCommand').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbFormStatus');
+      const originCoord = document.getElementById('adbOriginCoord').value.trim();
+      const targetCoord = document.getElementById('adbTargetCoord').value.trim();
+      const attackKind = document.getElementById('adbAttackKind').value;
+      const arrivalVal = document.getElementById('adbArrival').value;
+      const arrivalSecondsVal = Math.min(59, Math.max(0, parseInt(document.getElementById('adbArrivalSeconds').value) || 0));
+
+      const coordPattern = /^\d{1,3}\|\d{1,3}$/;
+      if (!coordPattern.test(originCoord)) { showStatus(statusEl, 'Herkunftskoordinate ungültig (Format: 500|500).', 'error'); return; }
+      if (!coordPattern.test(targetCoord)) { showStatus(statusEl, 'Zielkoordinate ungültig (Format: 500|500).', 'error'); return; }
+      if (!arrivalVal) { showStatus(statusEl, 'Bitte eine Ankunftszeit angeben.', 'error'); return; }
+      let arrivalTimestamp = new Date(arrivalVal).getTime();
+      if (isNaN(arrivalTimestamp)) { showStatus(statusEl, 'Ungültige Ankunftszeit.', 'error'); return; }
+      arrivalTimestamp += arrivalSecondsVal * 1000;
+
+      const units = {};
+      const trains = [];
+      const waveCount = parseInt(document.getElementById('adbWaveCount').value) || 1;
+      const waves = collectWaves(waveCount);
+
+      Object.assign(units, waves[0] || {});
+      if (!Object.keys(units).length) { showStatus(statusEl, 'Angriff #1: Bitte mindestens eine Einheit angeben.', 'error'); return; }
+
+      for (let i = 1; i < waves.length; i++) {
+        if (!Object.keys(waves[i]).length) {
+          showStatus(statusEl, `Angriff #${i + 1} enthält keine Truppen.`, 'error');
+          return;
+        }
+        trains.push(waves[i]);
+      }
+
+      if (!currentPlanData.commands) currentPlanData.commands = [];
+
+      if (editingCommandId) {
+        const idx = currentPlanData.commands.findIndex(c => String(c.commandId) === String(editingCommandId));
+        if (idx !== -1) {
+          const existing = currentPlanData.commands[idx];
+          // Bei Änderung der Koordinaten muss ggf. neu aufgelöst werden.
+          const coordChanged = existing.originCoord !== originCoord || existing.targetCoord !== targetCoord;
+          currentPlanData.commands[idx] = Object.assign({}, existing, {
+            originCoord, targetCoord, attackKind, arrivalTimestamp, units,
+            trains: trains.length ? trains : undefined,
+            originVillageId: coordChanged ? null : existing.originVillageId,
+            targetVillageId: coordChanged ? null : existing.targetVillageId,
+            slowestUnit: null, // bei Einheiten-Änderung neu berechnen lassen
+            needsResolve: true
+          });
+        }
+      } else {
+        currentPlanData.commands.push({
+          commandId: nextCommandId(currentPlanData.commands),
+          originCoord, targetCoord,
+          originVillageId: null, targetVillageId: null,
+          attackKind, arrivalTimestamp, type: 16,
+          catapultTarget: '', trains: trains.length ? trains : undefined,
+          units, drawIn: true, sent: false,
+          needsResolve: true, source: 'dashboard'
+        });
+      }
+
+      try {
+        await pushPlan();
+        document.getElementById('adbFormPanel').classList.add('adb-hidden');
+        renderTable();
+      } catch (e) {
+        showStatus(statusEl, 'Fehler beim Speichern: ' + e.message, 'error');
+      }
+    });
+
+    // ── Start ───────────────────────────────────────────────────────────
+    const stored = loadStoredKey();
+    if (stored) connectWithKey(stored);
+  })();
+  </script>
+</body>
+</html>
