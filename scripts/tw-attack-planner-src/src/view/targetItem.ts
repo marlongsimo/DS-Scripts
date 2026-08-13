@@ -104,14 +104,21 @@ window.targetItem = {
         e.stopPropagation();
     },
     selectTargetItem:(e,id)=>{
+        let selectedTarget:target=null;
         window.attackPlan.targetPool.forEach((target:target)=>{
             if(target.village.id==id){
                 target.isSelected=true;
                 target.isOpen=true;
+                selectedTarget=target;
             }else{
                 target.isSelected=false;
             }
         })
+        // Startdörfer-Liste (rechts) auf Dörfer beschränken, die für dieses
+        // Ziel überhaupt noch mind. ein Zeitfenster erreichen könnten -
+        // siehe window.launchVillagesSearch in mainWindow.ts.
+        window.selectedTargetForFilter=selectedTarget;
+        window.launchVillagesSearch();
         const target = $('.target-list').find(`#${id}`)
         target.find('input').prop('checked', true);
         target.find('.target-launchers').show();

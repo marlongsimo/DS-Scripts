@@ -287,6 +287,7 @@ declare global {
     templateModal:templateModal
     editTargetModal:editTargetModal,
     editTargetGroupsModal:editTargetGroupsModal,
+    addAttackModal:addAttackModal,
     editSendTimeModal:editSendTimeModal,
     editPlanNameModal:editPlanNameModal
     editArrivalsModal:editArrivalsModal
@@ -315,6 +316,7 @@ declare global {
     targetGroupFilterValue:string;
     targetGroupFilterChange:()=>void;
     refreshTargetGroupFilterOptions:()=>void;
+    selectedTargetForFilter:target|null;
     editTemplates:()=>void;
     editPlayerBoosts:()=>void;
     addPlayerBoost:()=>void;
@@ -537,5 +539,11 @@ declare global {
   interface editSendTimeModal{
     save:() => void;
     clear:() => void;
+  }
+
+  interface addAttackModal{
+    matrix:Record<string,Record<string,boolean>>;
+    onTemplateChange:() => void;
+    onArrivalChange:() => void;
   }
 }

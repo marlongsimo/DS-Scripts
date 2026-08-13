@@ -65,6 +65,7 @@ export const en = {
     editSendTime:'Edit send time',
     editSendTimeText:'Edit send time',
     sendTimeFloor:'Do not send before',
+    noFeasibleCombo:'No template/arrival combination can reach this target in time.',
     editTemplates:'Edit templates',
     editPalyerBoosters:'Booster boosters',
     autoAssigner:'Automatic assignment',

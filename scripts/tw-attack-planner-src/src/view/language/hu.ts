@@ -65,6 +65,7 @@ export const hu = {
     editSendTime:'Indítási időpont szerkesztése',
     editSendTimeText:'Indítási időpont szerkesztése',
     sendTimeFloor:'Ne induljon el előtte',
+    noFeasibleCombo:'Egyik sablon/érkezés kombináció sem éri el időben ezt a célpontot.',
     editTemplates:'Sablonok szerkesztése',
     editPalyerBoosters:'Erősítés gyorsítók',
     autoAssigner:'Automata hozzárrendelés',
