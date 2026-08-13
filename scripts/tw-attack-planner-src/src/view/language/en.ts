@@ -62,6 +62,8 @@ export const en = {
     targetGroups:'Target groups',
     allGroups:'(All)',
     onlyFromGroup:'Only from group',
+    maxIncsPerPair:'Max attacks on same target from one village',
+    maxIncsPerLauncher:'Max total attacks per village',
     editArrivals:'Edit arrivals',
     editSendTime:'Edit send time',
     editSendTimeText:'Edit send time',
