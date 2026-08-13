@@ -62,6 +62,8 @@ export const hu = {
     targetGroups:'Célpont-csoportok',
     allGroups:'(Összes)',
     onlyFromGroup:'Csak ebből a csoportból',
+    maxIncsPerPair:'Max támadás ugyanarra a célra egy faluból',
+    maxIncsPerLauncher:'Max összes támadás falvanként',
     editArrivals:'Érkezések szerkesztése',
     editSendTime:'Indítási időpont szerkesztése',
     editSendTimeText:'Indítási időpont szerkesztése',

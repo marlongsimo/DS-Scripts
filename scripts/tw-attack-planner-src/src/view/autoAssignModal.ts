@@ -13,6 +13,48 @@ function templateTravelMs(assignType:assignType, launcher:village, target:villag
     return Math.round(dist*(speed*60))*1000;
 }
 
+// Optionale globale Kapazitäts-Limits (siehe Toggles im Modal): begrenzen,
+// wie oft ein einzelnes physisches Startdorf insgesamt bzw. gegenüber
+// demselben Ziel als Angreifer verwendet werden darf - gelten spaltenübergreifend
+// für alle Zuteilungs-Spalten sowie die Maximum-Coverage-Matching-Vorstufe und
+// alle vier Algorithmen gemeinsam. Werden vor jedem Lauf mit den schon im Plan
+// vorhandenen Angriffen vorbelegt (egal woher diese stammen), damit das Limit
+// den tatsächlichen Gesamteinsatz jedes Dorfs widerspiegelt.
+let maxIncsPerPair:number|null = null;
+let maxIncsPerLauncher:number|null = null;
+let usagePerLauncher:Record<number,number> = {};
+let usagePerPair:Record<number,Record<number,number>> = {};
+
+function resetCapTracking(perPair:number|null, perLauncher:number|null){
+    maxIncsPerPair = perPair;
+    maxIncsPerLauncher = perLauncher;
+    usagePerLauncher = {};
+    usagePerPair = {};
+    window.attackPlan.targetPool.forEach((target)=>{
+        target.launchers.forEach((launcher)=>{
+            const lid = launcher.village.id;
+            usagePerLauncher[lid] = (usagePerLauncher[lid]||0)+1;
+            if(!usagePerPair[lid]) usagePerPair[lid] = {};
+            usagePerPair[lid][target.village.id] = (usagePerPair[lid][target.village.id]||0)+1;
+        });
+    });
+}
+
+function canUseLauncher(launcherId:number, targetId:number):boolean{
+    if(maxIncsPerLauncher!=null && (usagePerLauncher[launcherId]||0)>=maxIncsPerLauncher) return false;
+    if(maxIncsPerPair!=null){
+        const pairCnt = (usagePerPair[launcherId] && usagePerPair[launcherId][targetId]) || 0;
+        if(pairCnt>=maxIncsPerPair) return false;
+    }
+    return true;
+}
+
+function recordUsage(launcherId:number, targetId:number){
+    usagePerLauncher[launcherId] = (usagePerLauncher[launcherId]||0)+1;
+    if(!usagePerPair[launcherId]) usagePerPair[launcherId] = {};
+    usagePerPair[launcherId][targetId] = (usagePerPair[launcherId][targetId]||0)+1;
+}
+
 export const autoAssignModal = ()=>{
     let templates='';
 
@@ -179,6 +221,16 @@ export const autoAssignModal = ()=>{
             <div class="item"></div>
             <div class="item checkbox"></div>
         </div>
+        <div class="add-assignment-input">
+            <label>${Lang('maxIncsPerPair')}:</label>
+            <input min="1" value="1" id="assigner-max-incs-per-pair" type="number" disabled>
+            <input id="assigner-max-incs-per-pair-toggle" onclick="$('#assigner-max-incs-per-pair').prop('disabled', (i, v) => !v);" type="checkbox">
+        </div>
+        <div class="add-assignment-input">
+            <label>${Lang('maxIncsPerLauncher')}:</label>
+            <input min="1" value="1" id="assigner-max-incs-per-launcher" type="number" disabled>
+            <input id="assigner-max-incs-per-launcher-toggle" onclick="$('#assigner-max-incs-per-launcher').prop('disabled', (i, v) => !v);" type="checkbox">
+        </div>
         <div class="assignment-alg">
             <input id="evenDistributeClosest" value="1" type="radio" name="assignmentAlg"><label for="evenDistributeClosest">${Lang('even')}</label>
             <input id="oneByOneQ" value="2" type="radio" name="assignmentAlg"><label for="oneByOneQ">${Lang('oneByOne')}</label>
@@ -323,7 +375,16 @@ window.autoAssign = {
             return;
         }
 
-        
+        let capPerPair:number|null = null;
+        if($('#assigner-max-incs-per-pair-toggle').is(':checked')){
+            capPerPair = parseInt($('#assigner-max-incs-per-pair').val().toString());
+        }
+        let capPerLauncher:number|null = null;
+        if($('#assigner-max-incs-per-launcher-toggle').is(':checked')){
+            capPerLauncher = parseInt($('#assigner-max-incs-per-launcher').val().toString());
+        }
+        resetCapTracking(capPerPair, capPerLauncher);
+
         $('#dialog-loading').show();
         $('#plannerCloseBtn').hide();
         $('.assigner').hide();
@@ -441,6 +502,7 @@ function oneByOneQ(){
                 let choosen=-1;
                 let smallest=999999;
                 assignType.filtered.forEach((launchVillage,indLanucher)=>{
+                    if(!canUseLauncher(launchVillage.id, target.village.id)) return;
                     if(!isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))) return;
                     let dist=coordDistance(launchVillage,target.village);
                     if(dist<smallest){
@@ -449,8 +511,10 @@ function oneByOneQ(){
                     }
                 })
                 if(choosen>-1){
-                    let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[choosen].id})
+                    let launcherId=assignType.filtered[choosen].id;
+                    let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==launcherId})
                     window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
+                    recordUsage(launcherId, target.village.id);
                     assignType.filtered.splice(choosen,1);
                 }
             }
@@ -467,11 +531,13 @@ function oneByOneClosest(){
             let cnt=parseInt($(`#assigner-row-${target.village.id} .ar-${assignType.id} .ass-inp`).val().toString());
             for (let i = 0; i < cnt; i++) {
                 let choosen=assignType.filtered.findIndex((launchVillage)=>{
-                    return isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village));
+                    return canUseLauncher(launchVillage.id, target.village.id) && isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village));
                 });
                 if(choosen==-1) break;
-                let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[choosen].id})
+                let launcherId=assignType.filtered[choosen].id;
+                let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==launcherId})
                 window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
+                recordUsage(launcherId, target.village.id);
                 assignType.filtered.splice(choosen,1);
             }
         }
@@ -533,6 +599,7 @@ function runMaxCoverageMatching(){
             const target = window.attackPlan.targetPool[indTarget];
             let list:number[]=[];
             assignType.filtered.forEach((launchVillage,indLanucher)=>{
+                if(!canUseLauncher(launchVillage.id, target.village.id)) return;
                 if(isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))){
                     list.push(indLanucher);
                 }
@@ -574,6 +641,7 @@ function runMaxCoverageMatching(){
             const launchVillage = assignType.filtered[indLanucher];
             let realInd = window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==launchVillage.id});
             window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
+            recordUsage(launchVillage.id, target.village.id);
             assignType.filtered.splice(indLanucher,1);
             coveredTargetIds.add(target.village.id);
 
@@ -605,6 +673,7 @@ function closestToTarget(){
                     if(assigned[assInd].cnt>=cnt) continue;
                 }
 
+                if(!canUseLauncher(launchVillage.id, target.village.id)) continue;
                 if(!isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))) continue;
 
                 let dist=coordDistance(launchVillage,target.village);
@@ -623,8 +692,10 @@ function closestToTarget(){
                 }else{
                     assigned[assInd].cnt++;
                 }
-                let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[indLanucher].id})
+                let launcherId=assignType.filtered[indLanucher].id;
+                let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==launcherId})
                 window.addLauncher(choosen,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
+                recordUsage(launcherId, window.attackPlan.targetPool[choosen].village.id);
                 assignType.filtered.splice(indLanucher,1);
             }
         }
@@ -653,6 +724,7 @@ function evenDistributeClosest(){
                 let choosen=-1;
                 let smallest=999999;
                 assignType.filtered.forEach((launchVillage,indLanucher)=>{
+                    if(!canUseLauncher(launchVillage.id, target.village.id)) return;
                     if(!isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))) return;
                     let dist=coordDistance(launchVillage,target.village);
                     if(dist<smallest){
@@ -663,8 +735,10 @@ function evenDistributeClosest(){
                 if(choosen>-1){
                     filled++;
                     progressedThisPass=true;
-                    let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[choosen].id})
+                    let launcherId=assignType.filtered[choosen].id;
+                    let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==launcherId})
                     window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
+                    recordUsage(launcherId, target.village.id);
                     assignType.filtered.splice(choosen,1);
                     if(assignType.filtered.length==0) break;
                 }
