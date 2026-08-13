@@ -61,6 +61,7 @@ export const en = {
     editTargetGroupsText:'Edit target groups',
     targetGroups:'Target groups',
     allGroups:'(All)',
+    onlyFromGroup:'Only from group',
     editArrivals:'Edit arrivals',
     editSendTime:'Edit send time',
     editSendTimeText:'Edit send time',

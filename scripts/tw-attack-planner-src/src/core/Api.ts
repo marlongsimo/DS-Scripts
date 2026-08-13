@@ -174,21 +174,32 @@ export async function fetchGroups():Promise<group[]>{
     })
 }
  
-export async function loadPages(groups:group[]){
+// Gibt zusätzlich zur flachen Dorfliste (wie bisher) auch die
+// Gruppenzugehörigkeit jedes Dorfs zurück (launchGroups) - wird gebraucht,
+// damit beim Automatic assignment pro Zuteilungs-Spalte auf eine bestimmte,
+// bei der Planerstellung gewählte Dörfergruppe eingeschränkt werden kann.
+// Ohne diese Zuordnung würde die Gruppenzugehörigkeit nach dem Zusammenführen
+// in launchPool unwiderruflich verloren gehen.
+export async function loadPages(groups:group[]):Promise<{villages:village[],launchGroups:targetGroup[]}>{
     let villages:village[]=[];
+    let launchGroups:targetGroup[]=[];
     for (const group of groups) {
+        let groupVillages:village[]=[];
         const resultMain = await pageRequest(createLink(0,group.id),group.all)
-        villages=[...villages,...resultMain.villages];
+        groupVillages=[...groupVillages,...resultMain.villages];
         await wait(200)
 
         for (let i = 0; i < resultMain.pageCnt; i++) {
             const result = await pageRequest(createLink(i+1,group.id),group.all)
-            villages=[...villages,...result.villages];
-            await wait(200) 
+            groupVillages=[...groupVillages,...result.villages];
+            await wait(200)
         }
+
+        villages=[...villages,...groupVillages];
+        launchGroups.push({name:group.name,villageIds:groupVillages.map((v)=>{return v.id})});
     }
 
-    return villages
+    return {villages,launchGroups}
 }
 
 

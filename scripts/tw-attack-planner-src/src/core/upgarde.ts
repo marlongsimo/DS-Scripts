@@ -25,6 +25,9 @@ function emptyVerUpgrade(plan:plan){
     if(!plan.targetGroups){
         plan.targetGroups=[];
     }
+    if(!plan.launchGroups){
+        plan.launchGroups=[];
+    }
     if(plan.sendTimeFloor===undefined){
         plan.sendTimeFloor=null;
     }

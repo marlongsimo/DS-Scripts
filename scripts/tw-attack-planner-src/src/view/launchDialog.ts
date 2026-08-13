@@ -265,6 +265,7 @@ newplan: () => {
         targetPool:[],
         templates:[],
         targetGroups:[],
+        launchGroups:[],
         sendTimeFloor:null,
         version:SCRIPT_INFO.version
     }
@@ -306,7 +307,9 @@ createPlan : async ()=>{
     $('.launch-dialog').hide();
     setTimeout( async ()=>{
         window.attackPlan=window.launchDialog.plan;
-        window.attackPlan.launchPool = await loadPages(window.launchDialog.groupIDs);   
+        const loaded = await loadPages(window.launchDialog.groupIDs);
+        window.attackPlan.launchPool = loaded.villages;
+        window.attackPlan.launchGroups = loaded.launchGroups;
         await window.DB.setData('plans',window.attackPlan)
         window.UI.SuccessMessage(Lang('PlanSuccessfullyCreated'))
         setTimeout(()=>{
