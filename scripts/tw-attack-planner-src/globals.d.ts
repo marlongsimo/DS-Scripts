@@ -287,6 +287,7 @@ declare global {
     templateModal:templateModal
     editTargetModal:editTargetModal,
     editTargetGroupsModal:editTargetGroupsModal,
+    editSendTimeModal:editSendTimeModal,
     editPlanNameModal:editPlanNameModal
     editArrivalsModal:editArrivalsModal
     editLaunchVillagesModal:editLaunchVillagesModal
@@ -309,6 +310,7 @@ declare global {
     targetItem:targetItem,
     editTargets:()=>void;
     editTargetGroups:()=>void;
+    editSendTime:()=>void;
     addTargets:()=>void;
     targetGroupFilterValue:string;
     targetGroupFilterChange:()=>void;
@@ -518,6 +520,7 @@ declare global {
     boosters:boost[];
     templates:template[]
     targetGroups:targetGroup[]
+    sendTimeFloor:string|null
   }
 
   type targetGroup = {
@@ -529,5 +532,10 @@ declare global {
     addGroup:() => void;
     removeGroup:() => void;
     targetsRef:target[];
+  }
+
+  interface editSendTimeModal{
+    save:() => void;
+    clear:() => void;
   }
 }

@@ -25,6 +25,9 @@ function emptyVerUpgrade(plan:plan){
     if(!plan.targetGroups){
         plan.targetGroups=[];
     }
+    if(plan.sendTimeFloor===undefined){
+        plan.sendTimeFloor=null;
+    }
 
     plan.targetPool.forEach((target)=>{
         target.info = calcTargetInfo(target.launchers);

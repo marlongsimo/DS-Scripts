@@ -265,6 +265,7 @@ newplan: () => {
         targetPool:[],
         templates:[],
         targetGroups:[],
+        sendTimeFloor:null,
         version:SCRIPT_INFO.version
     }
     $('.step-1').html(editPlanNameModal(window.launchDialog.plan));

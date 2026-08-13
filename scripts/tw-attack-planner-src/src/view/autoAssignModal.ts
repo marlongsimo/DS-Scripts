@@ -1,5 +1,17 @@
-import { AssetName, TroopTransaction, calcUnitPop, coordDistance, game, hasAvailableTroops, savePlan } from "../core/Api";
+import { AssetName, TroopTransaction, calcUnitPop, coordDistance, game, getSlowestUnit, hasAvailableTroops, isArrivalFeasible, savePlan } from "../core/Api";
 import { Lang } from "../core/Language";
+
+// Laufzeit in ms für die (fixe) Einheiten-Zusammensetzung einer Vorlage -
+// dieselbe für jedes Dorf in einer Zuteilungs-Spalte, da addLauncher immer
+// exakt assignType.template.units überträgt. Wird gebraucht, um pro
+// (Angreifer, Ziel)-Paar zu prüfen, ob der gewählte Ankunftszeitpunkt ab dem
+// planweiten Abschickzeitpunkt (Api.ts: sendTimeFloorMs/isArrivalFeasible)
+// überhaupt noch erreichbar ist.
+function templateTravelMs(assignType:assignType, launcher:village, target:village):number{
+    const speed = getSlowestUnit(assignType.template.units, true).value;
+    const dist = coordDistance(launcher, target);
+    return Math.round(dist*(speed*60))*1000;
+}
 
 export const autoAssignModal = ()=>{
     let templates='';
@@ -398,6 +410,7 @@ function oneByOneQ(){
                 let choosen=-1;
                 let smallest=999999;
                 assignType.filtered.forEach((launchVillage,indLanucher)=>{
+                    if(!isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))) return;
                     let dist=coordDistance(launchVillage,target.village);
                     if(dist<smallest){
                         choosen=indLanucher;
@@ -422,9 +435,13 @@ function oneByOneClosest(){
             if(assignType.filtered.length==0) continue;
             let cnt=parseInt($(`#assigner-row-${target.village.id} .ar-${assignType.id} .ass-inp`).val().toString());
             for (let i = 0; i < cnt; i++) {
-                let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[0].id})
+                let choosen=assignType.filtered.findIndex((launchVillage)=>{
+                    return isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village));
+                });
+                if(choosen==-1) break;
+                let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==assignType.filtered[choosen].id})
                 window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
-                assignType.filtered.splice(0,1);
+                assignType.filtered.splice(choosen,1);
             }
         }
     }
@@ -470,6 +487,8 @@ function closestToTarget(){
                 if(assInd>-1){
                     if(assigned[assInd].cnt>=cnt) continue;
                 }
+
+                if(!isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))) continue;
 
                 let dist=coordDistance(launchVillage,target.village);
                 if(dist<smallest){
@@ -517,6 +536,7 @@ function evenDistributeClosest(){
                 let choosen=-1;
                 let smallest=999999;
                 assignType.filtered.forEach((launchVillage,indLanucher)=>{
+                    if(!isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))) return;
                     let dist=coordDistance(launchVillage,target.village);
                     if(dist<smallest){
                         choosen=indLanucher;
