@@ -456,11 +456,20 @@ function filterVillages(template:template,max:number,launchGroupVillageIds:numbe
 
         if(launchGroupVillageIds && !launchGroupVillageIds.includes(Lanucher.id)) continue;
 
-        if(hasAvailableTroops(Lanucher,template.units)){
+        // Ein einzelnes Dorf steuert so viele separate Vorlagen-Instanzen bei,
+        // wie seine Truppen hergeben - nicht mehr nur eine einzige, egal wie
+        // groß der Truppenüberschuss ist. Ohne diese Schleife konnte ein
+        // truppenreiches Dorf pro Spalte nie mehr als einen Angriff liefern,
+        // selbst wenn die eingetragene Menge pro Ziel (z.B. 3) und die
+        // globalen Kapazitäts-Limits das eigentlich zugelassen hätten - die
+        // tatsächliche Obergrenze, wie oft ein Dorf am Ende wirklich verwendet
+        // wird, setzen weiterhin canUseLauncher()/die Kapazitäts-Limits beim
+        // Zuteilen selbst, nicht diese Sammel-Funktion hier.
+        while(villages.length<max && hasAvailableTroops(Lanucher,template.units)){
             let newVillage={...Lanucher};
             newVillage.unitsContain={spear:0,sword:0,axe:0,archer:0,spy:0,light:0,marcher:0,heavy:0,ram:0,catapult:0,knight:0,snob:0};
-            
-            [newVillage.unitsContain,Lanucher.unitsContain]  
+
+            [newVillage.unitsContain,Lanucher.unitsContain]
             = TroopTransaction(
                 newVillage.unitsContain,
                 Lanucher.unitsContain,
@@ -480,14 +489,13 @@ function filterVillages(template:template,max:number,launchGroupVillageIds:numbe
             newVillage.popSize=calcUnitPop(newVillage.unitsContain);
             Lanucher.popSize=calcUnitPop(Lanucher.unitsContain);
             villages.push(newVillage);
+        }
 
-            if(Lanucher.popSize==0){
-                console.log('removed');
-                window.autoAssign.launchPoolCopy.splice(indLanucher,1);
-            }
+        if(Lanucher.popSize==0){
+            window.autoAssign.launchPoolCopy.splice(indLanucher,1);
         }
     }
-    
+
     return villages;
 }
 
