@@ -428,11 +428,34 @@ export function parseArrivalWindow(arrival:string):{from:Date,to:Date}|null{
     return {from,to};
 }
 
+// Frühester Zeitpunkt, ab dem überhaupt gesendet werden darf - per "Edit send
+// time" planweit festlegbar (z.B. weil man heute für einen erst morgen 9 Uhr
+// beginnenden, mit Verbündeten abgesprochenen Versand plant). Ohne gesetzten
+// Wert wird wie bisher der aktuelle Zeitpunkt verwendet.
+export function sendTimeFloorMs():number{
+    if(window.attackPlan.sendTimeFloor){
+        const floor = new Date(window.attackPlan.sendTimeFloor);
+        if(!isNaN(floor.getTime())) return floor.getTime();
+    }
+    return Date.now();
+}
+
+// Prüft, ob ein Angreifer mit gegebener Laufzeit den gewählten
+// Ankunftszeitpunkt (fix oder Fenster) übehaupt noch erreichen kann, wenn
+// frühestens ab sendTimeFloorMs() losgeschickt wird - bei Fenstern zählt das
+// Fensterende als späteste noch mögliche Ankunft.
+export function isArrivalFeasible(arrival:string, travelMs:number):boolean{
+    const parsedWindow = parseArrivalWindow(arrival);
+    const deadline = parsedWindow ? parsedWindow.to.getTime() : new Date(arrival).getTime();
+    if(isNaN(deadline)) return true;
+    return sendTimeFloorMs() + travelMs <= deadline;
+}
+
 export function resolveArrival(arrival:string, travelMs:number):string{
     const parsedWindow = parseArrivalWindow(arrival);
     if(!parsedWindow) return arrival;
 
-    const earliest = new Date(Math.max(parsedWindow.from.getTime(), Date.now()+travelMs));
+    const earliest = new Date(Math.max(parsedWindow.from.getTime(), sendTimeFloorMs()+travelMs));
     const latest = parsedWindow.to;
     const rangeMs = latest.getTime()-earliest.getTime();
 

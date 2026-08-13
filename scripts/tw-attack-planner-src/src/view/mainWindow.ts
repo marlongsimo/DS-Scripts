@@ -9,6 +9,7 @@ import { confirmCalculateAttackModal } from "./confirmCalculateAttackModal";
 import { confirmResetAssignmentsModal } from "./confirmResetAssignmentsModal";
 import { editArrivalsModal } from "./editArrivalsModal";
 import { editPlanNameModal } from "./editPlanNameModal";
+import { editSendTimeModal } from "./editSendTimeModal";
 import { editTargetGroupsModal } from "./editTargetGroupsModal";
 import { editTargetModal } from "./editTargetModal";
 import { editTemplatesModal } from "./editTemplatesModal";
@@ -554,6 +555,9 @@ export const mainWindow = ()=>{
                     <button onclick="window.editArrivals()" class="btn">${Lang('editArrivals')}</button>
                 </div>
                 <div class="option-item">
+                    <button onclick="window.editSendTime()" class="btn">${Lang('editSendTime')}</button>
+                </div>
+                <div class="option-item">
                     <button onclick="window.editTemplates()" class="btn">${Lang('editTemplates')}</button>
                 </div>
                 <div class="option-item">
@@ -733,6 +737,10 @@ window.editTargets = () => {
 
 window.editTargetGroups = () => {
     window.createModal(editTargetGroupsModal(window.attackPlan.targetPool),Lang('editTargetGroupsText'));
+}
+
+window.editSendTime = () => {
+    window.createModal(editSendTimeModal(),Lang('editSendTimeText'));
 }
 
 window.editArrivals = () =>{
