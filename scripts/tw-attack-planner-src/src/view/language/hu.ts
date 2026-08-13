@@ -61,6 +61,7 @@ export const hu = {
     editTargetGroupsText:'Célpont-csoportok szerkesztése',
     targetGroups:'Célpont-csoportok',
     allGroups:'(Összes)',
+    onlyFromGroup:'Csak ebből a csoportból',
     editArrivals:'Érkezések szerkesztése',
     editSendTime:'Indítási időpont szerkesztése',
     editSendTimeText:'Indítási időpont szerkesztése',

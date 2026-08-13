@@ -121,7 +121,17 @@ export const autoAssignModal = ()=>{
                 <input min="1" value="1" id="assigner-number-filter" type="number" disabled>
                 <input id="assigner-max-filter" onclick="$('#assigner-number-filter').prop('disabled', (i, v) => !v);" type="checkbox" checked>
             </div>
-            
+            ${window.attackPlan.launchGroups && window.attackPlan.launchGroups.length>0? /* html */`
+            <div class="add-assignment-input">
+                <label>${Lang('onlyFromGroup')}:</label>
+                <select id="assigner-launch-group-select" disabled>
+                    ${window.attackPlan.launchGroups.map((group)=>{
+                        return /* html */`<option value="${group.name}">${group.name}</option>`
+                    }).join('')}
+                </select>
+                <input id="assigner-launch-group-toggle" onclick="$('#assigner-launch-group-select').prop('disabled', (i, v) => !v);" type="checkbox">
+            </div>
+            ` : ''}
             <button class="btn" onclick="autoAssign.addAssignment()">+ ${Lang('add')}</button>
         </div>
         <div class="add-assignment-input">
@@ -247,13 +257,30 @@ window.autoAssign = {
         let temp= window.attackPlan.templates.find((template)=>{
             return template.name==templateName;
         })
+
+        // Toggle aus: gesamte launchPoolCopy berücksichtigen (wie bisher).
+        // Toggle an: Spalte auf genau die bei der Planerstellung gewählte
+        // Dörfergruppe einschränken - einmalig hier beim Anlegen der Spalte
+        // ausgewertet, da filtered danach die einzige Quelle ist, aus der
+        // sowohl die Matching-Vorstufe als auch alle vier Algorithmen lesen.
+        let launchGroupFilter:string|null = null;
+        if($('#assigner-launch-group-toggle').is(':checked')){
+            launchGroupFilter = $('#assigner-launch-group-select').val().toString();
+        }
+        let launchGroupVillageIds:number[]|null = null;
+        if(launchGroupFilter){
+            let group = window.attackPlan.launchGroups.find((g)=>{return g.name==launchGroupFilter});
+            launchGroupVillageIds = group? group.villageIds : [];
+        }
+
         let newAssignment = {
             id:new Date().getTime().toString(),
             arrival:arrival,
-            filtered:filterVillages(temp,max),
+            filtered:filterVillages(temp,max,launchGroupVillageIds),
             required:0,
             template:temp,
-            max:max
+            max:max,
+            launchGroupFilter:launchGroupFilter
         }
 
         window.autoAssign.assignTypes.push(newAssignment);
@@ -262,7 +289,7 @@ window.autoAssign = {
         <button onclick="autoAssign.fillAssignment(${newAssignment.id})">↓</button></div>
         `)
         $('.assigner-header .assigner-name .checkbox').before(/* html */`
-            <div class="item ar-${newAssignment.id}" >${newAssignment.template.name}</div>
+            <div class="item ar-${newAssignment.id}" >${newAssignment.template.name}${newAssignment.launchGroupFilter? ` (${newAssignment.launchGroupFilter})` : ''}</div>
         `);
         $('.assigner-header .assigner-remover .checkbox').before(/* html */`
             <div class="item ar-${newAssignment.id}" ><a onclick="autoAssign.removeAssignment(${newAssignment.id})" class="assigner-target-btn"></a></div>
@@ -359,12 +386,14 @@ window.autoAssign = {
     },
 }
 
-function filterVillages(template:template,max:number):village[]{
+function filterVillages(template:template,max:number,launchGroupVillageIds:number[]|null):village[]{
     let villages:village[]=[];
 
     for (let indLanucher = 0; indLanucher < window.autoAssign.launchPoolCopy.length; indLanucher++) {
         const Lanucher = window.autoAssign.launchPoolCopy[indLanucher];
         if(villages.length>=max) break;
+
+        if(launchGroupVillageIds && !launchGroupVillageIds.includes(Lanucher.id)) continue;
 
         if(hasAvailableTroops(Lanucher,template.units)){
             let newVillage={...Lanucher};

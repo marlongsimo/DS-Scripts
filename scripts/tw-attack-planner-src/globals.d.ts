@@ -358,7 +358,8 @@ declare global {
     filtered:village[],
     required:number,
     arrival:string,
-    max:number
+    max:number,
+    launchGroupFilter:string|null
   }
 
   interface templateModal{
@@ -522,6 +523,7 @@ declare global {
     boosters:boost[];
     templates:template[]
     targetGroups:targetGroup[]
+    launchGroups:targetGroup[]
     sendTimeFloor:string|null
   }
 
