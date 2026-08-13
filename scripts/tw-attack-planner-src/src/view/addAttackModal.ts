@@ -45,19 +45,43 @@ function templateOptionLabel(key:string):string{
     return key=='temp_all'? Lang('allUnit') : key;
 }
 
+// "Zeitgleich"-Modus (ausgelöst über targetsLauncher.selectLauncherAttack):
+// nur Vorlagen, deren Laufzeit zum Ziel für ALLE angehakten Startdörfer echt
+// kürzer ist als beim angeklickten Referenz-Angriff - diese könnten also
+// erst nach ihm losgeschickt werden und trotzdem exakt zeitgleich landen.
+function buildReferenceFeasibleTemplates(target:target, launchers:village[], travelMsLimit:number):string[]{
+    let candidateKeys = window.attackPlan.templates.map((t)=>{return t.name}).concat(['temp_all']);
+    return candidateKeys.filter((key)=>{
+        return launchers.length>0 && launchers.every((launcher)=>{
+            let units = candidateUnitsFor(key,launcher);
+            if(!units) return false;
+            const slowest = getSlowestUnit(units,true);
+            if(!slowest) return false;
+            const dist = coordDistance(launcher,target.village);
+            const travelMs = Math.round(dist*(slowest.value*60))*1000;
+            return travelMs<travelMsLimit;
+        });
+    });
+}
+
 export const addAttackModal = ()=>{
     const {target, launchers} = currentModalContext();
+    const attackRef = window.selectedAttackForFilter;
     let matrix:Record<string,Record<string,boolean>> = {};
     let feasibleTemplates:string[] = [];
+    let lockedArrival:string|null = null;
 
-    if(target && launchers.length>0){
+    if(target && launchers.length>0 && attackRef){
+        feasibleTemplates = buildReferenceFeasibleTemplates(target, launchers, attackRef.travelMs);
+        lockedArrival = attackRef.arrival;
+    }else if(target && launchers.length>0){
         matrix = buildFeasibilityMatrix(target, launchers);
         feasibleTemplates = Object.keys(matrix).filter((key)=>{return Object.values(matrix[key]).some((v)=>{return v})});
     }
     window.addAttackModal.matrix=matrix;
 
     let defaultTemplate = feasibleTemplates.includes(window.latestTemplate)? window.latestTemplate : feasibleTemplates[0];
-    let feasibleArrivals = defaultTemplate? window.attackPlan.arrivals.filter((a)=>{return matrix[defaultTemplate][a]}) : [];
+    let feasibleArrivals = lockedArrival? [lockedArrival] : (defaultTemplate? window.attackPlan.arrivals.filter((a)=>{return matrix[defaultTemplate][a]}) : []);
     let defaultArrival = feasibleArrivals.includes(window.latestArrival)? window.latestArrival : feasibleArrivals[0];
 
     return /* html */`
@@ -70,7 +94,7 @@ export const addAttackModal = ()=>{
     ${feasibleTemplates.length==0? /* html */`<div style="color:#a33;margin:5px 0;">${Lang('noFeasibleCombo')}</div>` : ''}
     <div class="modal-input-group">
         <label for="planner-template">${Lang('template')}:</label>
-        <select id="planner-template" placeholder="${Lang('notSelected')}" onchange="window.addAttackModal.onTemplateChange()">
+        <select id="planner-template" placeholder="${Lang('notSelected')}" ${lockedArrival? '' : `onchange="window.addAttackModal.onTemplateChange()"`}>
             ${feasibleTemplates.map((key)=>{
                 return /* html */`<option value="${key}" ${defaultTemplate==key? `selected`:``}>${templateOptionLabel(key)}</option>`
             }).join('')}
@@ -78,7 +102,7 @@ export const addAttackModal = ()=>{
     </div>
     <div class="modal-input-group">
         <label for="planner-arrival">${Lang('arrival')}:</label>
-        <select id="planner-arrival" placeholder="${Lang('notSelected')}" onchange="window.addAttackModal.onArrivalChange()">
+        <select id="planner-arrival" placeholder="${Lang('notSelected')}" ${lockedArrival? 'disabled' : `onchange="window.addAttackModal.onArrivalChange()"`}>
             ${feasibleArrivals.map((arrival)=>{
                 return /* html */`<option value="${arrival}" ${defaultArrival==arrival? `selected`:``}>${arrival}</option>`
             }).join('')}
