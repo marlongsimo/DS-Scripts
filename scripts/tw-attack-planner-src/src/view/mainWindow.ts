@@ -42,11 +42,13 @@ export const mainWindow = ()=>{
         }
         .popup_box_container{
             height:100% !important;
-            overflow-x: auto !important;
+            overflow-x: scroll !important;
+            -webkit-overflow-scrolling: touch !important;
         }
         #popup_box_PlannerMainWindow{
             width: 95vw !important;
-            overflow-x: auto !important;
+            overflow-x: scroll !important;
+            -webkit-overflow-scrolling: touch !important;
         }
         html{
             overflow: hidden !important;
