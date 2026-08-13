@@ -310,6 +310,7 @@ declare global {
     renderTargetVillages:()=>void;
     targetItem:targetItem,
     launchItem:launchItem,
+    targetsLauncher:targetsLauncherHandlers,
     editTargets:()=>void;
     editTargetGroups:()=>void;
     editSendTime:()=>void;
@@ -319,6 +320,7 @@ declare global {
     refreshTargetGroupFilterOptions:()=>void;
     selectedTargetForFilter:target|null;
     selectedLauncherForFilter:village|null;
+    selectedAttackForFilter:attackReference|null;
     editTemplates:()=>void;
     editPlayerBoosts:()=>void;
     addPlayerBoost:()=>void;
@@ -401,7 +403,7 @@ declare global {
     selectTargetItem:(event:Event,id:number) => void;
     removeTargetItem:(event:Event,target:number) => void;
     confirmRemoveTargetItem:(target:number) => void;
-    removeTargetLauncherItem:(launcher:number,target:number)=>void;
+    removeTargetLauncherItem:(event:Event,launcher:number,target:number)=>void;
     confirmRemoveTargetLauncherItem:(launcher:number,target:number)=>void;
     addVillageBooster:(event:Event,target:number) => void;
     confirmAddVillageBooster:(target:number) => void;
@@ -412,6 +414,16 @@ declare global {
 
   interface launchItem{
     selectLaunchItem:(event:Event,id:number) => void;
+  }
+
+  type attackReference = {
+    launcherId:number,
+    arrival:string,
+    travelMs:number
+  }
+
+  interface targetsLauncherHandlers{
+    selectLauncherAttack:(event:Event,targetId:number,launcherId:number) => void;
   }
 
   interface launchDialog {

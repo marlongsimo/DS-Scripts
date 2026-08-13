@@ -116,8 +116,11 @@ window.targetItem = {
         })
         // Startdörfer-Liste (rechts) auf Dörfer beschränken, die für dieses
         // Ziel überhaupt noch mind. ein Zeitfenster erreichen könnten -
-        // siehe window.launchVillagesSearch in mainWindow.ts.
+        // siehe window.launchVillagesSearch in mainWindow.ts. Eine evtl.
+        // noch aktive "Zeitgleich"-Referenz gehörte zum vorherigen Ziel und
+        // wird bei jeder (Neu-)Auswahl zurückgesetzt.
         window.selectedTargetForFilter=selectedTarget;
+        window.selectedAttackForFilter=null;
         window.launchVillagesSearch();
         const target = $('.target-list').find(`#${id}`)
         target.find('input').prop('checked', true);
@@ -169,7 +172,8 @@ window.targetItem = {
         window.closeModal();
         savePlan()
     },
-    removeTargetLauncherItem:(launcher:number,target:number)=>{
+    removeTargetLauncherItem:(event:Event,launcher:number,target:number)=>{
+        event.stopPropagation();
         $('.planner-modal-header b').text(Lang('removeAttack'));
         $('.planner-modal-content').html(confirmRemoveModal(launcher,target));
         $('.planner-modal').show();

@@ -1,4 +1,4 @@
-import { AssetName, formatDate, isUnitsArrivalFeasible } from "../core/Api";
+import { AssetName, coordDistance, formatDate, getSlowestUnit, isUnitsArrivalFeasible } from "../core/Api";
 import { Lang } from "../core/Language";
 import { Query } from "../core/Query";
 import { addAttackModal } from "./addAttackModal";
@@ -237,7 +237,8 @@ export const mainWindow = ()=>{
                 border-bottom: solid 1px #6c4824;
                 margin-top:3px;
                 text-align:center;
-                display: grid; 
+                cursor:pointer;
+                display: grid;
                 grid-template-columns:  30px 1fr 1fr 1fr${window.gameConfig.game.archer==1 ? ` 1fr`:''} 1fr 1fr${window.gameConfig.game.archer==1 ? ` 1fr`:''} 1fr 1fr 1fr 1fr 1fr 30px; 
                 grid-template-rows: 35px 30px ;
                 gap: 0px 0px; 
@@ -247,6 +248,11 @@ export const mainWindow = ()=>{
             }
             .del-field{ grid-area: del-field; padding: 20px 5px;background-color:#fff5dc;border-left: 1px solid #6c4824;}
             .size-field{ grid-area: size-field; padding: 5px 8px;background-color:#fff5dc;border-right: 1px solid #6c4824;}
+
+            .targetsLauncher-item-selected{
+                outline: 2px solid #3a6ea5;
+                outline-offset: -1px;
+            }
 
             .launch-item{
             height: max-content;
@@ -703,6 +709,7 @@ window.mainInit = () => {
     window.targetGroupFilterValue='';
     window.selectedTargetForFilter=null;
     window.selectedLauncherForFilter=null;
+    window.selectedAttackForFilter=null;
 }
 
 window.openAddLauncherWindow = () => {
@@ -801,13 +808,31 @@ window.resetAssignments = ()=>{
 // wenn es für mindestens eine Vorlage (inkl. "Alle Einheiten", mit den
 // tatsächlichen Truppen dieses Dorfes) mindestens ein Zeitfenster des Ziels
 // noch rechtzeitig erreichen könnte.
+//
+// Ist zusätzlich ein bereits geplanter Angriff als "Zeitgleich"-Referenz
+// ausgewählt (window.selectedAttackForFilter, gesetzt in
+// targetsLauncher.selectLauncherAttack), wird stattdessen streng danach
+// gefiltert: nur Startdörfer, die für mindestens eine Vorlage eine ECHT
+// kürzere Laufzeit zum Ziel hätten als der angeklickte Referenz-Angriff -
+// diese könnten also erst NACH ihm losgeschickt werden und trotzdem exakt
+// zeitgleich mit ihm landen.
 window.launchVillagesSearch = () => {
     let val = $('#launch-search-bar').val().toString();
     let target = window.selectedTargetForFilter;
+    let attackRef = window.selectedAttackForFilter;
     window.launchVillagesQuery.search((village:village)=>{
         if(!`${village.name} (${village.coord.text}) K${village.kontinent}`.includes(val)) return false;
         if(!target) return true;
         let candidateUnits = window.attackPlan.templates.map((t)=>t.units).concat([village.unitsContain]);
+        if(attackRef){
+            return candidateUnits.some((units)=>{
+                const slowest = getSlowestUnit(units,true);
+                if(!slowest) return false;
+                const dist = coordDistance(village,target.village);
+                const travelMs = Math.round(dist*(slowest.value*60))*1000;
+                return travelMs<attackRef.travelMs;
+            })
+        }
         return candidateUnits.some((units)=>{
             return window.attackPlan.arrivals.some((arrival)=>{
                 return isUnitsArrivalFeasible(units,village,target.village,arrival);
