@@ -38,16 +38,20 @@ export const launchItem = (village:village):string=>{
 // filtert die Zielliste (links) auf window.targetVillagesSearch() auf
 // Ziele, die dieses eine Startdorf mit mind. einer Vorlage (inkl. "Alle
 // Einheiten") in mind. einem Zeitfenster noch rechtzeitig erreichen könnte.
+//
+// Die Markierung wird bewusst per direktem Klassen-Toggle statt per
+// partialRender() gesetzt: ein partialRender ersetzt die komplette Zeile
+// (inkl. der Checkbox zum Ankreuzen fürs spätere Zuteilen per Pfeil) durch
+// eine frisch gerenderte, wieder unmarkierte Checkbox - da die Checkbox
+// selbst Teil der anklickbaren Zeile ist, würde jeder Klick auf sie ihr
+// eigenes Ankreuzen sofort wieder rückgängig machen.
 window.launchItem = {
     selectLaunchItem:(e,id)=>{
-        let previous = window.selectedLauncherForFilter;
         let selected = window.attackPlan.launchPool.find((v)=>{return v.id==id}) || null;
         window.selectedLauncherForFilter = selected;
 
-        let toRerender:village[] = [];
-        if(previous) toRerender.push(previous);
-        if(selected && (!previous || previous.id!=selected.id)) toRerender.push(selected);
-        if(toRerender.length>0) window.launchVillagesQuery.partialRender(toRerender,'id');
+        $('.launch-list .launch-item-selected').removeClass('launch-item-selected');
+        if(selected) $('.launch-list').find(`#${id}`).addClass('launch-item-selected');
 
         window.targetVillagesSearch();
         e.stopPropagation();
