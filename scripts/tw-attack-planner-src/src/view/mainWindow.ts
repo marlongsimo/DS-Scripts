@@ -254,6 +254,7 @@ export const mainWindow = ()=>{
             border-bottom: solid 1px #6c4824;
             margin-top:3px;
             text-align:center;
+            cursor:pointer;
             display: grid; 
             grid-template-columns:  1fr 1fr 1fr 1fr${window.gameConfig.game.archer==1 ? ` 1fr`:``} 1fr 1fr${window.gameConfig.game.archer==1 ? ` 1fr`:``} 1fr 1fr 1fr 1fr 1fr;
             grid-template-rows: 30px 30px ;
@@ -261,6 +262,11 @@ export const mainWindow = ()=>{
             grid-template-areas:
                 "check-field name-field name-field name-field${window.gameConfig.game.archer==1 ? ` name-field`:``} name-field name-field${window.gameConfig.game.archer==1 ? ` name-field`:``} name-field name-field name-field name-field name-field"
                 "check-field spear-field sword-field axe-field${window.gameConfig.game.archer==1 ? ` archer-field`:``} spy-field light-field${window.gameConfig.game.archer==1 ? ` marcher-field`:``}  heavy-field ram-field catapult-field knight-field snob-field";
+            }
+
+            .launch-item-selected{
+                outline: 2px solid #3a6ea5;
+                outline-offset: -1px;
             }
 
             .check-field input{
@@ -696,6 +702,7 @@ window.mainInit = () => {
     window.targetPoolQuery.render();
     window.targetGroupFilterValue='';
     window.selectedTargetForFilter=null;
+    window.selectedLauncherForFilter=null;
 }
 
 window.openAddLauncherWindow = () => {
@@ -809,17 +816,29 @@ window.launchVillagesSearch = () => {
     })
 }
 
-// Kombiniert Textsuche und Gruppen-Filter in einem Query.search()-Aufruf, da
-// Query.search() bei jedem Aufruf wieder von der vollen Liste ausgeht (kein
-// additives Verketten mehrerer search()-Aufrufe möglich) - beide aktuellen
-// Filterwerte werden deshalb hier gemeinsam ausgewertet, egal welcher der
-// beiden Filter sich zuletzt geändert hat.
+// Kombiniert Textsuche, Gruppen-Filter und die Laufzeit-Vorfilterung des
+// aktuell gewählten Startdorfs (window.selectedLauncherForFilter, gesetzt in
+// launchItem.selectLaunchItem - Spiegelbild von window.launchVillagesSearch)
+// in einem Query.search()-Aufruf, da Query.search() bei jedem Aufruf wieder
+// von der vollen Liste ausgeht (kein additives Verketten mehrerer
+// search()-Aufrufe möglich) - alle aktuellen Filterwerte werden deshalb hier
+// gemeinsam ausgewertet, egal welcher zuletzt geändert wurde.
 window.targetVillagesSearch = () => {
     let val = $('#target-search-bar').val().toString();
     let groupName = window.targetGroupFilterValue;
     let group = groupName? window.attackPlan.targetGroups.find((g)=>{return g.name==groupName}) : null;
+    let launcher = window.selectedLauncherForFilter;
     window.targetPoolQuery.search((target:target)=>{
         if(group && !group.villageIds.includes(target.village.id)) return false;
+        if(launcher){
+            let candidateUnits = window.attackPlan.templates.map((t)=>t.units).concat([launcher.unitsContain]);
+            let reachable = candidateUnits.some((units)=>{
+                return window.attackPlan.arrivals.some((arrival)=>{
+                    return isUnitsArrivalFeasible(units,launcher,target.village,arrival);
+                })
+            })
+            if(!reachable) return false;
+        }
         return `${target.village.name} (${target.village.coord.text}) K${target.village.kontinent}${target.village.owner? ` (${(target.village.owner as owner).name})`:'' }`.includes(val)
     })
 }

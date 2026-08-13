@@ -309,6 +309,7 @@ declare global {
     targetPoolQuery:Query;
     renderTargetVillages:()=>void;
     targetItem:targetItem,
+    launchItem:launchItem,
     editTargets:()=>void;
     editTargetGroups:()=>void;
     editSendTime:()=>void;
@@ -317,6 +318,7 @@ declare global {
     targetGroupFilterChange:()=>void;
     refreshTargetGroupFilterOptions:()=>void;
     selectedTargetForFilter:target|null;
+    selectedLauncherForFilter:village|null;
     editTemplates:()=>void;
     editPlayerBoosts:()=>void;
     addPlayerBoost:()=>void;
@@ -406,6 +408,10 @@ declare global {
     removeVillageBooster:(event:Event,target:number) => void;
     confirmRemoveVillageBooster:(target:number) => void;
     setColorTag:(event:Event,target:number,color:'green'|'red'|'orange') => void;
+  }
+
+  interface launchItem{
+    selectLaunchItem:(event:Event,id:number) => void;
   }
 
   interface launchDialog {
