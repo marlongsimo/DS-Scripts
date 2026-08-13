@@ -1,4 +1,4 @@
-import { AssetName, formatDate } from "../core/Api";
+import { AssetName, formatDate, isUnitsArrivalFeasible } from "../core/Api";
 import { Lang } from "../core/Language";
 import { Query } from "../core/Query";
 import { addAttackModal } from "./addAttackModal";
@@ -693,6 +693,7 @@ window.mainInit = () => {
     window.targetPoolQuery = new Query(window.attackPlan.targetPool,$('.target-list').get()[0],$('#target-cnt').get()[0],targetItem,'village.name');
     window.targetPoolQuery.render();
     window.targetGroupFilterValue='';
+    window.selectedTargetForFilter=null;
 }
 
 window.openAddLauncherWindow = () => {
@@ -784,9 +785,26 @@ window.resetAssignments = ()=>{
     window.createModal(confirmResetAssignmentsModal(),Lang('resetAssigments'));
 }
 
+// Kombiniert Textsuche mit der Laufzeit-Vorfilterung des aktuell gewählten
+// Ziels (window.selectedTargetForFilter, gesetzt in targetItem.selectTargetItem)
+// in einem gemeinsamen Query.search()-Aufruf - gleiches Prinzip wie bei
+// targetVillagesSearch()/dem Gruppen-Filter. Ein Startdorf wird nur gezeigt,
+// wenn es für mindestens eine Vorlage (inkl. "Alle Einheiten", mit den
+// tatsächlichen Truppen dieses Dorfes) mindestens ein Zeitfenster des Ziels
+// noch rechtzeitig erreichen könnte.
 window.launchVillagesSearch = () => {
     let val = $('#launch-search-bar').val().toString();
-    window.launchVillagesQuery.search((village:village)=>{return `${village.name} (${village.coord.text}) K${village.kontinent}`.includes(val)})
+    let target = window.selectedTargetForFilter;
+    window.launchVillagesQuery.search((village:village)=>{
+        if(!`${village.name} (${village.coord.text}) K${village.kontinent}`.includes(val)) return false;
+        if(!target) return true;
+        let candidateUnits = window.attackPlan.templates.map((t)=>t.units).concat([village.unitsContain]);
+        return candidateUnits.some((units)=>{
+            return window.attackPlan.arrivals.some((arrival)=>{
+                return isUnitsArrivalFeasible(units,village,target.village,arrival);
+            })
+        })
+    })
 }
 
 // Kombiniert Textsuche und Gruppen-Filter in einem Query.search()-Aufruf, da

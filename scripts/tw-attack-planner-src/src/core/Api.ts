@@ -451,6 +451,19 @@ export function isArrivalFeasible(arrival:string, travelMs:number):boolean{
     return sendTimeFloorMs() + travelMs <= deadline;
 }
 
+// Kombiniert Laufzeit-Berechnung (langsamste Einheit einer Truppen-
+// Zusammensetzung) und isArrivalFeasible in einem Schritt - gebraucht sowohl
+// für die manuelle Zuteilung (addAttackModal: welche Vorlagen/Zeitfenster
+// passen für Ziel+gewählte(s) Herkunftsdorf/-dörfer) als auch, um Startdörfer
+// vorzufiltern, die für kein einziges Ziel-Zeitfenster mehr infrage kommen.
+export function isUnitsArrivalFeasible(units:units, launcher:village, target:village, arrival:string):boolean{
+    const slowest = getSlowestUnit(units, true);
+    if(!slowest) return false;
+    const dist = coordDistance(launcher, target);
+    const travelMs = Math.round(dist*(slowest.value*60))*1000;
+    return isArrivalFeasible(arrival, travelMs);
+}
+
 export function resolveArrival(arrival:string, travelMs:number):string{
     const parsedWindow = parseArrivalWindow(arrival);
     if(!parsedWindow) return arrival;

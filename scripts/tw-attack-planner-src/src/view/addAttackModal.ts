@@ -1,7 +1,65 @@
-import { TroopTransaction, calcTargetInfo, calcUnitPop, coordDistance, getSlowestUnit, resolveArrival, savePlan } from "../core/Api"
+import { TroopTransaction, calcTargetInfo, calcUnitPop, coordDistance, getSlowestUnit, isUnitsArrivalFeasible, resolveArrival, savePlan } from "../core/Api"
 import { Lang } from "../core/Language"
 
+// Liest aktuell markiertes Ziel + angehakte Startdörfer direkt aus dem DOM
+// (wie addAttackConfirm es beim tatsächlichen Zuteilen auch tut) - wird hier
+// zusätzlich gebraucht, um beim Öffnen des Popups schon zu wissen, welche
+// Vorlagen/Zeitfenster für genau diese Kombination überhaupt erreichbar sind.
+function currentModalContext():{target:target,launchers:village[]}{
+    let targetID = parseInt(($('input[name="target"]:checked').val() || '').toString());
+    let target = window.attackPlan.targetPool.find((t)=>{return t.village.id==targetID}) || null;
+    let launcherIds = $('.launch-list').find("input:checked").get().map((el:any)=>{return parseInt($(el).val().toString())});
+    let launchers = launcherIds.map((id)=>{return window.attackPlan.launchPool.find((v)=>{return v.id==id})}).filter((v)=>{return !!v});
+    return {target, launchers};
+}
+
+// "Alle Einheiten" (temp_all) hat keine feste Truppen-Zusammensetzung wie eine
+// benannte Vorlage, sondern nimmt die tatsächlichen Truppen des jeweiligen
+// Startdorfs - deshalb hier pro Dorf einzeln aufgelöst statt aus einer
+// gespeicherten Vorlage gelesen.
+function candidateUnitsFor(templateKey:string, launcher:village):units|null{
+    if(templateKey=='temp_all') return launcher.unitsContain;
+    let template = window.attackPlan.templates.find((t)=>{return t.name==templateKey});
+    return template? template.units : null;
+}
+
+// Matrix[Vorlage][Zeitfenster] = erreichbar mit ALLEN aktuell angehakten
+// Startdörfern (bei nur einem angehakten Dorf - der vom Nutzer beschriebene
+// Regelfall - entspricht das schlicht dessen individueller Erreichbarkeit).
+function buildFeasibilityMatrix(target:target, launchers:village[]):Record<string,Record<string,boolean>>{
+    let candidateKeys = window.attackPlan.templates.map((t)=>{return t.name}).concat(['temp_all']);
+    let matrix:Record<string,Record<string,boolean>> = {};
+    candidateKeys.forEach((key)=>{
+        matrix[key] = {};
+        window.attackPlan.arrivals.forEach((arrival)=>{
+            matrix[key][arrival] = launchers.length>0 && launchers.every((launcher)=>{
+                let units = candidateUnitsFor(key,launcher);
+                return !!units && isUnitsArrivalFeasible(units,launcher,target.village,arrival);
+            });
+        });
+    });
+    return matrix;
+}
+
+function templateOptionLabel(key:string):string{
+    return key=='temp_all'? Lang('allUnit') : key;
+}
+
 export const addAttackModal = ()=>{
+    const {target, launchers} = currentModalContext();
+    let matrix:Record<string,Record<string,boolean>> = {};
+    let feasibleTemplates:string[] = [];
+
+    if(target && launchers.length>0){
+        matrix = buildFeasibilityMatrix(target, launchers);
+        feasibleTemplates = Object.keys(matrix).filter((key)=>{return Object.values(matrix[key]).some((v)=>{return v})});
+    }
+    window.addAttackModal.matrix=matrix;
+
+    let defaultTemplate = feasibleTemplates.includes(window.latestTemplate)? window.latestTemplate : feasibleTemplates[0];
+    let feasibleArrivals = defaultTemplate? window.attackPlan.arrivals.filter((a)=>{return matrix[defaultTemplate][a]}) : [];
+    let defaultArrival = feasibleArrivals.includes(window.latestArrival)? window.latestArrival : feasibleArrivals[0];
+
     return /* html */`
     <div class="modal-input-inline">
         <label for="attack">${Lang('attack')}:</label>
@@ -9,21 +67,21 @@ export const addAttackModal = ()=>{
         <label for="reinforce">${Lang('support')}:</label>
         <input type="radio" value="reinforce" name="planner-operation">
     </div>
+    ${feasibleTemplates.length==0? /* html */`<div style="color:#a33;margin:5px 0;">${Lang('noFeasibleCombo')}</div>` : ''}
     <div class="modal-input-group">
         <label for="planner-template">${Lang('template')}:</label>
-        <select id="planner-template" placeholder="${Lang('notSelected')}">
-            <option value="temp_all">${Lang('allUnit')}</option>
-            ${window.attackPlan.templates.map((template)=>{
-                return /* html */`<option value="${template.name}" ${window.latestTemplate==template.name? `selected`:``}>${template.name}</option>`
-            })}
+        <select id="planner-template" placeholder="${Lang('notSelected')}" onchange="window.addAttackModal.onTemplateChange()">
+            ${feasibleTemplates.map((key)=>{
+                return /* html */`<option value="${key}" ${defaultTemplate==key? `selected`:``}>${templateOptionLabel(key)}</option>`
+            }).join('')}
         </select>
     </div>
     <div class="modal-input-group">
         <label for="planner-arrival">${Lang('arrival')}:</label>
-        <select id="planner-arrival" placeholder="${Lang('notSelected')}">
-            ${window.attackPlan.arrivals.map((arrival)=>{
-                return /* html */`<option value="${arrival}" ${window.latestArrival==arrival? `selected`:``}>${arrival}</option>`
-            })}
+        <select id="planner-arrival" placeholder="${Lang('notSelected')}" onchange="window.addAttackModal.onArrivalChange()">
+            ${feasibleArrivals.map((arrival)=>{
+                return /* html */`<option value="${arrival}" ${defaultArrival==arrival? `selected`:``}>${arrival}</option>`
+            }).join('')}
         </select>
     </div>
     <div class="modal-input-group">
@@ -31,13 +89,43 @@ export const addAttackModal = ()=>{
         <input id="planner-notes" placeholder="${Lang('noNote')}">
     </div>
     <div class="modal-input-inline">
-        <button class="btn" onclick="window.addAttackConfirm()">${Lang('add')}</button> 
+        <button class="btn" onclick="window.addAttackConfirm()">${Lang('add')}</button>
         <button class="btn" onclick="window.closeModal()">${Lang('cancel')}</button>
     </div>
     `
 }
 
-window.addAttackConfirm = () => {  
+// Kein Ping-Pong zwischen den beiden Dropdowns: jeder onchange-Handler
+// verändert ausschließlich die Optionen des JEWEILS ANDEREN Felds anhand der
+// einmalig beim Öffnen berechneten Matrix - nie sein eigenes. Dadurch bleibt
+// das Verhalten in beide Richtungen stabil vorhersagbar (Vorlage wählen ->
+// Zeitfenster schränkt sich ein, und umgekehrt), ohne dass sich die
+// Filterung gegenseitig aufschaukelt.
+window.addAttackModal = {
+    matrix:{},
+    onTemplateChange:()=>{
+        let matrix=window.addAttackModal.matrix;
+        let templateKey=$('#planner-template').val().toString();
+        let feasibleArrivals=window.attackPlan.arrivals.filter((a)=>{return matrix[templateKey] && matrix[templateKey][a]});
+        let current=($('#planner-arrival').val() || '').toString();
+        let next=feasibleArrivals.includes(current)? current : feasibleArrivals[0];
+        $('#planner-arrival').html(feasibleArrivals.map((a)=>{
+            return /* html */`<option value="${a}" ${next==a? `selected`:``}>${a}</option>`
+        }).join(''));
+    },
+    onArrivalChange:()=>{
+        let matrix=window.addAttackModal.matrix;
+        let arrival=$('#planner-arrival').val().toString();
+        let feasibleTemplates=Object.keys(matrix).filter((key)=>{return matrix[key][arrival]});
+        let current=($('#planner-template').val() || '').toString();
+        let next=feasibleTemplates.includes(current)? current : feasibleTemplates[0];
+        $('#planner-template').html(feasibleTemplates.map((key)=>{
+            return /* html */`<option value="${key}" ${next==key? `selected`:``}>${templateOptionLabel(key)}</option>`
+        }).join(''));
+    },
+}
+
+window.addAttackConfirm = () => {
     let launchers:village[]=[];
     let targets:target[]=[];
 
@@ -59,8 +147,8 @@ window.addAttackConfirm = () => {
 
     window.latestTemplate=templateName;
     window.latestArrival=arrival;
-    
-    let indTarget= window.attackPlan.targetPool.findIndex((target)=>{return target.village.id==targetID})    
+
+    let indTarget= window.attackPlan.targetPool.findIndex((target)=>{return target.village.id==targetID})
     let indPlan= window.attackPlan.templates.findIndex((template)=>{return template.name==templateName})
 
     let templateWbType = indPlan>-1? window.attackPlan.templates[indPlan].wbType : null;
@@ -77,13 +165,13 @@ window.addAttackConfirm = () => {
         }
         let villageId=window.attackPlan.launchPool[indLanucher].id;
         let isDel = window.addLauncher(indTarget,indLanucher,template,operation,arrival,notes,templateWbType)
-        
+
         if(!isDel){
             launchers.push(window.attackPlan.launchPool[indLanucher]);
         }else{
             $('.launch-list').find(`#${villageId}`).remove();
         }
-        
+
     })
 
     targets.push(window.attackPlan.targetPool[indTarget]);
@@ -97,11 +185,11 @@ window.addAttackConfirm = () => {
 }
 
 window.addLauncher = (indTarget: number, indLanucher: number,trans:units,operation:string,arrival:string,notes:string,templateWbType:number|null=null) => {
-      
+
     let newVillage={...window.attackPlan.launchPool[indLanucher]};
         newVillage.unitsContain={spear:0,sword:0,axe:0,archer:0,spy:0,light:0,marcher:0,heavy:0,ram:0,catapult:0,knight:0,snob:0};
-        
-        [newVillage.unitsContain,window.attackPlan.launchPool[indLanucher].unitsContain]  
+
+        [newVillage.unitsContain,window.attackPlan.launchPool[indLanucher].unitsContain]
         = TroopTransaction(
             newVillage.unitsContain,
             window.attackPlan.launchPool[indLanucher].unitsContain,
