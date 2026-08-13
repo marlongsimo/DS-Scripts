@@ -301,7 +301,9 @@ window.autoAssign = {
         $('#plannerCloseBtn').hide();
         $('.assigner').hide();
         setTimeout(() => {
-            
+
+            runMaxCoverageMatching();
+
             switch (alg){
                 case "1":
                     evenDistributeClosest()
@@ -465,6 +467,92 @@ function buildAssignmentCountLookup():Record<string,Record<string,number>>{
         lookup[target.village.id] = byAssign;
     });
     return lookup;
+}
+
+// Maximum-Bipartite-Matching (Kuhn-Algorithmus) als Vorlauf-Schritt vor allen
+// vier Algorithmen: keiner von ihnen garantiert von sich aus, dass jedes
+// noch unbediente Ziel (mit angeforderter Anzahl >0) auch tatsächlich einen
+// Angriff bekommt - sie sind alle gierig (nächstgelegenes Dorf/erstes Dorf in
+// Reihenfolge) und können ein knappes Startdorf an ein weniger eingeschränktes
+// Ziel "verlieren", obwohl eine vollständige Zuteilung möglich gewesen wäre.
+// Diese Funktion läuft pro Zuteilungs-Spalte einmal vorab und ordnet per
+// Kuhn-Algorithmus die größtmögliche Anzahl bislang unbedienter Ziele je
+// einem erreichbaren Startdorf zu - unabhängig von Distanz oder Reihenfolge.
+// Die dabei "verbrauchte" angeforderte Anzahl wird direkt im ass-inp-Feld
+// reduziert, damit die anschließende, unveränderte Algorithmus-Logik (die
+// diese Felder bzw. daraus abgeleitete countLookup-Werte liest) den Rest wie
+// gewohnt verteilt, ohne die schon zugeteilten Angriffe doppelt zu zählen.
+function runMaxCoverageMatching(){
+    let countLookup = buildAssignmentCountLookup();
+    let coveredTargetIds = new Set<number>(
+        window.attackPlan.targetPool.filter((t)=>{return t.launchers.length>0}).map((t)=>{return t.village.id})
+    );
+
+    window.autoAssign.assignTypes.forEach((assignType)=>{
+        if(assignType.filtered.length==0) return;
+
+        let targetIndices:number[] = [];
+        window.attackPlan.targetPool.forEach((target,indTarget)=>{
+            if(coveredTargetIds.has(target.village.id)) return;
+            if(countLookup[target.village.id][assignType.id]>0){
+                targetIndices.push(indTarget);
+            }
+        });
+        if(targetIndices.length==0) return;
+
+        let adjacency:number[][] = targetIndices.map((indTarget)=>{
+            const target = window.attackPlan.targetPool[indTarget];
+            let list:number[]=[];
+            assignType.filtered.forEach((launchVillage,indLanucher)=>{
+                if(isArrivalFeasible(assignType.arrival,templateTravelMs(assignType,launchVillage,target.village))){
+                    list.push(indLanucher);
+                }
+            });
+            return list;
+        });
+
+        let matchLauncherToTargetPos:number[] = new Array(assignType.filtered.length).fill(-1);
+
+        function tryAugment(tPos:number, visited:boolean[]):boolean{
+            for(const li of adjacency[tPos]){
+                if(visited[li]) continue;
+                visited[li]=true;
+                if(matchLauncherToTargetPos[li]==-1 || tryAugment(matchLauncherToTargetPos[li],visited)){
+                    matchLauncherToTargetPos[li]=tPos;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        for(let tPos=0; tPos<targetIndices.length; tPos++){
+            tryAugment(tPos, new Array(assignType.filtered.length).fill(false));
+        }
+
+        let matches:{indTarget:number,indLanucher:number}[] = [];
+        matchLauncherToTargetPos.forEach((tPos,indLanucher)=>{
+            if(tPos>-1){
+                matches.push({indTarget:targetIndices[tPos], indLanucher});
+            }
+        });
+        // Absteigend nach indLanucher abarbeiten, damit das anschließende
+        // Splicen aus assignType.filtered die noch nicht verarbeiteten,
+        // niedrigeren Indizes nicht verschiebt.
+        matches.sort((a,b)=>{return b.indLanucher-a.indLanucher});
+
+        matches.forEach(({indTarget,indLanucher})=>{
+            const target = window.attackPlan.targetPool[indTarget];
+            const launchVillage = assignType.filtered[indLanucher];
+            let realInd = window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==launchVillage.id});
+            window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
+            assignType.filtered.splice(indLanucher,1);
+            coveredTargetIds.add(target.village.id);
+
+            let cell = $(`#assigner-row-${target.village.id} .ar-${assignType.id} .ass-inp`);
+            let remaining = Math.max(0, parseInt(cell.val().toString())-1);
+            cell.val(remaining);
+        });
+    });
 }
 
 function closestToTarget(){
