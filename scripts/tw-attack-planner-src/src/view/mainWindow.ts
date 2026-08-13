@@ -229,6 +229,50 @@ export const mainWindow = ()=>{
                 padding: 0;
                 line-height: 20px;
         }
+
+        /* Auf schmalen Bildschirmen (Handy) lässt sich horizontales Scrollen
+           in der iOS-Handy-App trotz mehrerer Anläufe (overflow-x:scroll +
+           -webkit-overflow-scrolling:touch) nicht zuverlässig herstellen.
+           Statt weiter am Scroll-Verhalten der WebView zu schrauben: die drei
+           Spalten (Optionen/Ziele/Startdörfer) werden unterhalb von 700px
+           Breite - derselbe Schwellwert wie die bisherige min-width:700px
+           auf .container - stattdessen einfach untereinander gestapelt, in
+           der bestehenden DOM-Reihenfolge (Optionen -> Ziele -> Startdörfer
+           -> Credits). Damit ist nur noch vertikales Scrollen nötig, das
+           bereits nachweislich zuverlässig funktioniert. */
+        @media (max-width: 700px) {
+            .container {
+                min-width: 0 !important;
+                height: auto !important;
+                grid-template-columns: 1fr !important;
+                grid-template-rows: auto !important;
+            }
+            .mainWindow {
+                height: auto;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
+            .options-title, .options-panel,
+            .target-title, .target-panel,
+            .launch-title, .launch-panel,
+            .credits {
+                grid-area: auto !important;
+                border-left: none !important;
+                border-right: none !important;
+            }
+            .target-panel, .launch-panel {
+                grid-template-rows: 30px 30vh;
+            }
+            .target-list, .launch-list {
+                max-height: 30vh;
+            }
+            .options-title {
+                border-top-right-radius: 20px;
+            }
+            .credits {
+                border-bottom-right-radius: 20px;
+            }
+        }
     </style>
      <style>
             .targetsLauncher-item{
