@@ -378,8 +378,19 @@ export const mainWindow = ()=>{
                 background-color:#ecd8b2;
                 padding: 5px 0;
             }
+            /* WICHTIG: overflow-x hier NICHT auf hidden/auto/scroll setzen.
+               Laut CSS-Spec wird overflow-y automatisch zu "auto" befördert,
+               sobald overflow-x einen Wert ungleich "visible" hat und
+               overflow-y selbst nicht explizit gesetzt ist - dadurch bekäme
+               jede einzelne Zeile unbemerkt ihre eigene, unabhängige
+               vertikale Scroll-Box, die mit dem Scrollen der umgebenden
+               .target-list kollidiert (fühlt sich an, als ließe sich jede
+               Zeile für sich nochmal separat scrollen). Zu breiter Inhalt
+               wird stattdessen bereits über .target-list selbst gescrollt
+               (overflow-x:scroll dort, siehe PR #122) - .target-item braucht
+               daher gar kein eigenes overflow mehr. */
             .target-item{
-                overflow-x:hidden;
+                overflow: visible;
                 display: block;
                 width:100%;
                 margin: 5px 0;
