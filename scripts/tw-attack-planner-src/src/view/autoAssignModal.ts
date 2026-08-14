@@ -710,8 +710,22 @@ function closestToTarget(){
     }
 }
 
+// filledPerTarget zählt NUR die von dieser Funktion selbst neu hinzugefügten
+// Angriffe pro Ziel (nicht die tatsächliche target.launchers.length!). Das ist
+// wichtig, weil countLookup/cnt bereits von der Maximum-Coverage-Matching-
+// Vorstufe (runMaxCoverageMatching) entsprechend heruntergezählt wurde, sobald
+// diese einem Ziel schon einen garantierten Angriff gegeben hat (Feld-Wert
+// z.B. 2->1). Würde man stattdessen die echte target.launchers.length
+// vergleichen (die durch genau diesen Vorstufen-Angriff ja bereits auf 1
+// gestiegen ist), würde dieser eine Angriff DOPPELT abgezogen - einmal im
+// bereits reduzierten cnt, einmal in der bereits erhöhten launchers.length -
+// und "even" hätte fälschlich schon "fertig" gemeldet, obwohl laut
+// ursprünglich eingetragener Menge noch mehr gewünscht war. Die anderen drei
+// Algorithmen haben dieses Problem nicht, weil sie ohnehin nur mit einem bei
+// 0 startenden, rein lokalen Zähler arbeiten statt mit dem echten Bestand.
 function evenDistributeClosest(){
     let countLookup = buildAssignmentCountLookup();
+    let filledPerTarget:Record<number,number> = {};
     window.autoAssign.assignTypes.forEach((assignType,index) => {
         let filled=0;
        while (assignType.filtered.length>0 && assignType.required>filled) {
@@ -728,7 +742,8 @@ function evenDistributeClosest(){
             for (let i = 0; i < index+1; i++) {
                 cnt+=countLookup[target.village.id][window.autoAssign.assignTypes[i].id];
             }
-            if(target.launchers.length<cnt){
+            let already=filledPerTarget[target.village.id]||0;
+            if(already<cnt){
                 let choosen=-1;
                 let smallest=999999;
                 assignType.filtered.forEach((launchVillage,indLanucher)=>{
@@ -743,6 +758,7 @@ function evenDistributeClosest(){
                 if(choosen>-1){
                     filled++;
                     progressedThisPass=true;
+                    filledPerTarget[target.village.id]=already+1;
                     let launcherId=assignType.filtered[choosen].id;
                     let realInd=window.attackPlan.launchPool.findIndex((village:village)=>{return village.id==launcherId})
                     window.addLauncher(indTarget,realInd,assignType.template.units,'attack',assignType.arrival,'',assignType.template.wbType);
