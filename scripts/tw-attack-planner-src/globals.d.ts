@@ -314,6 +314,7 @@ declare global {
     editTargets:()=>void;
     editTargetGroups:()=>void;
     editSendTime:()=>void;
+    refreshLaunchVillages:()=>void;
     addTargets:()=>void;
     targetGroupFilterValue:string;
     targetGroupFilterChange:()=>void;
@@ -541,8 +542,20 @@ declare global {
     boosters:boost[];
     templates:template[]
     targetGroups:targetGroup[]
-    launchGroups:targetGroup[]
+    launchGroups:launchGroupSource[]
     sendTimeFloor:string|null
+  }
+
+  // Wie targetGroup, aber zusätzlich die ursprüngliche Gruppen-ID und der
+  // home/all-Modus der bei der Planerstellung gewählten Dörfergruppe - wird
+  // gebraucht, um dieselbe Gruppe später erneut abfragen zu können (siehe
+  // window.refreshLaunchVillages), ohne dass der Nutzer die Gruppen ein
+  // zweites Mal auswählen muss.
+  type launchGroupSource = {
+    id:number,
+    name:string,
+    all:boolean,
+    villageIds:number[]
   }
 
   type targetGroup = {

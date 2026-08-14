@@ -179,10 +179,13 @@ export async function fetchGroups():Promise<group[]>{
 // damit beim Automatic assignment pro Zuteilungs-Spalte auf eine bestimmte,
 // bei der Planerstellung gewählte Dörfergruppe eingeschränkt werden kann.
 // Ohne diese Zuordnung würde die Gruppenzugehörigkeit nach dem Zusammenführen
-// in launchPool unwiderruflich verloren gehen.
-export async function loadPages(groups:group[]):Promise<{villages:village[],launchGroups:targetGroup[]}>{
+// in launchPool unwiderruflich verloren gehen. launchGroups speichert dabei
+// auch die ursprüngliche Gruppen-ID + den home/all-Modus (nicht nur Name und
+// Dorf-IDs) - damit lässt sich dieselbe Gruppe später erneut abfragen
+// (window.refreshLaunchVillages), ohne dass der Nutzer sie erneut auswählen muss.
+export async function loadPages(groups:group[]):Promise<{villages:village[],launchGroups:launchGroupSource[]}>{
     let villages:village[]=[];
-    let launchGroups:targetGroup[]=[];
+    let launchGroups:launchGroupSource[]=[];
     for (const group of groups) {
         let groupVillages:village[]=[];
         const resultMain = await pageRequest(createLink(0,group.id),group.all)
@@ -196,7 +199,7 @@ export async function loadPages(groups:group[]):Promise<{villages:village[],laun
         }
 
         villages=[...villages,...groupVillages];
-        launchGroups.push({name:group.name,villageIds:groupVillages.map((v)=>{return v.id})});
+        launchGroups.push({id:group.id,name:group.name,all:!!group.all,villageIds:groupVillages.map((v)=>{return v.id})});
     }
 
     return {villages,launchGroups}

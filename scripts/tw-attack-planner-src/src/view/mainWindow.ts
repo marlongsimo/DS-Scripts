@@ -1,4 +1,4 @@
-import { AssetName, coordDistance, formatDate, getSlowestUnit, isUnitsArrivalFeasible } from "../core/Api";
+import { AssetName, calcUnitPop, coordDistance, formatDate, getSlowestUnit, isUnitsArrivalFeasible, loadPages, savePlan } from "../core/Api";
 import { Lang } from "../core/Language";
 import { Query } from "../core/Query";
 import { addAttackModal } from "./addAttackModal";
@@ -673,6 +673,9 @@ export const mainWindow = ()=>{
                     <button onclick="window.editTemplates()" class="btn">${Lang('editTemplates')}</button>
                 </div>
                 <div class="option-item">
+                    <button id="refresh-troops-btn" onclick="window.refreshLaunchVillages()" class="btn">${Lang('refreshTroops')}</button>
+                </div>
+                <div class="option-item">
                     <button onclick="window.editPlayerBoosts()" class="btn">${Lang('editPalyerBoosters')}</button>
                 </div>
                 <div class="option-item">
@@ -864,6 +867,57 @@ window.editArrivals = () =>{
 
 window.editTemplates = () =>{
     window.createModal(editTemplatesModal(window.attackPlan.templates),Lang('editTemplatesText'));
+}
+// Fragt die bei Planerstellung gewählten Dörfergruppen erneut ab (dieselbe
+// Quelle wie launchDialog.createPlan, nur mit den in plan.launchGroups
+// gespeicherten Gruppen-IDs statt einer Neuauswahl durch den Nutzer) und
+// ersetzt launchPool mit den aktuellen echten Truppenzahlen. Bereits
+// verplante, aber im Spiel noch nicht abgeschickte Angriffe
+// (target.launchers) binden real vorhandene Truppen - werden von den frisch
+// abgefragten Zahlen abgezogen, damit sie nicht doppelt als "noch verfügbar"
+// gezählt werden. Pläne von vor dieser Funktion haben keine Gruppen-ID
+// gespeichert (nur Name+Dörfer) und können daher nicht aktualisiert werden.
+window.refreshLaunchVillages = async () => {
+    const groups = window.attackPlan.launchGroups;
+    if(!groups || groups.length==0 || groups.some((g)=>{return g.id===undefined || g.id===null})){
+        window.UI.ErrorMessage(Lang('refreshTroopsUnsupported'));
+        return;
+    }
+
+    $('#refresh-troops-btn').prop('disabled',true);
+
+    const loaded = await loadPages(groups.map((g)=>{return {id:g.id,name:g.name,all:g.all}}));
+
+    let committed:Record<number,units> = {};
+    window.attackPlan.targetPool.forEach((target)=>{
+        target.launchers.forEach((launcher)=>{
+            if(!committed[launcher.village.id]){
+                committed[launcher.village.id]={spear:0,sword:0,axe:0,archer:0,spy:0,light:0,marcher:0,heavy:0,ram:0,catapult:0,knight:0,snob:0};
+            }
+            (Object.keys(committed[launcher.village.id]) as (keyof units)[]).forEach((key)=>{
+                committed[launcher.village.id][key]+=launcher.village.unitsContain[key];
+            });
+        });
+    });
+
+    window.attackPlan.launchPool = loaded.villages.map((village)=>{
+        const reserved = committed[village.id];
+        if(!reserved) return village;
+        let corrected = {...village, unitsContain:{...village.unitsContain}};
+        (Object.keys(corrected.unitsContain) as (keyof units)[]).forEach((key)=>{
+            corrected.unitsContain[key] = Math.max(0, corrected.unitsContain[key]-reserved[key]);
+        });
+        corrected.popSize = calcUnitPop(corrected.unitsContain);
+        return corrected;
+    }).filter((village)=>{return village.popSize>0});
+    window.attackPlan.launchGroups = loaded.launchGroups;
+
+    window.launchVillagesQuery = new Query(window.attackPlan.launchPool,$('.launch-list').get()[0],$('#launch-cnt').get()[0],launchItem,'name');
+    window.launchVillagesQuery.render();
+
+    $('#refresh-troops-btn').prop('disabled',false);
+    window.UI.SuccessMessage(Lang('refreshTroopsSuccess'));
+    savePlan();
 }
 window.editPlayerBoosts = () =>{
     window.createModal(addPlayerSpeedModal(),Lang('editBoostersText'));
