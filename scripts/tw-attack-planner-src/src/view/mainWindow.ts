@@ -477,6 +477,7 @@ export const mainWindow = ()=>{
                 background: transparent url(${AssetName}/graphic/index/contentbg.png) scroll left top repeat;
                 filter: drop-shadow(0 0 0.75rem rgb(88, 88, 88));
                 width: max-content;
+                max-width: 95vw;
                 height: fit-content;
                 max-height: calc(100vh - 120px);
                 border: 2px solid #6c4824;
@@ -506,10 +507,23 @@ export const mainWindow = ()=>{
                 background: linear-gradient(to bottom,#e2c07c 0%,#dab874 44%,#c1a264 100%);
             }
 
+            /* Popups wie Automatic assignment können deutlich breiteren
+               Inhalt haben (z.B. die 1100px breite Zuteilungs-Tabelle) als
+               der Viewport auf dem Handy. Ohne eigenes overflow-x müsste
+               dafür das äußere Hauptfenster (#popup_box_PlannerMainWindow)
+               horizontal scrollen - dessen extra aggressives
+               -webkit-overflow-scrolling:touch (siehe PR #114) kollidiert
+               dabei mit dem eigenen vertikalen Scrollen von Listen innerhalb
+               des Popups (z.B. .assigner-target-villages) und fühlt sich wie
+               Verschieben statt Scrollen an. Stattdessen scrollt das Popup
+               seinen zu breiten Inhalt jetzt in sich selbst horizontal, das
+               äußere Fenster muss dafür nicht mehr einspringen. */
             .planner-modal-content {
                 display:grid;
                 grid-area: content;
                 padding: 10px;
+                overflow-x: scroll;
+                -webkit-overflow-scrolling: touch;
             }
 
             .modal-input-group{
