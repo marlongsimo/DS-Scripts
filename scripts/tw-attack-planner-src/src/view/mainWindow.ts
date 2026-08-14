@@ -131,16 +131,28 @@ export const mainWindow = ()=>{
             flex-direction: row;
         }
 
-        .launch-panel { 
-            grid-area: 2 / 3 / 4 / 4; 
+        /* overflow-x:hidden hier ist der eigentliche Grund, warum "Starting
+           villages" bisher breiter wirkte als "Targets": .launch-header hat
+           11-12 Einheiten-Icon-Spalten und ist (anders als .launch-list) an
+           keiner Stelle gegen Overflow abgesichert. Als CSS-Grid-Item hat
+           .launch-header von sich aus min-width:auto - es weicht also nicht
+           unter seine eigene Mindestbreite zurück und drückt dadurch die
+           ganze .launch-panel-Spalte optisch breiter als die gleich große
+           .target-panel-Spalte auf. min-width:0 erlaubt das Zurückweichen,
+           overflow-x:hidden fängt den dann verbleibenden Überschuss auf,
+           statt ihn sichtbar über den Rand hinausragen zu lassen. */
+        .launch-panel {
+            grid-area: 2 / 3 / 4 / 4;
             border-left: solid 1px #6c4824;
-            display: grid; 
-            grid-template-columns: 1fr; 
-            grid-template-rows: 30px 1fr; 
-            gap: 0px 0px; 
-            grid-template-areas: 
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 30px 1fr;
+            gap: 0px 0px;
+            grid-template-areas:
                 "launch-header"
-                "launch-list"; 
+                "launch-list";
+            min-width: 0;
+            overflow-x: hidden;
         }
 
         .launch-list {
@@ -151,12 +163,13 @@ export const mainWindow = ()=>{
             grid-area: launch-list;
             display: block;
         }
-        .launch-header { 
+        .launch-header {
             padding-right:5px;
             background: linear-gradient(to bottom,#e2c07c 0%,#dab874 44%,#c1a264 100%);
             grid-area: launch-header;
             display: grid;
-            grid-template-columns:  1fr 1fr 1fr 1fr${window.gameConfig.game.archer==1 ? ' 1fr':''} 1fr 1fr${window.gameConfig.game.archer==1 ? '1fr':''} 1fr 1fr 1fr 1fr 1fr; 
+            min-width: 0;
+            grid-template-columns:  1fr 1fr 1fr 1fr${window.gameConfig.game.archer==1 ? ' 1fr':''} 1fr 1fr${window.gameConfig.game.archer==1 ? '1fr':''} 1fr 1fr 1fr 1fr 1fr;
             grid-template-rows: 30px;
             gap: 0px;
             grid-template-areas: 
