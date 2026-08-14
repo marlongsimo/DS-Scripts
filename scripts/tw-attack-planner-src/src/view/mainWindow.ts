@@ -102,7 +102,21 @@ export const mainWindow = ()=>{
         .target-header {
             grid-area: target-header; 
         }
-        .target-list { grid-area: target-list; overflow-y:auto; }
+        /* overflow-x eigenständig auf der Liste selbst (nicht nur
+           overflow-y) - sonst müsste jede zu breite Zeile (Name,
+           Farbmarkierungen, Booster-Button, Icons) über das äußere
+           #popup_box_PlannerMainWindow horizontal gescrollt werden. Dessen
+           extra griffiges -webkit-overflow-scrolling:touch (PR #114)
+           kollidiert dann auf iOS mit dem vertikalen Scrollen der Liste
+           selbst und fühlt sich an, als würden sich die Zeilen verschieben
+           lassen statt sauber zu scrollen - dasselbe Muster wie beim
+           Automatic-assignment-Popup in PR #120, hier fürs Hauptfenster. */
+        .target-list {
+            grid-area: target-list;
+            overflow-y:auto;
+            overflow-x: scroll;
+            -webkit-overflow-scrolling: touch;
+        }
 
         .launch-title { 
             grid-area: 1 / 3 / 2 / 4;
@@ -131,8 +145,10 @@ export const mainWindow = ()=>{
 
         .launch-list {
             overflow-y:scroll;
+            overflow-x: scroll;
+            -webkit-overflow-scrolling: touch;
             border-bottom-right-radius: 20px;
-            grid-area: launch-list; 
+            grid-area: launch-list;
             display: block;
         }
         .launch-header { 
