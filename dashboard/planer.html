@@ -83,6 +83,7 @@
             <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
               <button class="btn btn-outline" id="adbRefreshBtn" type="button">🔄 Aktualisieren</button>
               <button class="btn btn-outline" id="adbImportExportBtn" type="button">⇅ Import/Export</button>
+              <button class="btn btn-outline" id="adbBulkEditBtn" type="button">☑️ Massenbearbeitung</button>
               <button class="btn btn-primary" id="adbNewCommandBtn" type="button">➕ Neuer Befehl</button>
             </div>
           </div>
@@ -119,6 +120,7 @@
             <table>
               <thead id="adbTableHead">
                 <tr>
+                  <th><input type="checkbox" id="adbSelectAll" title="Alle auswählen"></th>
                   <th class="adb-sort-th" data-sort="status">Status<span class="adb-sort-arrow"></span></th>
                   <th class="adb-sort-th" data-sort="origin">Von<span class="adb-sort-arrow"></span></th>
                   <th class="adb-sort-th" data-sort="target">Ziel<span class="adb-sort-arrow"></span></th>
@@ -132,7 +134,7 @@
                 </tr>
               </thead>
               <tbody id="adbTableBody">
-                <tr><td colspan="10" style="color:var(--text-muted);">Lädt…</td></tr>
+                <tr><td colspan="11" style="color:var(--text-muted);">Lädt…</td></tr>
               </tbody>
             </table>
           </div>
@@ -199,11 +201,111 @@
 
           <div id="adbWavesContainer"></div>
 
+          <div id="adbCatapultTargetRow" class="field adb-hidden" style="max-width:320px;">
+            <label for="adbCatapultTarget">Katapultziel</label>
+            <select id="adbCatapultTarget">
+              <option value="">Zufälliges Ziel</option>
+              <option value="main">Hauptgebäude</option>
+              <option value="barracks">Kaserne</option>
+              <option value="stable">Stall</option>
+              <option value="garage">Werkstatt</option>
+              <option value="snob">Adelshof</option>
+              <option value="smith">Schmiede</option>
+              <option value="place">Versammlungsplatz</option>
+              <option value="statue">Statue</option>
+              <option value="market">Marktplatz</option>
+              <option value="wood">Holzfällerlager</option>
+              <option value="stone">Lehmgrube</option>
+              <option value="iron">Eisenmine</option>
+              <option value="farm">Bauernhof</option>
+              <option value="storage">Speicher</option>
+              <option value="hide">Versteck</option>
+              <option value="wall">Wall</option>
+            </select>
+          </div>
+
           <div style="display:flex; gap:0.7rem; margin-top:0.6rem;">
             <button class="btn btn-primary" id="adbSaveCommand" type="button">Speichern</button>
             <button class="btn btn-outline" id="adbCancelCommand" type="button">Abbrechen</button>
           </div>
           <div id="adbFormStatus" class="status"></div>
+        </div>
+
+        <!-- ── Massenbearbeitung (mehrere ausgewählte Befehle gemeinsam ändern) ── -->
+        <div id="adbBulkEditPanel" class="panel adb-hidden" style="margin-top:1.2rem;">
+          <h3>☑️ Massenbearbeitung</h3>
+          <p id="adbBulkEditCount" style="font-size:0.85rem; color:var(--text-muted);"></p>
+
+          <div class="panel" style="margin-bottom:1rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">
+              <input type="checkbox" id="adbBulkApplyUnits"> Truppen übernehmen
+            </label>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin:0.4rem 0 0.6rem;">
+              Nur ausgefüllte Einheiten werden übernommen (überschreibt nur diese, andere bleiben unangetastet).
+            </p>
+            <div id="adbBulkUnitsGrid" class="adb-unit-grid"></div>
+          </div>
+
+          <div class="panel" style="margin-bottom:1rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">
+              <input type="checkbox" id="adbBulkApplyCatapult"> Katapultziel übernehmen
+            </label>
+            <div class="field" style="max-width:320px; margin-top:0.6rem;">
+              <label for="adbBulkCatapultTarget">Katapultziel für alle ausgewählten Befehle</label>
+              <select id="adbBulkCatapultTarget">
+                <option value="">Zufälliges Ziel</option>
+                <option value="main">Hauptgebäude</option>
+                <option value="barracks">Kaserne</option>
+                <option value="stable">Stall</option>
+                <option value="garage">Werkstatt</option>
+                <option value="snob">Adelshof</option>
+                <option value="smith">Schmiede</option>
+                <option value="place">Versammlungsplatz</option>
+                <option value="statue">Statue</option>
+                <option value="market">Marktplatz</option>
+                <option value="wood">Holzfällerlager</option>
+                <option value="stone">Lehmgrube</option>
+                <option value="iron">Eisenmine</option>
+                <option value="farm">Bauernhof</option>
+                <option value="storage">Speicher</option>
+                <option value="hide">Versteck</option>
+                <option value="wall">Wall</option>
+              </select>
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.4rem;">
+              Wird nur bei Befehlen gesetzt, die auch tatsächlich Katapulte enthalten.
+            </p>
+          </div>
+
+          <div class="panel" style="margin-bottom:1rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">
+              <input type="checkbox" id="adbBulkApplyArrival"> Ankunftszeit übernehmen
+            </label>
+            <div style="margin-top:0.6rem;">
+              <label style="display:flex; align-items:center; gap:0.4rem;">
+                <input type="radio" name="adbBulkArrivalMode" value="shift" checked> Verschieben um
+              </label>
+              <div style="display:flex; gap:0.5rem; align-items:center; margin:0.4rem 0 0.8rem 1.6rem;">
+                <input type="number" id="adbBulkArrivalShift" value="0" style="width:110px;">
+                <select id="adbBulkArrivalUnit">
+                  <option value="60">Minuten</option>
+                  <option value="1">Sekunden</option>
+                  <option value="3600">Stunden</option>
+                </select>
+                <small style="color:var(--text-muted);">negative Werte ziehen die Ankunft vor</small>
+              </div>
+              <label style="display:flex; align-items:center; gap:0.4rem;">
+                <input type="radio" name="adbBulkArrivalMode" value="absolute"> Fester Zeitpunkt für alle
+              </label>
+              <input type="datetime-local" id="adbBulkArrivalAbsolute" step="1" style="margin-left:1.6rem; margin-top:0.4rem;">
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.7rem; margin-top:0.6rem;">
+            <button class="btn btn-primary" id="adbBulkEditSubmit" type="button">Änderungen auf Auswahl anwenden</button>
+            <button class="btn btn-outline" id="adbBulkEditCancel" type="button">Abbrechen</button>
+          </div>
+          <div id="adbBulkEditStatus" class="status"></div>
         </div>
 
       </div>
@@ -389,7 +491,7 @@
     async function loadPlan() {
       const loadStatusEl = document.getElementById('adbLoadStatus');
       const tbody = document.getElementById('adbTableBody');
-      tbody.innerHTML = '<tr><td colspan="10" style="color:var(--text-muted);">Lädt…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text-muted);">Lädt…</td></tr>';
       clearStatus(loadStatusEl);
       try {
         const data = await fbGet(`teams/${encodeURIComponent(teamKey)}/planer/plan`);
@@ -398,7 +500,7 @@
         renderTable();
       } catch (e) {
         showStatus(loadStatusEl, 'Fehler beim Laden: ' + e.message, 'error');
-        tbody.innerHTML = '<tr><td colspan="10" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="color:var(--danger);">Konnte Plan nicht laden.</td></tr>';
       }
     }
 
@@ -517,7 +619,7 @@
       const tbody = document.getElementById('adbTableBody');
       const commands = (currentPlanData.commands || []).slice();
       if (!commands.length) {
-        tbody.innerHTML = '<tr><td colspan="10" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text-muted);">Keine geplanten Befehle.</td></tr>';
         return;
       }
       if (sortState.key) commands.sort(compareBy(sortState.key, sortState.dir));
@@ -537,7 +639,9 @@
           : '–';
         const typeIcon = `<img src="${commandTypeToImageLink(parseInt(command.type))}" title="Type ${command.type}" alt="Type ${command.type}" width="20">`;
         const sendTimestamp = computeSendTimestamp(command);
+        const isSelected = selectedIds.has(String(command.commandId));
         tr.innerHTML = `
+          <td><input type="checkbox" class="adb-row-checkbox" data-id="${command.commandId}"${isSelected ? ' checked' : ''}></td>
           <td>${statusBadge(command)}</td>
           <td>${originLabel}</td>
           <td>${targetLabel}</td>
@@ -562,6 +666,25 @@
         btn.addEventListener('click', () => armDeleteConfirm(btn));
       });
     }
+
+    // ── Auswahl (für Massenbearbeitung) ─────────────────────────────────
+    // selectedIds bleibt über renderTable()-Aufrufe hinweg bestehen (Set statt
+    // DOM-Zustand), damit Sortieren/Aktualisieren die Auswahl nicht verwirft.
+    let selectedIds = new Set();
+
+    document.getElementById('adbTableBody').addEventListener('change', (e) => {
+      if (!e.target.classList.contains('adb-row-checkbox')) return;
+      const id = e.target.dataset.id;
+      if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+    });
+
+    document.getElementById('adbSelectAll').addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      (currentPlanData ? (currentPlanData.commands || []) : []).forEach((c) => {
+        if (checked) selectedIds.add(String(c.commandId)); else selectedIds.delete(String(c.commandId));
+      });
+      renderTable();
+    });
 
     // Eigene Inline-Bestätigung statt window.confirm() - der native Dialog
     // wird in manchen Browser-Kontexten (v.a. mobil/In-App-Browser) blockiert
@@ -651,7 +774,22 @@
         const prefill = prefillWaves ? prefillWaves[i - 1] : null;
         container.appendChild(buildUnitGrid(prefill, i));
       }
+      updateCatapultVisibility();
     }
+
+    // Katapultziel-Feld nur einblenden, wenn irgendeine Welle Katapulte enthält -
+    // identisch zum Script ($('#naCatapultTargetRow').toggle(total > 0)).
+    function updateCatapultVisibility() {
+      const container = document.getElementById('adbWavesContainer');
+      let total = 0;
+      container.querySelectorAll('input[id$="_unit_catapult"]').forEach((inp) => {
+        total += parseInt(inp.value) || 0;
+      });
+      document.getElementById('adbCatapultTargetRow').classList.toggle('adb-hidden', total <= 0);
+    }
+    document.getElementById('adbWavesContainer').addEventListener('input', (e) => {
+      if (e.target && e.target.id && e.target.id.endsWith('_unit_catapult')) updateCatapultVisibility();
+    });
 
     document.getElementById('adbWaveCount').addEventListener('change', (e) => {
       const count = parseInt(e.target.value) || 1;
@@ -720,6 +858,7 @@
 
       const prefillWaves = command ? [command.units || {}, ...((command.trains || []))] : null;
       renderWaves(waveCount, prefillWaves);
+      document.getElementById('adbCatapultTarget').value = command ? (command.catapultTarget || '') : '';
 
       formPanel.classList.remove('adb-hidden');
       formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -732,6 +871,151 @@
     document.getElementById('adbRefreshBtn').addEventListener('click', () => {
       loadWorldConfig();
       loadPlan();
+    });
+
+    // ── Massenbearbeitung (mehrere ausgewählte Befehle gemeinsam ändern) ──
+    // Identische Logik wie openBulkEditPopup()/submitBulkEdit() im Planer-
+    // Script: pro Feld eine eigene "übernehmen"-Checkbox, nur angehakte
+    // Felder werden auf die Auswahl angewendet, alles andere bleibt je
+    // Befehl unangetastet.
+    function buildBulkUnitGrid() {
+      const grid = document.getElementById('adbBulkUnitsGrid');
+      grid.innerHTML = '';
+      UNIT_TYPES.forEach((unit) => {
+        const field = document.createElement('div');
+        field.className = 'field adb-unit-field';
+        field.innerHTML = `
+          <label for="adbBulkUnit_${unit}">${UNIT_LABELS[unit] || unit}</label>
+          <input type="number" min="0" id="adbBulkUnit_${unit}" value="0">
+        `;
+        grid.appendChild(field);
+      });
+    }
+
+    function computeSlowestUnitFor(units) {
+      let slowest = null, slowestSpeed = -1;
+      for (const unit in (units || {})) {
+        if (!units[unit]) continue;
+        const speed = (unitSpeedMap && unitSpeedMap[unit]) || BASE_SPEED[unit] || 0;
+        if (speed >= slowestSpeed) { slowestSpeed = speed; slowest = unit; }
+      }
+      return slowest;
+    }
+
+    let bulkEditWarningConfirmed = false;
+
+    document.getElementById('adbBulkEditBtn').addEventListener('click', () => {
+      if (selectedIds.size === 0) {
+        showStatus(document.getElementById('adbLoadStatus'), 'Bitte zuerst mindestens einen Befehl über die Checkbox auswählen.', 'error');
+        return;
+      }
+      document.getElementById('adbBulkEditCount').textContent = `${selectedIds.size} Befehl(e) ausgewählt.`;
+      buildBulkUnitGrid();
+      document.getElementById('adbBulkApplyUnits').checked = false;
+      document.getElementById('adbBulkApplyCatapult').checked = false;
+      document.getElementById('adbBulkApplyArrival').checked = false;
+      document.getElementById('adbBulkCatapultTarget').value = '';
+      document.querySelector('input[name="adbBulkArrivalMode"][value="shift"]').checked = true;
+      document.getElementById('adbBulkArrivalShift').value = 0;
+      document.getElementById('adbBulkArrivalUnit').value = '60';
+      document.getElementById('adbBulkArrivalAbsolute').value = '';
+      bulkEditWarningConfirmed = false;
+      clearStatus(document.getElementById('adbBulkEditStatus'));
+      document.getElementById('adbBulkEditPanel').classList.remove('adb-hidden');
+      document.getElementById('adbBulkEditPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    document.getElementById('adbBulkEditCancel').addEventListener('click', () => {
+      document.getElementById('adbBulkEditPanel').classList.add('adb-hidden');
+    });
+
+    // Jede Änderung an den Bulk-Feldern verwirft eine ggf. schon gezeigte
+    // "zu spät"-Warnung, damit ein zweiter Klick nicht versehentlich alte,
+    // nicht mehr passende Einstellungen bestätigt.
+    document.getElementById('adbBulkEditPanel').addEventListener('input', () => { bulkEditWarningConfirmed = false; });
+    document.getElementById('adbBulkEditPanel').addEventListener('change', () => { bulkEditWarningConfirmed = false; });
+
+    document.getElementById('adbBulkEditSubmit').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbBulkEditStatus');
+      const applyUnits = document.getElementById('adbBulkApplyUnits').checked;
+      const applyCatapult = document.getElementById('adbBulkApplyCatapult').checked;
+      const applyArrival = document.getElementById('adbBulkApplyArrival').checked;
+
+      if (!applyUnits && !applyCatapult && !applyArrival) {
+        showStatus(statusEl, 'Bitte oben ankreuzen, was übernommen werden soll.', 'error');
+        return;
+      }
+
+      let arrivalMode = null, arrivalShiftMs = 0, arrivalAbsolute = 0;
+      if (applyArrival) {
+        arrivalMode = document.querySelector('input[name="adbBulkArrivalMode"]:checked').value;
+        if (arrivalMode === 'absolute') {
+          const value = document.getElementById('adbBulkArrivalAbsolute').value;
+          arrivalAbsolute = value ? new Date(value).getTime() : NaN;
+          if (!value || isNaN(arrivalAbsolute)) { showStatus(statusEl, 'Bitte einen gültigen Zeitpunkt angeben.', 'error'); return; }
+        } else {
+          const amount = parseInt(document.getElementById('adbBulkArrivalShift').value);
+          const factor = parseInt(document.getElementById('adbBulkArrivalUnit').value) || 60;
+          if (isNaN(amount) || amount === 0) { showStatus(statusEl, 'Bitte einen Verschiebungswert ungleich 0 angeben.', 'error'); return; }
+          arrivalShiftMs = amount * factor * 1000;
+        }
+      }
+
+      const unitChanges = {};
+      if (applyUnits) {
+        UNIT_TYPES.forEach((unit) => {
+          const input = document.getElementById(`adbBulkUnit_${unit}`);
+          const val = input ? (parseInt(input.value) || 0) : 0;
+          if (val > 0) unitChanges[unit] = val;
+        });
+        if (!Object.keys(unitChanges).length) { showStatus(statusEl, 'Bitte mindestens eine Truppenzahl eingeben.', 'error'); return; }
+      }
+
+      const catapultTargetValue = applyCatapult ? document.getElementById('adbBulkCatapultTarget').value : null;
+
+      const selectedCommands = (currentPlanData.commands || []).filter(c => selectedIds.has(String(c.commandId)));
+      if (!selectedCommands.length) { showStatus(statusEl, 'Keine der ausgewählten Befehle mehr vorhanden - bitte Auswahl prüfen.', 'error'); return; }
+
+      // Vorab prüfen, wie viele Befehle sich danach nicht mehr rechtzeitig
+      // abschicken ließen (gleiche Näherung wie die Abschickzeit-Spalte) -
+      // erster Klick zeigt nur die Warnung, zweiter Klick übernimmt trotzdem.
+      if (applyArrival && !bulkEditWarningConfirmed) {
+        const now = Date.now();
+        let tooLate = 0;
+        selectedCommands.forEach((cmd) => {
+          const newArrival = arrivalMode === 'absolute' ? arrivalAbsolute : (cmd.arrivalTimestamp + arrivalShiftMs);
+          const sendTs = computeSendTimestamp(Object.assign({}, cmd, { arrivalTimestamp: newArrival }));
+          if (sendTs !== null && sendTs < now) tooLate++;
+        });
+        if (tooLate > 0) {
+          showStatus(statusEl, `${tooLate} von ${selectedCommands.length} Befehlen ließen sich danach nicht mehr rechtzeitig abschicken (Näherung). Nochmal auf "Änderungen anwenden" klicken, um trotzdem zu übernehmen.`, 'error');
+          bulkEditWarningConfirmed = true;
+          return;
+        }
+      }
+
+      selectedCommands.forEach((command) => {
+        if (applyArrival) {
+          command.arrivalTimestamp = arrivalMode === 'absolute' ? arrivalAbsolute : (command.arrivalTimestamp + arrivalShiftMs);
+        }
+        if (applyUnits) {
+          command.units = Object.assign({}, command.units, unitChanges);
+          command.slowestUnit = computeSlowestUnitFor(command.units);
+        }
+        if (applyCatapult) {
+          const catapultAmount = parseInt((command.units || {}).catapult) || 0;
+          command.catapultTarget = catapultAmount > 0 ? catapultTargetValue : '';
+        }
+      });
+
+      try {
+        await pushPlan();
+        document.getElementById('adbBulkEditPanel').classList.add('adb-hidden');
+        renderTable();
+        showStatus(document.getElementById('adbLoadStatus'), `${selectedCommands.length} Befehl(e) aktualisiert ✓`, 'ok');
+      } catch (e) {
+        showStatus(statusEl, 'Fehler beim Speichern: ' + e.message, 'error');
+      }
     });
 
     // ── Import / Export (Workbench-Format) ──────────────────────────────
@@ -881,6 +1165,12 @@
 
       if (!currentPlanData.commands) currentPlanData.commands = [];
 
+      // Katapultziel nur speichern, wenn ueberhaupt Katapulte im Befehl (welle 1
+      // oder train) sind - sonst bliebe ein Zielgebaeude haengen, das beim
+      // Abschicken nie abgefragt wird (identisch zur Logik im Planer-Script).
+      const totalCatapults = (units.catapult || 0) + trains.reduce((sum, w) => sum + (w.catapult || 0), 0);
+      const catapultTarget = totalCatapults > 0 ? document.getElementById('adbCatapultTarget').value : '';
+
       if (editingCommandId) {
         const idx = currentPlanData.commands.findIndex(c => String(c.commandId) === String(editingCommandId));
         if (idx !== -1) {
@@ -888,7 +1178,7 @@
           // Bei Änderung der Koordinaten muss ggf. neu aufgelöst werden.
           const coordChanged = existing.originCoord !== originCoord || existing.targetCoord !== targetCoord;
           currentPlanData.commands[idx] = Object.assign({}, existing, {
-            originCoord, targetCoord, attackKind, arrivalTimestamp, units,
+            originCoord, targetCoord, attackKind, arrivalTimestamp, units, catapultTarget,
             trains: trains.length ? trains : undefined,
             originVillageId: coordChanged ? null : existing.originVillageId,
             targetVillageId: coordChanged ? null : existing.targetVillageId,
@@ -902,7 +1192,7 @@
           originCoord, targetCoord,
           originVillageId: null, targetVillageId: null,
           attackKind, arrivalTimestamp, type: 16,
-          catapultTarget: '', trains: trains.length ? trains : undefined,
+          catapultTarget, trains: trains.length ? trains : undefined,
           units, drawIn: true, sent: false,
           needsResolve: true, source: 'dashboard'
         });
