@@ -238,12 +238,37 @@
 
           <div class="panel" style="margin-bottom:1rem;">
             <label style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">
+              <input type="checkbox" id="adbBulkApplyArt"> Befehlsart übernehmen
+            </label>
+            <div class="field" style="max-width:220px; margin-top:0.6rem;">
+              <label for="adbBulkAttackKind">Art für alle ausgewählten Befehle</label>
+              <select id="adbBulkAttackKind">
+                <option value="attack">Angriff</option>
+                <option value="support">Unterstützung</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:1rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">
               <input type="checkbox" id="adbBulkApplyUnits"> Truppen übernehmen
             </label>
             <p style="font-size:0.8rem; color:var(--text-muted); margin:0.4rem 0 0.6rem;">
-              Nur ausgefüllte Einheiten werden übernommen (überschreibt nur diese, andere bleiben unangetastet).
+              Nur ausgefüllte Einheiten werden je Welle übernommen (überschreibt nur diese, andere Einheiten
+              und andere Wellen bleiben unangetastet; fehlt eine ausgefüllte Welle bei einem Befehl noch,
+              wird sie ergänzt).
             </p>
-            <div id="adbBulkUnitsGrid" class="adb-unit-grid"></div>
+            <div class="field" style="max-width:220px; margin-bottom:0.8rem;">
+              <label for="adbBulkWaveCount">Anzahl Angriffswellen (AG-Train)</label>
+              <select id="adbBulkWaveCount">
+                <option value="1">1 (einzelner Angriff)</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div id="adbBulkWavesContainer"></div>
           </div>
 
           <div class="panel" style="margin-bottom:1rem;">
@@ -741,7 +766,12 @@
     }
 
     // ── Formular (Neu / Bearbeiten) ─────────────────────────────────────
-    function buildUnitGrid(existingUnits, waveNumber) {
+    // idPrefix trennt Einzelbearbeitung ("adbWave...", Default) und
+    // Massenbearbeitung ("adbBulkWave...") - dieselbe Wellen-Logik wird von
+    // beiden Formularen genutzt, aber mit eigenen Element-IDs (IDs müssen
+    // dokumentweit eindeutig sein).
+    function buildUnitGrid(existingUnits, waveNumber, idPrefix) {
+      const prefix = idPrefix || 'adbWave';
       const wrap = document.createElement('div');
       wrap.className = 'panel';
       wrap.style.marginBottom = '1rem';
@@ -756,8 +786,8 @@
         const field = document.createElement('div');
         field.className = 'field adb-unit-field';
         field.innerHTML = `
-          <label for="adbWave${waveNumber}_unit_${unit}">${UNIT_LABELS[unit] || unit}</label>
-          <input type="number" min="0" id="adbWave${waveNumber}_unit_${unit}" value="${(existingUnits && existingUnits[unit]) || 0}">
+          <label for="${prefix}${waveNumber}_unit_${unit}">${UNIT_LABELS[unit] || unit}</label>
+          <input type="number" min="0" id="${prefix}${waveNumber}_unit_${unit}" value="${(existingUnits && existingUnits[unit]) || 0}">
         `;
         grid.appendChild(field);
       });
@@ -767,14 +797,14 @@
 
     // prefillWaves: Array von Einheiten-Objekten, Index 0 = Welle 1 (units),
     // Index 1..3 = weitere Wellen (trains[0..3]).
-    function renderWaves(waveCount, prefillWaves) {
-      const container = document.getElementById('adbWavesContainer');
+    function renderWaves(waveCount, prefillWaves, containerId, idPrefix) {
+      const container = document.getElementById(containerId || 'adbWavesContainer');
       container.innerHTML = '';
       for (let i = 1; i <= waveCount; i++) {
         const prefill = prefillWaves ? prefillWaves[i - 1] : null;
-        container.appendChild(buildUnitGrid(prefill, i));
+        container.appendChild(buildUnitGrid(prefill, i, idPrefix));
       }
-      updateCatapultVisibility();
+      if (!containerId || containerId === 'adbWavesContainer') updateCatapultVisibility();
     }
 
     // Katapultziel-Feld nur einblenden, wenn irgendeine Welle Katapulte enthält -
@@ -803,8 +833,9 @@
 
     // Liest die aktuell im Formular eingetragenen Wellen aus (bis maxWave, oder
     // alle vorhandenen, falls maxWave weggelassen wird).
-    function collectWaves(maxWave) {
-      const container = document.getElementById('adbWavesContainer');
+    function collectWaves(maxWave, containerId, idPrefix) {
+      const prefix = idPrefix || 'adbWave';
+      const container = document.getElementById(containerId || 'adbWavesContainer');
       const waveBlocks = Array.from(container.querySelectorAll('[data-wave]'));
       const limit = maxWave || waveBlocks.length;
       const result = [];
@@ -813,7 +844,7 @@
         const waveUnits = {};
         if (block) {
           UNIT_TYPES.forEach(unit => {
-            const input = block.querySelector(`#adbWave${i}_unit_${unit}`);
+            const input = block.querySelector(`#${prefix}${i}_unit_${unit}`);
             const val = input ? (parseInt(input.value) || 0) : 0;
             if (val > 0) waveUnits[unit] = val;
           });
@@ -878,24 +909,18 @@
     // Script: pro Feld eine eigene "übernehmen"-Checkbox, nur angehakte
     // Felder werden auf die Auswahl angewendet, alles andere bleibt je
     // Befehl unangetastet.
-    function buildBulkUnitGrid() {
-      const grid = document.getElementById('adbBulkUnitsGrid');
-      grid.innerHTML = '';
-      UNIT_TYPES.forEach((unit) => {
-        const field = document.createElement('div');
-        field.className = 'field adb-unit-field';
-        field.innerHTML = `
-          <label for="adbBulkUnit_${unit}">${UNIT_LABELS[unit] || unit}</label>
-          <input type="number" min="0" id="adbBulkUnit_${unit}" value="0">
-        `;
-        grid.appendChild(field);
+    // Kombiniert units + alle trains zu einer Gesamtzählung, bevor die
+    // langsamste Einheit ermittelt wird - identisch zu computeSlowestUnit()
+    // im Planer-Script (dort werden Welle 1 und alle AG-Train-Wellen
+    // ebenfalls zusammengezählt, nicht nur Welle 1 betrachtet).
+    function computeSlowestUnitFor(units, trains) {
+      const all = Object.assign({}, units || {});
+      (trains || []).forEach((row) => {
+        for (const u in row) all[u] = (all[u] || 0) + (parseInt(row[u]) || 0);
       });
-    }
-
-    function computeSlowestUnitFor(units) {
       let slowest = null, slowestSpeed = -1;
-      for (const unit in (units || {})) {
-        if (!units[unit]) continue;
+      for (const unit in all) {
+        if (!all[unit]) continue;
         const speed = (unitSpeedMap && unitSpeedMap[unit]) || BASE_SPEED[unit] || 0;
         if (speed >= slowestSpeed) { slowestSpeed = speed; slowest = unit; }
       }
@@ -903,6 +928,17 @@
     }
 
     let bulkEditWarningConfirmed = false;
+    let currentBulkWaveCount = 1;
+
+    document.getElementById('adbBulkWaveCount').addEventListener('change', (e) => {
+      const count = parseInt(e.target.value) || 1;
+      const existing = collectWaves(
+        count > (currentBulkWaveCount || 1) ? (currentBulkWaveCount || 1) : count,
+        'adbBulkWavesContainer', 'adbBulkWave'
+      );
+      currentBulkWaveCount = count;
+      renderWaves(count, existing, 'adbBulkWavesContainer', 'adbBulkWave');
+    });
 
     document.getElementById('adbBulkEditBtn').addEventListener('click', () => {
       if (selectedIds.size === 0) {
@@ -910,8 +946,12 @@
         return;
       }
       document.getElementById('adbBulkEditCount').textContent = `${selectedIds.size} Befehl(e) ausgewählt.`;
-      buildBulkUnitGrid();
+      document.getElementById('adbBulkApplyArt').checked = false;
+      document.getElementById('adbBulkAttackKind').value = 'attack';
       document.getElementById('adbBulkApplyUnits').checked = false;
+      currentBulkWaveCount = 1;
+      document.getElementById('adbBulkWaveCount').value = '1';
+      renderWaves(1, null, 'adbBulkWavesContainer', 'adbBulkWave');
       document.getElementById('adbBulkApplyCatapult').checked = false;
       document.getElementById('adbBulkApplyArrival').checked = false;
       document.getElementById('adbBulkCatapultTarget').value = '';
@@ -937,14 +977,17 @@
 
     document.getElementById('adbBulkEditSubmit').addEventListener('click', async () => {
       const statusEl = document.getElementById('adbBulkEditStatus');
+      const applyArt = document.getElementById('adbBulkApplyArt').checked;
       const applyUnits = document.getElementById('adbBulkApplyUnits').checked;
       const applyCatapult = document.getElementById('adbBulkApplyCatapult').checked;
       const applyArrival = document.getElementById('adbBulkApplyArrival').checked;
 
-      if (!applyUnits && !applyCatapult && !applyArrival) {
+      if (!applyArt && !applyUnits && !applyCatapult && !applyArrival) {
         showStatus(statusEl, 'Bitte oben ankreuzen, was übernommen werden soll.', 'error');
         return;
       }
+
+      const attackKindValue = document.getElementById('adbBulkAttackKind').value;
 
       let arrivalMode = null, arrivalShiftMs = 0, arrivalAbsolute = 0;
       if (applyArrival) {
@@ -961,14 +1004,17 @@
         }
       }
 
-      const unitChanges = {};
+      // bulkWaves[0] = Änderungen für Welle 1 (units), bulkWaves[1..] = Änderungen
+      // für weitere Wellen (trains[0..]) - jede Welle einzeln optional, nur
+      // ausgefüllte Wellen werden bei den ausgewählten Befehlen angefasst.
+      let bulkWaves = [];
       if (applyUnits) {
-        UNIT_TYPES.forEach((unit) => {
-          const input = document.getElementById(`adbBulkUnit_${unit}`);
-          const val = input ? (parseInt(input.value) || 0) : 0;
-          if (val > 0) unitChanges[unit] = val;
-        });
-        if (!Object.keys(unitChanges).length) { showStatus(statusEl, 'Bitte mindestens eine Truppenzahl eingeben.', 'error'); return; }
+        const bulkWaveCount = parseInt(document.getElementById('adbBulkWaveCount').value) || 1;
+        bulkWaves = collectWaves(bulkWaveCount, 'adbBulkWavesContainer', 'adbBulkWave');
+        if (!bulkWaves.some(w => Object.keys(w).length > 0)) {
+          showStatus(statusEl, 'Bitte mindestens eine Truppenzahl eingeben.', 'error');
+          return;
+        }
       }
 
       const catapultTargetValue = applyCatapult ? document.getElementById('adbBulkCatapultTarget').value : null;
@@ -995,12 +1041,26 @@
       }
 
       selectedCommands.forEach((command) => {
+        if (applyArt) {
+          command.attackKind = attackKindValue;
+        }
         if (applyArrival) {
           command.arrivalTimestamp = arrivalMode === 'absolute' ? arrivalAbsolute : (command.arrivalTimestamp + arrivalShiftMs);
         }
         if (applyUnits) {
-          command.units = Object.assign({}, command.units, unitChanges);
-          command.slowestUnit = computeSlowestUnitFor(command.units);
+          bulkWaves.forEach((waveChanges, idx) => {
+            if (!Object.keys(waveChanges).length) return; // Welle nicht ausgefüllt -> dieser Befehl bleibt hier unangetastet
+            if (idx === 0) {
+              command.units = Object.assign({}, command.units, waveChanges);
+            } else {
+              const trainIdx = idx - 1;
+              const trains = Array.isArray(command.trains) ? command.trains.slice() : [];
+              while (trains.length <= trainIdx) trains.push({});
+              trains[trainIdx] = Object.assign({}, trains[trainIdx], waveChanges);
+              command.trains = trains;
+            }
+          });
+          command.slowestUnit = computeSlowestUnitFor(command.units, command.trains);
         }
         if (applyCatapult) {
           const catapultAmount = parseInt((command.units || {}).catapult) || 0;
