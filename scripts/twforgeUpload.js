@@ -10,8 +10,14 @@
  *     im eingestellten Quell-Ordner, lädt sie zu TwForge hoch und
  *     verschiebt sie danach in den eingestellten Ziel-Ordner - so bleibt
  *     der Quell-Ordner (z.B. "Neue Berichte") frei für den nächsten Lauf.
- *   - "⚙️ Ordner einstellen": Dropdowns mit den echten Namen der eigenen
- *     Berichtsordner, für Quell- und Zielordner getrennt wählbar.
+ *   - "⚙️ Ordner einstellen": Quell- und Ziel-Ordner werden als reine
+ *     Ordner-ID (Zahl) eingetragen - wie beim Katta-Feature von "Anaboles
+ *     Farmen" (dort ebenfalls ein einfaches Zahlenfeld, kein Dropdown). Ein
+ *     erster Versuch, die Ordnernamen automatisch aus einem vermuteten
+ *     <select>-Element auszulesen, ist an der tatsächlichen Seitenstruktur
+ *     gescheitert ("kann Ordner nicht laden") - die ID lässt sich einfach
+ *     aus der URL ablesen, wenn man den Ordner in der Berichtsübersicht
+ *     anklickt (z.B. "...&group_id=12" -> ID ist 12).
  * Kein automatisches Durchklicken, keine Hintergrund-Automatisierung -
  * jeder Button muss angeklickt werden.
  *
@@ -26,15 +32,6 @@
  * window.TWFORGE_KEY statt aus GM-Speicher, und die TwForge-Anfrage läuft
  * über normales fetch() statt GM_xmlhttpRequest - das funktioniert nur,
  * wenn die TwForge-API Cross-Origin-Anfragen von der Spieldomain erlaubt.
- *
- * ANNAHME (nicht live getestet): die Ordner-Auswahl für "Berichte
- * verschieben" auf der Berichtsübersicht (screen=report&mode=all) enthält
- * ein <select name="group_id"> mit den echten Ordnernamen als <option>-
- * Text - loadReportFolders() liest genau das aus einer einmalig
- * nachgeladenen Kopie dieser Seite. Falls die Spielseite ein anderes
- * Markup verwendet, liefert der Dropdown im Zahnrad-Menü keine Einträge
- * (klare Fehlermeldung statt stillem Fehlschlag) und der Selektor müsste
- * angepasst werden.
  */
 
 (function () {
@@ -223,73 +220,50 @@
   }
   function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
 
-  // Liest die echten Berichtsordner (Name + ID) aus dem "In Ordner
-  // verschieben"-Dropdown der normalen Berichtsübersicht - dafür wird
-  // diese Seite einmalig separat nachgeladen (das Script selbst läuft ja
-  // nur auf der Übersicht der eintreffenden Angriffe).
-  async function loadReportFolders() {
-    const doc = await fetchDoc('/game.php?screen=report&mode=all');
-    const select = doc.querySelector('select[name="group_id"]') || doc.querySelector('select[name="move_to_group_id"]');
-    if (!select) return [];
-    return Array.from(select.querySelectorAll('option'))
-      .map((o) => ({ id: o.value, name: o.textContent.trim() }))
-      .filter((f) => f.id !== '' && f.name !== '');
-  }
-
+  // Ordner-IDs werden wie im Katta-Feature von "Anaboles Farmen" manuell
+  // eingetragen statt automatisch per Dropdown erkannt - ein Versuch, die
+  // Ordnernamen über ein vermutetes <select>-Element auf der
+  // Berichtsübersicht auszulesen, ist an der tatsächlichen Seitenstruktur
+  // gescheitert. Die ID steht in der URL, wenn man den Ordner in der
+  // Berichtsübersicht anklickt (z.B. "...&group_id=12" -> ID ist 12).
   function settingsPanel() {
+    const s = getSettings();
     const box = document.createElement('div');
     box.id = 'twforge-settings-panel';
     box.style.cssText = 'margin:6px 0;padding:8px;border:1px solid #7d510f;background:#f4e4bc;' +
                         'border-radius:3px;font-size:12px;clear:both;display:none;';
     box.innerHTML =
       '<div style="margin-bottom:6px;"><strong>Ordner-Einstellungen</strong></div>' +
-      '<div style="margin-bottom:6px;">Quell-Ordner (wird zu TwForge hochgeladen):<br>' +
-      '<select id="twforge-source-select" style="width:220px;"><option>lädt…</option></select></div>' +
-      '<div style="margin-bottom:6px;">Ziel-Ordner (Berichte werden danach dorthin verschoben):<br>' +
-      '<select id="twforge-dest-select" style="width:220px;"><option>lädt…</option></select></div>' +
+      '<div style="margin-bottom:6px;">Quell-Ordner-ID (wird zu TwForge hochgeladen):<br>' +
+      '<input id="twforge-source-id" type="number" min="0" style="width:100px;" value="' + (s.sourceFolderId != null ? s.sourceFolderId : '') + '"></div>' +
+      '<div style="margin-bottom:6px;">Ziel-Ordner-ID (Berichte werden danach dorthin verschoben):<br>' +
+      '<input id="twforge-dest-id" type="number" min="0" style="width:100px;" value="' + (s.destFolderId != null ? s.destFolderId : '') + '"></div>' +
+      '<p style="margin:6px 0;color:#603000;">Ordner-ID: den Ordner in der Berichtsübersicht anklicken, ' +
+      'dann aus der URL ablesen (z.B. „...&amp;group_id=12" → ID ist 12).</p>' +
       '<a href="#" class="btn" id="twforge-save-settings">💾 Speichern</a>' +
       '<span id="twforge-settings-status" style="margin-left:8px;font-weight:bold;"></span>';
     return box;
   }
 
-  async function populateFolderSelects() {
-    const statusEl = document.getElementById('twforge-settings-status');
-    const srcSel = document.getElementById('twforge-source-select');
-    const dstSel = document.getElementById('twforge-dest-select');
-    statusEl.textContent = '';
-    try {
-      const folders = await loadReportFolders();
-      if (!folders.length) {
-        statusEl.textContent = '✗ keine Ordner gefunden (siehe Kommentar im Scriptkopf)';
-        statusEl.style.color = '#a00';
-        return;
-      }
-      const opts = folders.map((f) => '<option value="' + f.id + '">' + f.name + '</option>').join('');
-      srcSel.innerHTML = opts;
-      dstSel.innerHTML = opts;
-      const s = getSettings();
-      if (s.sourceFolderId !== undefined) srcSel.value = s.sourceFolderId;
-      if (s.destFolderId !== undefined) dstSel.value = s.destFolderId;
-    } catch (e) {
-      statusEl.textContent = '✗ Ordner konnten nicht geladen werden';
-      statusEl.style.color = '#a00';
-    }
-  }
-
   function wireSettingsPanel(sp) {
     sp.querySelector('#twforge-save-settings').addEventListener('click', (ev) => {
       ev.preventDefault();
-      const srcSel = sp.querySelector('#twforge-source-select');
-      const dstSel = sp.querySelector('#twforge-dest-select');
+      const srcInp = sp.querySelector('#twforge-source-id');
+      const dstInp = sp.querySelector('#twforge-dest-id');
       const statusEl = sp.querySelector('#twforge-settings-status');
-      if (!srcSel.value || !dstSel.value) { statusEl.textContent = '✗ Ordner werden noch geladen'; statusEl.style.color = '#a00'; return; }
-      if (srcSel.value === dstSel.value) { statusEl.textContent = '✗ Quell- und Ziel-Ordner müssen unterschiedlich sein'; statusEl.style.color = '#a00'; return; }
-      saveSettings({
-        sourceFolderId: srcSel.value,
-        sourceFolderName: srcSel.options[srcSel.selectedIndex].textContent,
-        destFolderId: dstSel.value,
-        destFolderName: dstSel.options[dstSel.selectedIndex].textContent,
-      });
+      const src = srcInp.value.trim();
+      const dst = dstInp.value.trim();
+      if (src === '' || dst === '' || isNaN(Number(src)) || isNaN(Number(dst))) {
+        statusEl.textContent = '✗ bitte beide Ordner-IDs als Zahl eintragen';
+        statusEl.style.color = '#a00';
+        return;
+      }
+      if (src === dst) {
+        statusEl.textContent = '✗ Quell- und Ziel-Ordner müssen unterschiedlich sein';
+        statusEl.style.color = '#a00';
+        return;
+      }
+      saveSettings({ sourceFolderId: src, destFolderId: dst });
       statusEl.textContent = '✓ gespeichert';
       statusEl.style.color = '#0a0';
     });
@@ -354,7 +328,7 @@
 
     const tail = (added === null ? '' : ', TwForge hat ' + added + ' hinzugefügt') +
                  (failed.length ? ' · ✗ ' + failed.length + ' Fehler' : '');
-    say('✓ ' + moved + '/' + ids.length + ' hochgeladen & nach "' + s.destFolderName + '" verschoben' + tail, failed.length ? '#a60' : '#0a0');
+    say('✓ ' + moved + '/' + ids.length + ' hochgeladen & nach Ordner ' + s.destFolderId + ' verschoben' + tail, failed.length ? '#a60' : '#0a0');
   }
 
   if (page.screen === 'overview_villages' && page.mode === 'incomings') {
@@ -372,9 +346,7 @@
     wireSettingsPanel(sp);
     gearBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
-      const willShow = sp.style.display === 'none';
-      sp.style.display = willShow ? 'block' : 'none';
-      if (willShow) populateFolderSelects();
+      sp.style.display = sp.style.display === 'none' ? 'block' : 'none';
     });
     gearRow.appendChild(gearBtn);
     container.appendChild(gearRow);
