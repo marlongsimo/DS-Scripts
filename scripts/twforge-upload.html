@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TwForge Upload – DS-Scripts</title>
-  <meta name="description" content="Drei Buttons im Spiel, um Berichte oder eingehende Angriffe manuell zu TwForge hochzuladen - inkl. Generator, der deinen eigenen API-Key direkt ins Bookmarklet einbaut.">
+  <meta name="description" content="Läuft auf der Übersicht der eintreffenden Angriffe: lädt angehakte Angriffe als SOS-Anfrage hoch, oder veröffentlicht alle Berichte eines Ordners zu TwForge und verschiebt sie danach automatisch - inkl. Generator für den eigenen API-Key.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,19 +34,21 @@
 
         <div class="script-detail">
           <div class="tag-row" style="margin-bottom:0.8rem;">
-            <span class="badge">v1.4.0</span>
+            <span class="badge">v2.0.0</span>
             <span class="badge">TwForge</span>
             <span class="badge">Berichte &amp; SOS</span>
           </div>
           <h2>📤 TwForge Manual Upload</h2>
           <p>
-            Blendet je nach Seite genau einen Button ein - sonst nichts. Kein
-            automatisches Durchklicken, keine Hintergrund-Automatisierung:
+            Läuft ausschließlich auf der Übersicht der <strong>eintreffenden
+            Angriffe</strong> (Berichte &gt; Eintreffende Angriffe). Zwei Buttons
+            plus ein Einstellungen-Zahnrad, sonst nichts - kein automatisches
+            Durchklicken, keine Hintergrund-Automatisierung:
           </p>
           <ul style="margin:0 0 1rem 1.2rem; padding:0;">
-            <li><strong>Berichtsansicht:</strong> „Zu TwForge hochladen“ lädt genau den gerade angezeigten Bericht hoch (veröffentlicht ihn zuerst, falls nötig).</li>
-            <li><strong>Berichtsliste:</strong> „Angehakte Berichte zu TwForge hochladen“ verarbeitet alle in der Liste angehakten Berichte nacheinander.</li>
-            <li><strong>Eingehende Angriffe:</strong> „Angehakte Angriffe zu TwForge hochladen“ erzeugt aus den angehakten Angriffen den SOS-Anfrage-Text (wie „Hilfe anfordern“) und lädt ihn direkt hoch.</li>
+            <li><strong>„Angehakte Angriffe zu TwForge hochladen“:</strong> erzeugt aus den angehakten eingehenden Angriffen den SOS-Anfrage-Text (wie „Hilfe anfordern“) und lädt ihn direkt hoch.</li>
+            <li><strong>„Ordner-Berichte zu TwForge hochladen“:</strong> veröffentlicht alle Berichte im eingestellten <em>Quell-Ordner</em>, lädt sie zu TwForge hoch und verschiebt die erfolgreich hochgeladenen anschließend in den eingestellten <em>Ziel-Ordner</em> - der Quell-Ordner (z.B. „Neue Berichte“) bleibt so für den nächsten Lauf frei.</li>
+            <li><strong>„⚙️ Ordner einstellen“:</strong> zwei Dropdowns mit den echten Namen deiner Berichtsordner, Quell- und Zielordner getrennt wählbar. Einmal gespeichert, bleibt die Wahl im Browser erhalten.</li>
           </ul>
 
           <div class="note warn" style="margin-top:0.4rem;">
@@ -57,6 +59,15 @@
             funktioniert nur, wenn die TwForge-API Cross-Origin-Anfragen von der
             Spieldomain per CORS-Header erlaubt. Schlägt der Upload fehl, in der
             Browser-Konsole (F12) nach einer CORS-Fehlermeldung schauen.
+          </div>
+
+          <div class="note warn" style="margin-top:0.6rem;">
+            <strong>Ordner-Auswahl (nicht live getestet):</strong> Die Dropdowns im
+            Zahnrad-Menü lesen die Ordnernamen aus dem „In Ordner verschieben“-Auswahlfeld
+            der normalen Berichtsübersicht aus. Falls die Spielseite dafür ein anderes
+            Markup verwendet als angenommen, bleiben die Dropdowns leer (mit einer
+            Fehlermeldung statt eines stillen Fehlschlags) - bitte kurz Bescheid geben,
+            dann wird der Selektor angepasst.
           </div>
 
           <h3 style="margin-top:1.6rem;">Bookmarklet mit eigenem API-Key erzeugen</h3>
@@ -110,7 +121,7 @@
           <div class="script-meta" style="margin-top:1.2rem;">
             <div>
               <span class="label">Version</span>
-              <span class="value">v1.4.0</span>
+              <span class="value">v2.0.0</span>
             </div>
             <div>
               <span class="label">Voraussetzung</span>
@@ -118,7 +129,7 @@
             </div>
             <div>
               <span class="label">Bedienung</span>
-              <span class="value">Bookmarklet auf Berichts-/Angriffsübersichtsseite anklicken</span>
+              <span class="value">Bookmarklet auf der Übersicht „Eintreffende Angriffe“ anklicken</span>
             </div>
           </div>
 
