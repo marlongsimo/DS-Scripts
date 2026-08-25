@@ -1,25 +1,9 @@
 /*
  * 📤 TwForge Manual Upload (Bookmarklet-Version)
- * Läuft NUR auf der Übersicht der eintreffenden Angriffe
- * (screen=overview_villages&mode=incomings). Zwei Buttons plus ein
- * Einstellungen-Zahnrad, sonst nichts:
- *   - "Angehakte Angriffe zu TwForge hochladen": erzeugt aus den
- *     angehakten eingehenden Angriffen den SOS-Anfrage-Text und lädt ihn
- *     hoch (wie "Hilfe anfordern").
- *   - "Ordner-Berichte zu TwForge hochladen": veröffentlicht alle Berichte
- *     im eingestellten Quell-Ordner, lädt sie zu TwForge hoch und
- *     verschiebt sie danach in den eingestellten Ziel-Ordner - so bleibt
- *     der Quell-Ordner (z.B. "Neue Berichte") frei für den nächsten Lauf.
- *   - "⚙️ Ordner einstellen": Quell- und Ziel-Ordner werden als reine
- *     Ordner-ID (Zahl) eingetragen - wie beim Katta-Feature von "Anaboles
- *     Farmen" (dort ebenfalls ein einfaches Zahlenfeld, kein Dropdown). Ein
- *     erster Versuch, die Ordnernamen automatisch aus einem vermuteten
- *     <select>-Element auszulesen, ist an der tatsächlichen Seitenstruktur
- *     gescheitert ("kann Ordner nicht laden") - die ID lässt sich einfach
- *     aus der URL ablesen, wenn man den Ordner in der Berichtsübersicht
- *     anklickt (z.B. "...&group_id=12" -> ID ist 12).
- * Kein automatisches Durchklicken, keine Hintergrund-Automatisierung -
- * jeder Button muss angeklickt werden.
+ * Drei Buttons, sonst nichts: den gerade offenen Bericht hochladen, die in
+ * der Berichtsliste angehakten Berichte hochladen, und die als SOS-Anfrage
+ * angehakten eingehenden Angriffe hochladen. Kein automatisches
+ * Durchklicken, keine Automatisierung.
  *
  * Erwartet, dass window.TWFORGE_KEY vor dem Laden dieses Scripts gesetzt
  * wurde - macht das Bookmarklet selbst (siehe scripts/twforge-upload.html,
@@ -151,12 +135,55 @@
     return res.data && typeof res.data.added === 'number' ? res.data.added : null;
   }
 
-  // Verschiebt einen Bericht per POST in den angegebenen Ordner (group_id des Ziels)
-  async function moveReportToFolder(vid, h, reportId, targetGroupId) {
-    const url = '/game.php?village=' + vid + '&screen=report&action=move&group_id=0&report_id=' + reportId + '&type=all&h=' + h;
-    const body = new URLSearchParams({ group_id: String(targetGroupId) }).toString();
-    const res = await fetch(url, { method: 'POST', headers: FORM_HDR, body, credentials: 'include' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+  async function uploadThisReport(key, say) {
+    const vid = villageId();
+    const h   = csrf();
+    if (!vid) throw new Error('keine Dorf-ID in der URL');
+    if (!h)   throw new Error('kein CSRF-Token auf dieser Seite');
+
+    let hash = (document.documentElement.innerHTML.match(HASH_RE) || [])[1];
+    if (!hash) { say('… veröffentliche'); hash = await publishReport(vid, h, page.view); }
+
+    say('… lade hoch');
+    const added = await uploadHashes(key, [hash]);
+    say(added === 0 ? '✓ (TwForge kannte den Bericht schon)' : '✓', '#0a0');
+  }
+
+  function markedReportIds() {
+    const ids = [];
+    document.querySelectorAll('#report_list input[type=checkbox][name^="id_"], input[type=checkbox][name^="id_"]')
+      .forEach((el) => {
+        if (!el.checked) return;
+        const m = String(el.name || '').match(/^id_(\d+)$/);
+        if (m && ids.indexOf(m[1]) === -1) ids.push(m[1]);
+      });
+    return ids;
+  }
+
+  async function uploadMarkedReports(key, say) {
+    const vid = villageId();
+    const h   = csrf();
+    if (!vid) throw new Error('keine Dorf-ID in der URL');
+    if (!h)   throw new Error('kein CSRF-Token auf dieser Seite');
+
+    const ids = markedReportIds();
+    if (!ids.length) { say('✗ keine Berichte angehakt', '#a00'); return; }
+
+    const hashes = [];
+    const failed = [];
+    for (let i = 0; i < ids.length; i++) {
+      say('… veröffentliche ' + (i + 1) + '/' + ids.length);
+      try { hashes.push(await publishReport(vid, h, ids[i])); }
+      catch (e) { failed.push(ids[i] + ': ' + (e && e.message ? e.message : String(e))); }
+      await sleep(350);
+    }
+    if (!hashes.length) throw new Error('kein Bericht konnte veröffentlicht werden — ' + failed[0]);
+
+    say('… lade ' + hashes.length + ' hoch');
+    const added = await uploadHashes(key, hashes);
+    const tail = (added === null ? '' : ', TwForge hat ' + added + ' hinzugefügt') +
+                 (failed.length ? ' · ✗ ' + failed.length + ' fehlgeschlagen' : '');
+    say('✓ ' + hashes.length + ' Bericht(e) gesendet' + tail, failed.length ? '#a60' : '#0a0');
   }
 
   function pageCommandIds() {
@@ -210,148 +237,11 @@
     say('✓' + (n === null ? '' : ' ' + n + ' von ' + marked.length + ' Angriff(en) importiert'), '#0a0');
   }
 
-  // =====================================================================
-  // ORDNER-EINSTELLUNGEN (Quell-/Ziel-Berichtsordner)
-  // =====================================================================
-  const SETTINGS_KEY = 'twforge_upload_folder_settings';
-
-  function getSettings() {
-    try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { return {}; }
-  }
-  function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
-
-  // Ordner-IDs werden wie im Katta-Feature von "Anaboles Farmen" manuell
-  // eingetragen statt automatisch per Dropdown erkannt - ein Versuch, die
-  // Ordnernamen über ein vermutetes <select>-Element auf der
-  // Berichtsübersicht auszulesen, ist an der tatsächlichen Seitenstruktur
-  // gescheitert. Die ID steht in der URL, wenn man den Ordner in der
-  // Berichtsübersicht anklickt (z.B. "...&group_id=12" -> ID ist 12).
-  function settingsPanel() {
-    const s = getSettings();
-    const box = document.createElement('div');
-    box.id = 'twforge-settings-panel';
-    box.style.cssText = 'margin:6px 0;padding:8px;border:1px solid #7d510f;background:#f4e4bc;' +
-                        'border-radius:3px;font-size:12px;clear:both;display:none;';
-    box.innerHTML =
-      '<div style="margin-bottom:6px;"><strong>Ordner-Einstellungen</strong></div>' +
-      '<div style="margin-bottom:6px;">Quell-Ordner-ID (wird zu TwForge hochgeladen):<br>' +
-      '<input id="twforge-source-id" type="number" min="0" style="width:100px;" value="' + (s.sourceFolderId != null ? s.sourceFolderId : '') + '"></div>' +
-      '<div style="margin-bottom:6px;">Ziel-Ordner-ID (Berichte werden danach dorthin verschoben):<br>' +
-      '<input id="twforge-dest-id" type="number" min="0" style="width:100px;" value="' + (s.destFolderId != null ? s.destFolderId : '') + '"></div>' +
-      '<p style="margin:6px 0;color:#603000;">Ordner-ID: den Ordner in der Berichtsübersicht anklicken, ' +
-      'dann aus der URL ablesen (z.B. „...&amp;group_id=12" → ID ist 12).</p>' +
-      '<a href="#" class="btn" id="twforge-save-settings">💾 Speichern</a>' +
-      '<span id="twforge-settings-status" style="margin-left:8px;font-weight:bold;"></span>';
-    return box;
-  }
-
-  function wireSettingsPanel(sp) {
-    sp.querySelector('#twforge-save-settings').addEventListener('click', (ev) => {
-      ev.preventDefault();
-      const srcInp = sp.querySelector('#twforge-source-id');
-      const dstInp = sp.querySelector('#twforge-dest-id');
-      const statusEl = sp.querySelector('#twforge-settings-status');
-      const src = srcInp.value.trim();
-      const dst = dstInp.value.trim();
-      if (src === '' || dst === '' || isNaN(Number(src)) || isNaN(Number(dst))) {
-        statusEl.textContent = '✗ bitte beide Ordner-IDs als Zahl eintragen';
-        statusEl.style.color = '#a00';
-        return;
-      }
-      if (src === dst) {
-        statusEl.textContent = '✗ Quell- und Ziel-Ordner müssen unterschiedlich sein';
-        statusEl.style.color = '#a00';
-        return;
-      }
-      saveSettings({ sourceFolderId: src, destFolderId: dst });
-      statusEl.textContent = '✓ gespeichert';
-      statusEl.style.color = '#0a0';
-    });
-  }
-
-  // Scannt einen Berichts-Ordner (group_id) nach Berichts-IDs. Bricht bei
-  // der ersten leeren Seite ab statt Paginierungs-Markup zu interpretieren -
-  // robuster gegenüber kleineren Layout-Unterschieden.
-  async function loadFolderReportIds(folderId) {
-    const ids = [];
-    for (let p = 0; p <= 50; p++) {
-      const doc = await fetchDoc('/game.php?screen=report&mode=all&group_id=' + folderId + '&page=' + p);
-      const rows = doc.querySelectorAll('td.report-subject');
-      if (!rows.length) break;
-      rows.forEach((el) => {
-        const titleEl = el.querySelector('.report-title');
-        const reportId = titleEl && titleEl.dataset ? titleEl.dataset.id : null;
-        if (reportId) ids.push(String(reportId));
-      });
-      await sleep(250);
-    }
-    return ids;
-  }
-
-  // Veröffentlicht + lädt alle Berichte im Quell-Ordner zu TwForge hoch und
-  // verschiebt die dabei erfolgreich veröffentlichten Berichte anschließend
-  // in den Ziel-Ordner - der Quell-Ordner bleibt so für den nächsten Lauf frei.
-  async function exportSourceFolderToTwForge(key, say) {
-    const s = getSettings();
-    if (!s.sourceFolderId || !s.destFolderId) throw new Error('Quell-/Ziel-Ordner noch nicht eingestellt (⚙️ anklicken)');
-
-    const vid = villageId();
-    const h   = csrf();
-    if (!vid) throw new Error('keine Dorf-ID in der URL');
-    if (!h)   throw new Error('kein CSRF-Token auf dieser Seite');
-
-    say('… lese Quell-Ordner');
-    const ids = await loadFolderReportIds(s.sourceFolderId);
-    if (!ids.length) { say('✗ keine Berichte im Quell-Ordner', '#a00'); return; }
-
-    const hashes = [];
-    const published = [];
-    const failed = [];
-    for (let i = 0; i < ids.length; i++) {
-      say('… veröffentliche ' + (i + 1) + '/' + ids.length);
-      try { hashes.push(await publishReport(vid, h, ids[i])); published.push(ids[i]); }
-      catch (e) { failed.push(ids[i] + ': ' + (e && e.message ? e.message : String(e))); }
-      await sleep(350);
-    }
-    if (!hashes.length) throw new Error('kein Bericht konnte veröffentlicht werden — ' + failed[0]);
-
-    say('… lade ' + hashes.length + ' hoch');
-    const added = await uploadHashes(key, hashes);
-
-    say('… verschiebe ' + published.length + ' Bericht(e)');
-    let moved = 0;
-    for (const id of published) {
-      try { await moveReportToFolder(vid, h, id, s.destFolderId); moved++; }
-      catch (e) { failed.push(id + ' (verschieben): ' + (e && e.message ? e.message : String(e))); }
-      await sleep(250);
-    }
-
-    const tail = (added === null ? '' : ', TwForge hat ' + added + ' hinzugefügt') +
-                 (failed.length ? ' · ✗ ' + failed.length + ' Fehler' : '');
-    say('✓ ' + moved + '/' + ids.length + ' hochgeladen & nach Ordner ' + s.destFolderId + ' verschoben' + tail, failed.length ? '#a60' : '#0a0');
-  }
-
-  if (page.screen === 'overview_villages' && page.mode === 'incomings') {
-    const container = document.createElement('div');
-    container.appendChild(panel('📤 Angehakte Angriffe zu TwForge hochladen', uploadMarkedIncomings));
-    container.appendChild(panel('📤 Ordner-Berichte zu TwForge hochladen', exportSourceFolderToTwForge));
-
-    const gearRow = document.createElement('div');
-    gearRow.style.cssText = 'margin:6px 0;clear:both;';
-    const gearBtn = document.createElement('a');
-    gearBtn.className = 'btn';
-    gearBtn.href = '#';
-    gearBtn.textContent = '⚙️ Ordner einstellen';
-    const sp = settingsPanel();
-    wireSettingsPanel(sp);
-    gearBtn.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      sp.style.display = sp.style.display === 'none' ? 'block' : 'none';
-    });
-    gearRow.appendChild(gearBtn);
-    container.appendChild(gearRow);
-    container.appendChild(sp);
-
-    mount(container);
+  if (page.screen === 'report' && page.view) {
+    mount(panel('📤 Zu TwForge hochladen', uploadThisReport));
+  } else if (page.screen === 'report') {
+    mount(panel('📤 Angehakte Berichte zu TwForge hochladen', uploadMarkedReports));
+  } else if (page.screen === 'overview_villages' && page.mode === 'incomings') {
+    mount(panel('📤 Angehakte Angriffe zu TwForge hochladen', uploadMarkedIncomings));
   }
 })();
