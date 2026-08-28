@@ -49,16 +49,6 @@
             <li><strong>Eingehende Angriffe:</strong> „Angehakte Angriffe zu TwForge hochladen“ erzeugt aus den angehakten Angriffen den SOS-Anfrage-Text (wie „Hilfe anfordern“) und lädt ihn direkt hoch.</li>
           </ul>
 
-          <div class="note warn" style="margin-top:0.4rem;">
-            <strong>CORS-Hinweis:</strong> Das Original ist ein Tampermonkey-Userscript
-            mit <code>GM_xmlhttpRequest</code>, das die Same-Origin-Policy des Browsers
-            umgeht. Diese Bookmarklet-Version läuft ohne Tampermonkey und nutzt
-            stattdessen normales <code>fetch()</code> für die Anfrage an TwForge - das
-            funktioniert nur, wenn die TwForge-API Cross-Origin-Anfragen von der
-            Spieldomain per CORS-Header erlaubt. Schlägt der Upload fehl, in der
-            Browser-Konsole (F12) nach einer CORS-Fehlermeldung schauen.
-          </div>
-
           <h3 style="margin-top:1.6rem;">Bookmarklet mit eigenem API-Key erzeugen</h3>
           <p>
             Der Key wird ausschließlich lokal in deinem Browser in den
@@ -76,36 +66,11 @@
               <a class="bookmarklet" id="bookmarklet-link" href="#" onclick="return false;" title="In die Lesezeichenleiste ziehen">
                 📤 TwForge Upload starten
               </a>
-              <p style="margin:1rem 0 0.6rem;">Für's Handy (siehe Installationsanleitung unten) - dieser Code gehört in die Adresse des Lesezeichens:</p>
+              <p style="margin:1rem 0 0.6rem;">Für's Handy: dieser Code gehört in die Adresse des Lesezeichens:</p>
               <pre><code id="bookmarklet-snippet"></code></pre>
               <button class="btn btn-outline" id="copy-generated" type="button">📋 In Zwischenablage kopieren</button>
             </div>
           </div>
-
-          <h3 style="margin-top:1.6rem;">Installation (Handy: iPhone/Android)</h3>
-          <p>
-            Auf dem Handy lässt sich das Bookmarklet nicht per Drag &amp; Drop
-            in die Lesezeichen-/Favoritenleiste ziehen. Stattdessen legst du
-            zuerst ein ganz normales Lesezeichen an und ersetzt dessen Adresse
-            danach durch den oben erzeugten Code.
-          </p>
-
-          <p><strong>iPhone (Safari):</strong></p>
-          <ol style="margin:0 0 1rem 1.2rem; padding:0;">
-            <li>Diese Seite (oder eine beliebige andere) über das Teilen-Symbol als Lesezeichen speichern.</li>
-            <li>Unten auf das Bücher-Symbol tippen → „Lesezeichen“ → „Bearbeiten“ → das eben erstellte Lesezeichen antippen.</li>
-            <li>Das Adressfeld leeren und den oben erzeugten Code einfügen. Als Namen z.B. „TwForge Upload“ eintragen und speichern.</li>
-            <li>Damit es schnell erreichbar ist: das Lesezeichen in den Ordner „Favoriten“ verschieben - es erscheint dann in der Schnellzugriffsleiste beim Öffnen eines neuen Tabs.</li>
-            <li>Im Spiel einen neuen Tab öffnen und das Lesezeichen aus den Favoriten antippen.</li>
-          </ol>
-
-          <p><strong>Android (Chrome):</strong></p>
-          <ol style="margin:0 0 0 1.2rem; padding:0;">
-            <li>Über das Menü (⋮) → „Lesezeichen“ → „Hinzufügen“ ein neues Lesezeichen anlegen.</li>
-            <li>Das Lesezeichen antippen und halten → „Bearbeiten“, die URL löschen und durch den oben erzeugten Code ersetzen, Namen anpassen und speichern.</li>
-            <li>Damit es in der Schnellleiste erscheint: in den Chrome-Einstellungen unter „Lesezeichen“ die Lesezeichenleiste aktivieren, oder das Lesezeichen zum Startbildschirm hinzufügen.</li>
-            <li>Im Spiel das Lesezeichen aus der Leiste antippen.</li>
-          </ol>
 
           <div class="script-meta" style="margin-top:1.2rem;">
             <div>
