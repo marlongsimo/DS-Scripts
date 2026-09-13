@@ -84,6 +84,7 @@
               <button class="btn btn-outline" id="adbRefreshBtn" type="button">🔄 Aktualisieren</button>
               <button class="btn btn-outline" id="adbImportExportBtn" type="button">⇅ Import/Export</button>
               <button class="btn btn-outline" id="adbBulkEditBtn" type="button">☑️ Massenbearbeitung</button>
+              <button class="btn btn-outline" id="adbDeleteAllBtn" type="button" style="color:var(--danger); border-color:var(--danger);">🗑️ Alle löschen</button>
               <button class="btn btn-primary" id="adbNewCommandBtn" type="button">➕ Neuer Befehl</button>
             </div>
           </div>
@@ -764,6 +765,40 @@
         await loadPlan(); // Stand neu laden, um sicherzugehen dass Anzeige & Cloud übereinstimmen
       }
     }
+
+    // "Alle löschen" braucht zwei Klicks (kein window.confirm() - wird in
+    // manchen Browser-Kontexten mobil/In-App stumm blockiert, siehe
+    // armDeleteConfirm() oben): erster Klick zeigt nur die Warnung mit
+    // Anzahl, erst der zweite Klick auf denselben Button löscht wirklich.
+    // Jeder Klick anderswo entwaffnet die Bestätigung wieder.
+    let deleteAllConfirmArmed = false;
+    document.getElementById('adbDeleteAllBtn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('adbLoadStatus');
+      const count = (currentPlanData && currentPlanData.commands || []).length;
+      if (!count) {
+        showStatus(statusEl, 'Es sind keine Befehle vorhanden.', 'error');
+        return;
+      }
+      if (!deleteAllConfirmArmed) {
+        deleteAllConfirmArmed = true;
+        showStatus(statusEl, `Wirklich alle ${count} Befehl(e) löschen? Nochmal auf "🗑️ Alle löschen" klicken zum Bestätigen.`, 'error');
+        return;
+      }
+      deleteAllConfirmArmed = false;
+      currentPlanData.commands = [];
+      selectedIds.clear();
+      try {
+        await pushPlan();
+        renderTable();
+        showStatus(statusEl, `Alle ${count} Befehl(e) gelöscht.`, 'ok');
+      } catch (e) {
+        showStatus(statusEl, 'Fehler beim Löschen: ' + e.message, 'error');
+        await loadPlan();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (deleteAllConfirmArmed && e.target.id !== 'adbDeleteAllBtn') deleteAllConfirmArmed = false;
+    });
 
     // ── Formular (Neu / Bearbeiten) ─────────────────────────────────────
     // idPrefix trennt Einzelbearbeitung ("adbWave...", Default) und
