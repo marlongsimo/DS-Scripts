@@ -105,9 +105,6 @@
                title="In die Lesezeichenleiste ziehen">
               📦 Anabole Pakete starten
             </a>
-            <p style="margin:0.8rem 0 0.4rem;">Oder diesen Code in ein Lesezeichen einfügen/kopieren:</p>
-            <pre><code id="console-snippet">javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/anabolePakete.js');</code></pre>
-            <button class="btn btn-outline" id="copy-snippet" type="button">📋 In Zwischenablage kopieren</button>
           </div>
 
           <h3 style="margin-top:1.6rem;">Quellcode</h3>
@@ -138,16 +135,5 @@
   </footer>
 
   <script src="../assets/js/main.js"></script>
-  <script>
-    document.getElementById('copy-snippet').addEventListener('click', function () {
-      var text = document.getElementById('console-snippet').textContent;
-      navigator.clipboard.writeText(text).then(function () {
-        var btn = document.getElementById('copy-snippet');
-        var original = btn.textContent;
-        btn.textContent = '✅ Kopiert!';
-        setTimeout(function () { btn.textContent = original; }, 1800);
-      });
-    });
-  </script>
 </body>
 </html>
