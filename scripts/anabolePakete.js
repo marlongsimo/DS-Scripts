@@ -14,7 +14,7 @@
      Quelle: #village_troup_list tr.call-village → td[data-unit][data-count]
      (gleiche, bereits bestätigte Struktur wie in Anabole Defensive).
    - Einstellungen (alle im localStorage gespeichert):
-       * Paket (Speer/Schwert/LKav/Späher)
+       * Paket (Speer/Schwert/sKav/Späher)
        * Priorität: kurze oder weite Distanz zuerst
        * "Nur volle Pakete": an  = jedes Paket kommt komplett aus EINEM Dorf
                              aus = Einheiten dürfen aus verschiedenen Dörfern
@@ -58,9 +58,9 @@
     }
     const form = document.querySelector('#place_call_form') || table.closest('form');
 
-    const UNITS = ['spear', 'sword', 'light', 'spy'];
-    const LABELS = { spear: 'Speer', sword: 'Schwert', light: 'LKav', spy: 'Späher' };
-    const SHORT = { spear: 'Sp', sword: 'Sw', light: 'LK', spy: 'Spä' };
+    const UNITS = ['spear', 'sword', 'heavy', 'spy'];
+    const LABELS = { spear: 'Speer', sword: 'Schwert', heavy: 'sKav', spy: 'Späher' };
+    const SHORT = { spear: 'Sp', sword: 'Sw', heavy: 'sK', spy: 'Spä' };
     const LS_SETTINGS_KEY = 'anabolePakete_settings_v2';
 
     // =====================================================================
@@ -163,45 +163,64 @@
     }
 
     // Plan: [{ village, units: {u: amount}, packages (nur bei fullOnly) }]
+    // Grundsatz: so breit wie möglich splitten. Es wird reihum (in
+    // Prioritäts-Reihenfolge) pro Runde höchstens EIN Paket je Dorf vergeben.
+    // 3 Pakete → wenn möglich 3 verschiedene Dörfer.
     function buildPlan(s, wanted) {
         const order = sortedVillages(s.preferShort);
         const used = usedUnits(s.pkg);
-        const plan = [];
+        const byVillage = new Map();
+        const free = new Map(); // villageId → verfügbare Truppen (wird heruntergezählt)
+        order.forEach(v => free.set(v.id, availableTroops(v, s.reserve)));
 
-        if (s.fullOnly) {
-            let remaining = wanted;
-            for (const v of order) {
-                if (remaining <= 0) break;
-                const possible = fullPackagesForVillage(v, s);
-                if (possible <= 0) continue;
-                const take = Math.min(possible, remaining);
-                remaining -= take;
-                const units = {};
-                used.forEach(u => { units[u] = s.pkg[u] * take; });
-                plan.push({ village: v, units, packages: take });
-            }
-            return { plan, sentPackages: wanted - remaining };
+        function addToPlan(v, unit, amount) {
+            if (!byVillage.has(v.id)) byVillage.set(v.id, { village: v, units: {}, packages: 0 });
+            const e = byVillage.get(v.id);
+            e.units[unit] = (e.units[unit] || 0) + amount;
         }
 
-        // Gemischt: erst festlegen, wie viele Pakete insgesamt gehen …
-        const possible = calcPossible(s).packages;
-        const sentPackages = Math.min(wanted, possible);
-        const byVillage = new Map();
-        // … dann je Einheit den Gesamtbedarf in Prioritäts-Reihenfolge auffüllen
-        used.forEach(u => {
-            let need = sentPackages * s.pkg[u];
-            for (const v of order) {
-                if (need <= 0) break;
-                const a = availableTroops(v, s.reserve)[u];
-                if (a <= 0) continue;
-                const take = Math.min(a, need);
-                need -= take;
-                if (!byVillage.has(v.id)) byVillage.set(v.id, { village: v, units: {} });
-                byVillage.get(v.id).units[u] = take;
+        let sentPackages = 0;
+
+        if (s.fullOnly) {
+            // Reihum je Dorf ein volles Paket, solange das Dorf noch eins schafft
+            let progressed = true;
+            while (sentPackages < wanted && progressed) {
+                progressed = false;
+                for (const v of order) {
+                    if (sentPackages >= wanted) break;
+                    const f = free.get(v.id);
+                    if (!used.every(u => f[u] >= s.pkg[u])) continue;
+                    used.forEach(u => { f[u] -= s.pkg[u]; addToPlan(v, u, s.pkg[u]); });
+                    byVillage.get(v.id).packages++;
+                    sentPackages++;
+                    progressed = true;
+                }
             }
-        });
-        // Reihenfolge der Ausgabe = Prioritäts-Reihenfolge
-        order.forEach(v => { if (byVillage.has(v.id)) plan.push(byVillage.get(v.id)); });
+        } else {
+            // Gemischt: Gesamtzahl festlegen, dann je Einheit reihum in
+            // Paketgröße verteilen (Rest eines Dorfes darf kleiner sein).
+            sentPackages = Math.min(wanted, calcPossible(s).packages);
+            used.forEach(u => {
+                let need = sentPackages * s.pkg[u];
+                let progressed = true;
+                while (need > 0 && progressed) {
+                    progressed = false;
+                    for (const v of order) {
+                        if (need <= 0) break;
+                        const f = free.get(v.id);
+                        const take = Math.min(f[u], s.pkg[u], need);
+                        if (take <= 0) continue;
+                        f[u] -= take;
+                        need -= take;
+                        addToPlan(v, u, take);
+                        progressed = true;
+                    }
+                }
+            });
+        }
+
+        // Ausgabe in Prioritäts-Reihenfolge
+        const plan = order.filter(v => byVillage.has(v.id)).map(v => byVillage.get(v.id));
         return { plan, sentPackages };
     }
 
