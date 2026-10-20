@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anabole Pakete – DS-Scripts</title>
+  <meta name="description" content="Schnellleiste für die Massen-Unterstützung: Paket festlegen, Anzahl wählen, Dörfer werden automatisch angehakt und Truppen eingetragen - verschickt nichts selbst.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="../index.html" class="brand"><span class="mark">⚔</span> DS-Scripts</a>
+      <button class="nav-toggle" aria-label="Menü öffnen">☰</button>
+      <ul class="nav-links">
+        <li><a href="../index.html" data-nav="start">Start</a></li>
+        <li><a href="../tools/index.html" data-nav="tools">Tools</a></li>
+        <li><a href="../rechner/index.html" data-nav="rechner">Rechner</a></li>
+        <li><a href="index.html" data-nav="scripts">Scripts</a></li>
+        <li><a href="../welt-daten.html" data-nav="welt-daten">Welt-Daten</a></li>
+        <li><a class="nav-github" href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="container">
+        <p class="breadcrumb"><a href="../index.html">Start</a> / <a href="index.html">Scripts</a> / Anabole Pakete</p>
+
+        <div class="script-detail">
+          <div class="tag-row" style="margin-bottom:0.8rem;">
+            <span class="badge">v0.3.0</span>
+            <span class="badge">Massen-Unterstützung</span>
+            <span class="badge">Versammlungsplatz</span>
+          </div>
+          <h2>📦 Anabole Pakete</h2>
+          <p>
+            Läuft auf der <strong>Massen-Unterstützung</strong> im
+            Versammlungsplatz. Liest beim Start die Truppen aller
+            angezeigten Dörfer ein und zeigt eine Leiste über der
+            Dorftabelle: Paket zusammenstellen (Speer/Schwert/LKav/Späher),
+            Anzahl der gewünschten Pakete eintragen, auf „Übernehmen“
+            klicken - das Script hakt die passenden Dörfer automatisch an
+            und trägt die berechneten Truppenzahlen ein. Über dem Button
+            „Unterstützung schicken“ erscheint anschließend eine Anzeige,
+            wie viele Pakete tatsächlich eingetragen wurden (grün = volle
+            gewünschte Anzahl erreicht, rot = weniger möglich).
+          </p>
+          <p>
+            Zwei Modi für die Zusammensetzung eines Pakets: <strong>„Nur
+            volle Pakete“</strong> an bedeutet, jedes Paket kommt komplett
+            aus einem einzigen Dorf; aus bedeutet, die Einheiten eines
+            Pakets dürfen sich auch aus mehreren Dörfern zusammensetzen.
+            Zusätzlich lässt sich je Einheit eine Menge festlegen, die pro
+            Dorf immer zurückgehalten wird (z.B. als Grundverteidigung),
+            und per Priorität wählen, ob zuerst die nächstgelegenen oder
+            die am weitesten entfernten Dörfer herangezogen werden. Alle
+            Einstellungen werden im Browser gespeichert.
+          </p>
+          <p>
+            <strong>Es wird nichts automatisch abgeschickt</strong> - das
+            Script hakt Dörfer an und füllt Felder, so wie es auch per
+            Hand ginge; „Unterstützung schicken“ musst du selbst klicken,
+            nachdem du die eingetragenen Werte kontrolliert hast.
+          </p>
+
+          <div class="script-meta">
+            <div>
+              <span class="label">Version</span>
+              <span class="value">v0.3.0</span>
+            </div>
+            <div>
+              <span class="label">Voraussetzung</span>
+              <span class="value">Massen-Unterstützung im Versammlungsplatz geöffnet (screen=place&amp;mode=call)</span>
+            </div>
+            <div>
+              <span class="label">Einheiten</span>
+              <span class="value">Speer, Schwert, Leichte Kavallerie, Späher (nur auf der Welt tatsächlich vorhandene Einheiten werden angezeigt)</span>
+            </div>
+            <div>
+              <span class="label">Einstellungen-Speicher</span>
+              <span class="value">Browser (localStorage), bleiben zwischen Aufrufen erhalten</span>
+            </div>
+            <div>
+              <span class="label">Versendet selbst?</span>
+              <span class="value">Nein - hakt Dörfer an und trägt Truppen ein, „Unterstützung schicken“ bleibt ein manueller Klick</span>
+            </div>
+          </div>
+
+          <h3>Installation (Desktop)</h3>
+          <div class="install-box">
+            <p style="margin-bottom:0.8rem;">
+              Ziehe diesen Button in deine Lesezeichenleiste. Öffne danach
+              im Spiel die Massen-Unterstützung und klicke auf das
+              Lesezeichen, um das Script zu starten.
+            </p>
+            <a class="bookmarklet"
+               href="javascript:$.getScript('https://marlongsimo.github.io/DS-Scripts/scripts/anabolePakete.js');"
+               onclick="return false;"
+               title="In die Lesezeichenleiste ziehen">
+              📦 Anabole Pakete starten
+            </a>
+          </div>
+
+          <h3 style="margin-top:1.6rem;">Quellcode</h3>
+          <p>
+            <a href="https://github.com/marlongsimo/DS-Scripts/blob/main/scripts/anabolePakete.js" target="_blank" rel="noopener">
+              scripts/anabolePakete.js auf GitHub ansehen ↗
+            </a>
+          </p>
+
+          <div class="note warn" style="margin-top:1.4rem;">
+            Nutzung auf eigene Verantwortung. Vor dem ersten Einsatz die
+            berechneten Haken und Truppenzahlen kontrollieren, bevor du auf
+            „Unterstützung schicken“ klickst - vor allem bei „Nur volle
+            Pakete“ aus kann sich ein Paket über mehrere Dörfer verteilen.
+            Bitte vorab die Regeln deines Servers zu Skripten/Bookmarklets
+            prüfen.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>DS-Scripts ist ein inoffizielles Fan-Projekt für „Die Stämme“ und steht in keiner Verbindung zu InnoGames.</p>
+      <p><a href="https://github.com/marlongsimo/DS-Scripts" target="_blank" rel="noopener">Quellcode auf GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>
